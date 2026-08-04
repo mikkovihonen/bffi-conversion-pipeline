@@ -361,6 +361,7 @@ Verdict legend:
 | `336` | ≠ asymmetric | `work` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `337` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `338` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
+| `370` | ≠ asymmetric | `work` | ✓ | `$6` `$c` | `$2` | `$g` | — | — |
 | `500` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `501` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `502` | ≠ asymmetric | `work` | ✓ | `$6` `$b` `$c` `$d` `$g` `$o` | — | `$a` | — | — |
@@ -371,7 +372,7 @@ Verdict legend:
 | `513` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `515` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `516` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
-| `518` | ≠ asymmetric | `work` | ✓ | `$3` `$6` `$d` `$o` `$p` | — | `$a` | — | — |
+| `518` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$3` `$a` `$d` `$o` `$p` | — | — |
 | `520` | ≠ asymmetric | `work` | ✓ | `$3` `$6` `$b` `$c` `$u` | — | `$a` | — | — |
 | `521` | ≠ asymmetric | `work` | ✓ | `$3` `$6` `$b` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `522` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$a` | — | — |
@@ -468,7 +469,6 @@ Verdict legend:
 | `352` | → forward only | `instance` | — | `$6` `$a` `$b` `$q` | — | — | — | — |
 | `353` | → forward only | `work` | — | `$0` `$2` `$6` `$a` `$b` | — | — | — | — |
 | `362` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
-| `370` | → forward only | `work` | — | `$6` `$c` `$g` | — | — | — | — |
 | `377` | → forward only | `work` | — | `$2` `$3` `$6` `$a` `$l` | — | — | — | — |
 | `380` | → forward only | `work` | — | `$6` `$a` | — | — | — | — |
 | `382` | → forward only | `work` | — | `$2` `$3` `$6` | — | — | — | — |
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 113 asymmetric, 53 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 114 asymmetric, 52 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 

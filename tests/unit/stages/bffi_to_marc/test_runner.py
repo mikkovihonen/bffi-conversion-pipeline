@@ -1625,3 +1625,121 @@ def test_emit_marcxml_does_not_duplicate_a_term_reachable_both_ways() -> None:
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
     assert len(root.findall(f"{{{MARC21_NS}}}datafield[@tag='655']")) == 1
+
+
+def _work_with_manifestation(g: Graph) -> tuple[URIRef, URIRef]:
+    """Return ``(manifestation, work)`` wired via bffi:workManifested."""
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    work = URIRef("http://example.org/b1#Work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((manifestation, BFFI.workManifested, work))
+    return manifestation, work
+
+
+def test_emit_marcxml_emits_511_from_a_work_side_note() -> None:
+    """Participants notes hang off the Work, not the Manifestation.
+
+    Regression: ``_extract_notes`` walked only ``?m bffi:note``, losing every
+    Work-side note — all 25 MARC 511s on the reference corpus.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    note = URIRef("http://example.org/b1#Note511-1")
+    g.add((note, RDF.type, BFFI.Note))
+    g.add((note, RDF.type, URIRef("http://id.loc.gov/vocabulary/mnotetype/participants")))
+    g.add((note, RDFS.label, Literal("Steven Wilson (laulu)")))
+    g.add((work, BFFI.note, note))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='511']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "Steven Wilson (laulu)"  # type: ignore[union-attr]
+
+
+def test_emit_marcxml_emits_structured_518_without_a_label() -> None:
+    """A 518 written with ``$o``/``$d``/``$p``/``$3`` becomes a Capture with
+    no ``rdfs:label``; the label-only path skipped it entirely."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    capture = URIRef("http://example.org/b1#Capture-1")
+    g.add((capture, RDF.type, BFFI.Capture))
+    g.add((capture, BFFI.date, Literal("29.12.1993")))
+    for pred, text in ((BFFI.note, "Äänitys"), (BFFI.place, "Glasgow"), (BFFI.appliesTo, "CD4")):
+        node = URIRef(f"http://example.org/b1#{text}")
+        g.add((node, RDFS.label, Literal(text)))
+        g.add((capture, pred, node))
+    g.add((work, BFFI.capture, capture))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='518']")
+    assert df is not None
+    got = {sf.get("code"): sf.text for sf in df}
+    assert got == {"o": "Äänitys", "d": "29.12.1993", "p": "Glasgow", "3": "CD4"}
+
+
+def test_emit_marcxml_skips_the_derived_capture_companion() -> None:
+    """marc2bibframe2 emits a second, derived Capture whose note is the
+    generic word "capture" and whose dates are EDTF-normalised. Emitting it
+    would double every structured 518."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    derived = URIRef("http://example.org/b1#Capture-derived")
+    g.add((derived, RDF.type, BFFI.Capture))
+    g.add((derived, BFFI.date, Literal("2023-05-XX")))
+    marker = URIRef("http://example.org/b1#capture-marker")
+    g.add((marker, RDFS.label, Literal("capture")))
+    g.add((derived, BFFI.note, marker))
+    g.add((work, BFFI.capture, derived))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='518']") is None
+
+
+def test_emit_marcxml_emits_370_from_origin_place() -> None:
+    """MARC 370 had no reverse support at all."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    place = URIRef("http://example.org/b1#Place370-1")
+    g.add((place, RDF.type, BFFI.Place))
+    g.add((place, RDFS.label, Literal("Iso-Britannia")))
+    g.add((place, BFFI.source, URIRef("http://id.loc.gov/vocabulary/subjectSchemes/yso/fin")))
+    g.add((work, BFFI.originPlace, place))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='370']")
+    assert df is not None
+    got = {sf.get("code"): sf.text for sf in df}
+    # $2 keeps the sub-scheme segment: yso/fin, not just "fin".
+    assert got == {"g": "Iso-Britannia", "2": "yso/fin"}
+
+
+def test_emit_marcxml_emits_336_from_an_expression_reached_by_inverse() -> None:
+    """Content type is an Expression attribute, and Expressions point
+    *outward* (``bffi:expressionOf``) with no inverse from the Work. Walking
+    outgoing predicates only lost all 336s on the reference corpus.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    expression = URIRef("http://example.org/b1#Expression")
+    content = URIRef("http://id.loc.gov/vocabulary/contentTypes/txt")
+    g.add((expression, RDF.type, BFFI.Expression))
+    g.add((expression, BFFI.expressionOf, work))
+    g.add((content, RDF.type, BFFI.Content))
+    g.add((content, RDFS.label, Literal("teksti")))
+    g.add((expression, BFFI.content, content))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='336']")
+    assert df is not None
+    got = {sf.get("code"): sf.text for sf in df}
+    assert got == {"a": "teksti", "b": "txt", "2": "rdacontent"}

@@ -557,13 +557,19 @@ _RDA_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
         subfields=_RDA_SUBFIELDS,
         source=(
             "?m bffi:workManifested ?work . "
-            "?work bffi:content <http://id.loc.gov/vocabulary/contentTypes/{code}> . "
+            "?expression bffi:expressionOf ?work (or ?expression "
+            "bffi:manifestationOfExpression ?m) . "
+            "?expression bffi:content <http://id.loc.gov/vocabulary/contentTypes/{code}> . "
             "$a = ?content's rdfs:label; $b = {code}; $2 = 'rdacontent'."
         ),
         notes=(
-            "Source MARC \\$a is the cataloguer's display label (often Finnish); "
-            "BFFI carries the URI's rdfs:label (typically English). The structure "
-            "round-trips; the \\$a value may not match source verbatim."
+            "Content type is an **Expression** attribute, not a Work one. "
+            "Expressions point outward (bffi:expressionOf / "
+            "bffi:manifestationOfExpression) with no inverse from the Work, so "
+            "the traversal has to be inverted to reach them. Source MARC \\$a is "
+            "the cataloguer's display label (often Finnish); BFFI carries the "
+            "URI's rdfs:label. Records whose source had no 336 still emit one "
+            "when marc2bibframe2 derived a content type from the leader/008."
         ),
     ),
     MarcEmitMeta(
@@ -591,13 +597,16 @@ def _extract_rda_descriptors(graph: Graph, manifestation: URIRef) -> _RdaDescrip
     the human-readable label (URI's ``rdfs:label``), and the scheme
     name derived from the URI's namespace path.
 
-    Content lives on the Work (FRBR-axis); media and carrier live on
-    the Manifestation. Multiple values per predicate produce multiple
-    datafields, sorted for determinism."""
+    Content lives on the **Expression** (FRBR-axis: content type is an
+    Expression attribute); media and carrier live on the Manifestation.
+    Multiple values per predicate produce multiple datafields, sorted for
+    determinism."""
     work = _find_work_for_manifestation(graph, manifestation)
+    content_owners: list[URIRef | BNode] = [work] if work is not None else []
+    content_owners.extend(_expressions_for(graph, manifestation, work))
     content = _rda_entries(
         graph,
-        (graph.objects(work, BFFI.content) if work is not None else ()),
+        (o for owner in content_owners for o in graph.objects(owner, BFFI.content)),
         scheme="rdacontent",
     )
     media = _rda_entries(graph, graph.objects(manifestation, BFFI.media), scheme="rdamedia")
@@ -605,13 +614,43 @@ def _extract_rda_descriptors(graph: Graph, manifestation: URIRef) -> _RdaDescrip
     return _RdaDescriptors(content=content, media=media, carrier=carrier)
 
 
+def _expressions_for(
+    graph: Graph, manifestation: URIRef, work: URIRef | None
+) -> list[URIRef | BNode]:
+    """Return the Expression nodes for one record.
+
+    Expressions point *outward* — ``?expression bffi:expressionOf ?work`` and
+    ``?expression bffi:manifestationOfExpression ?m`` — with no inverse from
+    the Work or Manifestation. Walking only outgoing predicates from the
+    Manifestation therefore never reaches them, which lost every MARC 336:
+    the content type is an Expression attribute, so all 301 content-bearing
+    records in the reference corpus emitted no 336 at all. Inverting the two
+    predicates reaches 296 of those 301.
+    """
+    found: list[URIRef | BNode] = []
+    seen: set[URIRef | BNode] = set()
+    candidates: list[Node] = list(graph.subjects(BFFI.manifestationOfExpression, manifestation))
+    if work is not None:
+        candidates.extend(graph.subjects(BFFI.expressionOf, work))
+    for node in candidates:
+        if isinstance(node, URIRef | BNode) and node not in seen:
+            seen.add(node)
+            found.append(node)
+    return found
+
+
 def _rda_entries(graph: Graph, objects: Iterable[Node], *, scheme: str) -> tuple[_RdaEntry, ...]:
     """Build the sorted tuple of ``_RdaEntry`` values for one of the
     three RDA predicates. Skips non-URI objects."""
     entries: list[_RdaEntry] = []
+    # Deduplicate on the descriptor URI: a record can carry several
+    # Expressions that share a content type (multi-part audio sets repeat
+    # ``contentTypes/prm``), and MARC never repeats an identical 336/337/338.
+    seen: set[URIRef] = set()
     for obj in objects:
-        if not isinstance(obj, URIRef):
+        if not isinstance(obj, URIRef) or obj in seen:
             continue
+        seen.add(obj)
         label = next(graph.objects(obj, RDFS.label), None)
         entries.append(
             _RdaEntry(
@@ -1085,6 +1124,11 @@ class _NoteEmit:
     subfield_code: str
     ind1: str = " "
     ind2: str = " "
+    #: Additional ``(code, value)`` subfields appended after the primary
+    #: one, in order. Used by the structured MARC 518 shape, where the
+    #: source carries ``$o``/``$d``/``$p``/``$3`` rather than a single
+    #: ``$a``. When ``text`` is empty the primary subfield is skipped.
+    extra_subfields: tuple[tuple[str, str], ...] = ()
 
 
 @marc_emit(
@@ -1093,7 +1137,7 @@ class _NoteEmit:
         indicators=(" ", " "),
         subfields=(("a", "general note text"),),
         source=(
-            "?m bffi:note [a bffi:Note ; rdfs:label ?text] — note bnode "
+            "?m or ?work bffi:note [a bffi:Note ; rdfs:label ?text] — note bnode "
             "with NO mnotetype rdf:type (the catch-all 5XX)."
         ),
         notes=(
@@ -1108,7 +1152,7 @@ class _NoteEmit:
         indicators=(" ", " "),
         subfields=(("a", "bibliography note text"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/biblio> ; "
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/biblio> ; "
             "rdfs:label ?text] — typed with the bibliography tail."
         ),
     ),
@@ -1117,22 +1161,23 @@ class _NoteEmit:
         indicators=(" ", " "),
         subfields=(("a", "participants / performers note text"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/participants> ; "
-            "rdfs:label ?text] — typed with the participants tail."
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/participants> ; "
+            "rdfs:label ?text] — typed with the participants tail. "
+            "Participants notes hang off the Work, not the Manifestation."
         ),
     ),
     MarcEmitMeta(
         tag="530",
         indicators=(" ", " "),
         subfields=(("a", "additional physical form available note"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/addphys> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/addphys> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="538",
         indicators=(" ", " "),
         subfields=(("a", "system details note text"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/computer> ; "
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/computer> ; "
             "rdfs:label ?text] — typed with the computer tail."
         ),
     ),
@@ -1140,20 +1185,20 @@ class _NoteEmit:
         tag="586",
         indicators=(" ", " "),
         subfields=(("a", "awards note text"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/award> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/award> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="588",
         indicators=(" ", " "),
         subfields=(("a", "source of description note"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/descsource> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/descsource> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="534",
         indicators=(" ", " "),
         subfields=(("c", "publication / distribution of original"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/orig> ; "
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/orig> ; "
             "rdfs:label ?text] — note typed with the original-version tail."
         ),
         notes=(
@@ -1170,7 +1215,7 @@ class _NoteEmit:
         indicators=(" ", " "),
         subfields=(("a", "language note text"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/lang> ; "
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/lang> ; "
             "rdfs:label ?text] — note typed with the language tail."
         ),
     ),
@@ -1178,31 +1223,31 @@ class _NoteEmit:
         tag="524",
         indicators=(" ", " "),
         subfields=(("a", "preferred citation of described materials"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/citeas> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/citeas> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="525",
         indicators=(" ", " "),
         subfields=(("a", "supplement note text"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/suppl> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/suppl> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="563",
         indicators=(" ", " "),
         subfields=(("a", "binding information note"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/binding> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/binding> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="580",
         indicators=(" ", " "),
         subfields=(("a", "linking entry complexity note"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/relnote> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/relnote> ; rdfs:label ?text]"),
     ),
     MarcEmitMeta(
         tag="583",
         indicators=(" ", " "),
         subfields=(("a", "preservation / action note"),),
-        source=("?m bffi:note [a bffi:Note, <…/mnotetype/action> ; rdfs:label ?text]"),
+        source=("?m or ?work bffi:note [a bffi:Note, <…/mnotetype/action> ; rdfs:label ?text]"),
         notes=(
             "MARC 583 source carries up to ten subfields (\\$3 materials, "
             "\\$a action, \\$c time, \\$h jurisdiction, \\$k agent, \\$l "
@@ -1218,7 +1263,7 @@ class _NoteEmit:
         indicators=(" ", " "),
         subfields=(("a", "description-based note (source not formalised)"),),
         source=(
-            "?m bffi:note [a bffi:Note, <…/mnotetype/datasource> ; rdfs:label ?text] "
+            "?m or ?work bffi:note [a bffi:Note, <…/mnotetype/datasource> ; rdfs:label ?text] "
             "— marc2bibframe2 attaches mnotetype/datasource when MARC ind1=' '. "
             "A separate entry exists for mnotetype/datanf which emits with ind1='0'."
         ),
@@ -1235,7 +1280,7 @@ class _NoteEmit:
             indicators=(" ", " "),
             subfields=(("a", f"general note text (marcKey-driven recovery of {tag})"),),
             source=(
-                f"?m bffi:note [a bffi:Note ; bffi:marcKey ?key ; rdfs:label ?text] "
+                f"?m or ?work bffi:note [a bffi:Note ; bffi:marcKey ?key ; rdfs:label ?text] "
                 f"where the first 3 chars of ?key are '{tag}'. marc2bibframe2 emits "
                 f"a bare bf:Note (no mnotetype tail) for {tag}; the original tag "
                 f"survives only on the marcKey carrier."
@@ -1258,7 +1303,18 @@ def _extract_notes(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
     don't double-emit.
     """
     emits: list[_NoteEmit] = []
-    for note in graph.objects(manifestation, BFFI.note):
+    # marc2bibframe2 distributes notes across the FRBR axes: an
+    # accompanying-material note lands on the Manifestation, a
+    # participants/performers note (MARC 511) on the Work. Walking only the
+    # Manifestation lost every Work-side note — 25 511s on a 308-record
+    # corpus. ``_extract_specialised_5xx_notes`` already walks both owners.
+    work = _find_work_for_manifestation(graph, manifestation)
+    owners: tuple[URIRef, ...] = (manifestation, work) if work is not None else (manifestation,)
+    seen: set[URIRef | BNode] = set()
+    for note in (n for o in owners for n in graph.objects(o, BFFI.note)):
+        if not isinstance(note, URIRef | BNode) or note in seen:
+            continue
+        seen.add(note)
         if any((note, RDF.type, t) in graph for t in _NOTE_TYPES_HANDLED_ELSEWHERE):
             continue
         label = next(graph.objects(note, RDFS.label), None)
@@ -1313,12 +1369,38 @@ class _SpecialisedNoteRule:
     tag: str
     predicate: URIRef
     expected_class: URIRef | None  # ``None`` for predicates that carry a literal directly
+    #: Fallback for nodes that carry no ``rdfs:label``: ordered
+    #: ``(predicate, subfield_code)`` pairs read off the node itself. MARC
+    #: 518 written with ``$o``/``$d``/``$p``/``$3`` becomes a ``bffi:Capture``
+    #: with ``bffi:note`` / ``bffi:date`` / ``bffi:place`` / ``bffi:appliesTo``
+    #: and no label at all, so the label-only path skipped it entirely.
+    structured: tuple[tuple[URIRef, str], ...] = ()
+
+
+#: marc2bibframe2 emits a *second*, derived ``bffi:Capture`` alongside the
+#: transcribed one: its ``bffi:note`` is the generic word below and its
+#: ``bffi:date`` values are EDTF-normalised (``"2023-05-XX"``) rather than
+#: the cataloguer's string. Emitting both would double every structured
+#: MARC 518. On the reference corpus this discriminator is exact: 5 labelled
+#: + 20 transcribed structured captures = the 25 source 518s, with 10
+#: derived nodes skipped.
+_DERIVED_CAPTURE_NOTE: Final[str] = "capture"
 
 
 _SPECIALISED_NOTE_RULES: Final[tuple[_SpecialisedNoteRule, ...]] = (
     _SpecialisedNoteRule(tag="502", predicate=BFFI.dissertation, expected_class=BFFI.Dissertation),
     _SpecialisedNoteRule(tag="507", predicate=BFFI.scale, expected_class=BFFI.Scale),
-    _SpecialisedNoteRule(tag="518", predicate=BFFI.capture, expected_class=BFFI.Capture),
+    _SpecialisedNoteRule(
+        tag="518",
+        predicate=BFFI.capture,
+        expected_class=BFFI.Capture,
+        structured=(
+            (BFFI.note, "o"),
+            (BFFI.date, "d"),
+            (BFFI.place, "p"),
+            (BFFI.appliesTo, "3"),
+        ),
+    ),
     _SpecialisedNoteRule(
         tag="522",
         predicate=BFFI.geographicCoverage,
@@ -1338,6 +1420,67 @@ _SPECIALISED_NOTE_RULES: Final[tuple[_SpecialisedNoteRule, ...]] = (
     # predicate (not a bnode). The BFFI mirror keeps the same shape.
     _SpecialisedNoteRule(tag="561", predicate=BFFI.custodialHistory, expected_class=None),
 )
+
+
+#: Path segment after which a LoC scheme URI's code begins, e.g.
+#: ``…/vocabulary/subjectSchemes/yso/fin`` → ``"yso/fin"``. The 6XX subject
+#: family uses bare :func:`local_name` instead, which yields ``"fin"`` for
+#: that URI — kept as-is there to avoid churning established 6XX output.
+_SCHEME_MARKERS: Final[tuple[str, ...]] = ("/subjectSchemes/", "/genreFormSchemes/")
+
+
+def _scheme_code(uri: URIRef) -> str:
+    """Return a LoC scheme URI's ``$2`` code, keeping sub-scheme segments."""
+    text = str(uri)
+    for marker in _SCHEME_MARKERS:
+        if marker in text:
+            return text.split(marker, 1)[1]
+    return local_name(uri)
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="370",
+        indicators=(" ", " "),
+        subfields=(
+            ("g", "associated place term (rdfs:label of the place node)"),
+            ("2", "source vocabulary code (local part of the place's bffi:source)"),
+        ),
+        source=(
+            "?m bffi:workManifested ?work . ?work bffi:originPlace ?place . "
+            "?place a bffi:Place ; rdfs:label ?g . "
+            "$2 = the scheme code of ?place's bffi:source when present."
+        ),
+        notes=(
+            "Source \\$0 (the authority URI) is not recoverable: "
+            "marc2bibframe2 drops MARC 370 \\$0 entirely, so it never "
+            "reaches the BFFI graph. \\$g and \\$2 round-trip."
+        ),
+    ),
+)
+def _extract_origin_place_datafields(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
+    """Walk ``?work bffi:originPlace`` and emit one MARC 370 per place.
+
+    Reuses :class:`_NoteEmit` as the emit record: 370 has the same shape as
+    the note families (one datafield, blank indicators, plain subfields), so
+    it renders through :func:`_append_note_datafields` unchanged.
+    """
+    work = _find_work_for_manifestation(graph, manifestation)
+    if work is None:
+        return []
+    emits: list[_NoteEmit] = []
+    for place in graph.objects(work, BFFI.originPlace):
+        if not isinstance(place, URIRef | BNode):
+            continue
+        label = next((x for x in graph.objects(place, RDFS.label) if isinstance(x, Literal)), None)
+        if label is None:
+            continue
+        subs: list[tuple[str, str]] = [("g", str(label))]
+        source = next(graph.objects(place, BFFI.source), None)
+        if isinstance(source, URIRef):
+            subs.append(("2", _scheme_code(source)))
+        emits.append(_NoteEmit(tag="370", text="", subfield_code="g", extra_subfields=tuple(subs)))
+    return sorted(emits, key=lambda e: e.extra_subfields)
 
 
 @marc_emit(
@@ -1362,12 +1505,26 @@ _SPECIALISED_NOTE_RULES: Final[tuple[_SpecialisedNoteRule, ...]] = (
     MarcEmitMeta(
         tag="518",
         indicators=(" ", " "),
-        subfields=(("a", "date / time / place of event note"),),
-        source=("?w bffi:capture [a bffi:Capture ; rdfs:label ?text]"),
+        subfields=(
+            ("a", "date / time / place of event note (flattened Capture label)"),
+            ("o", "other event information (structured Capture: bffi:note)"),
+            ("d", "date of event (structured Capture: bffi:date)"),
+            ("p", "place of event (structured Capture: bffi:place)"),
+            ("3", "materials specified (structured Capture: bffi:appliesTo)"),
+        ),
+        source=(
+            "?m or ?work bffi:capture ?c . ?c a bffi:Capture . "
+            "Two shapes: when ?c carries an rdfs:label the whole field emits as "
+            "\\$a; when it carries none, \\$o / \\$d / \\$p / \\$3 are read from "
+            "?c's bffi:note / bffi:date / bffi:place / bffi:appliesTo."
+        ),
         notes=(
-            "MARC 518 \\$d (date), \\$o (other date type), \\$p (place) "
-            "are flattened into the bf:Capture's rdfs:label by marc2bibframe2; "
-            "only \\$a is reconstructed in reverse."
+            "A source 518 written with \\$o \\$d \\$p \\$3 becomes a bffi:Capture "
+            "with those structured properties and NO rdfs:label, so the "
+            "label-only path emitted nothing for it. marc2bibframe2 also emits "
+            "a second, derived Capture per field whose bffi:note is the generic "
+            'word "capture" and whose dates are EDTF-normalised; that '
+            "companion is skipped to avoid double-emitting."
         ),
     ),
     MarcEmitMeta(
@@ -1430,10 +1587,48 @@ def _extract_specialised_5xx_notes(graph: Graph, manifestation: URIRef) -> list[
                     continue
                 if (obj, RDF.type, rule.expected_class) not in graph:
                     continue
-                for label in graph.objects(obj, RDFS.label):
-                    if isinstance(label, Literal):
+                labels = [x for x in graph.objects(obj, RDFS.label) if isinstance(x, Literal)]
+                if labels:
+                    for label in labels:
                         emits.append(_NoteEmit(tag=rule.tag, text=str(label), subfield_code="a"))
-    return sorted(emits, key=lambda e: (e.tag, e.text))
+                    continue
+                if not isinstance(obj, URIRef | BNode):
+                    continue
+                extras = _structured_subfields(graph, obj, rule.structured)
+                if any(
+                    code == "o" and value.strip().casefold() == _DERIVED_CAPTURE_NOTE
+                    for code, value in extras
+                ):
+                    # Derived companion node, not a transcribed field.
+                    continue
+                if extras:
+                    emits.append(
+                        _NoteEmit(tag=rule.tag, text="", subfield_code="a", extra_subfields=extras)
+                    )
+    return sorted(emits, key=lambda e: (e.tag, e.text, e.extra_subfields))
+
+
+def _structured_subfields(
+    graph: Graph, node: URIRef | BNode, spec: tuple[tuple[URIRef, str], ...]
+) -> tuple[tuple[str, str], ...]:
+    """Read ``spec``'s predicates off ``node`` into ordered MARC subfields.
+
+    Each value is either a literal (used verbatim) or a node whose
+    ``rdfs:label`` carries the text. Predicates with no value are skipped,
+    so the emitted field carries exactly the subfields the source had.
+    """
+    out: list[tuple[str, str]] = []
+    for predicate, code in spec:
+        for value in graph.objects(node, predicate):
+            if isinstance(value, Literal):
+                out.append((code, str(value)))
+                continue
+            label = next(
+                (x for x in graph.objects(value, RDFS.label) if isinstance(x, Literal)), None
+            )
+            if label is not None:
+                out.append((code, str(label)))
+    return tuple(out)
 
 
 _SERIES_RELATIONSHIP: Final[URIRef] = URIRef("http://id.loc.gov/vocabulary/relationship/series")
@@ -3460,8 +3655,12 @@ def _append_note_datafields(record: etree._Element, notes: list[_NoteEmit]) -> N
         df = etree.SubElement(
             record, f"{_MARC}datafield", tag=note.tag, ind1=note.ind1, ind2=note.ind2
         )
-        sf = etree.SubElement(df, f"{_MARC}subfield", code=note.subfield_code)
-        sf.text = note.text
+        if note.text:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code=note.subfield_code)
+            sf.text = note.text
+        for code, value in note.extra_subfields:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
+            sf.text = value
 
 
 def _append_table_of_contents_datafields(
@@ -3794,8 +3993,10 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
     classifications = _extract_classifications(graph, manifestation)
     contributors = _extract_contributors(graph, manifestation)
     subjects = _extract_subject_datafields(graph, manifestation)
-    notes = _extract_notes(graph, manifestation) + _extract_specialised_5xx_notes(
-        graph, manifestation
+    notes = (
+        _extract_notes(graph, manifestation)
+        + _extract_specialised_5xx_notes(graph, manifestation)
+        + _extract_origin_place_datafields(graph, manifestation)
     )
     table_of_contents = _extract_table_of_contents(graph, manifestation)
     policies = _extract_policies(graph, manifestation)
