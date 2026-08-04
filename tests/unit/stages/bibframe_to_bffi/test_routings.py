@@ -1,0 +1,1288 @@
+"""Unit tests for the P-56 Phase 4 discriminator routings."""
+
+from __future__ import annotations
+
+from rdflib import BNode, Graph, Literal, URIRef
+from rdflib.namespace import RDF, RDFS
+
+from bffi_pipeline.stages.bibframe_to_bffi.routings import (
+    AXIS_DEFAULT_CLASSES,
+    BF,
+    BFFI,
+    INVERSE_PREDICATE_ROUTINGS,
+    RELATION_PREDICATE_ROUTINGS,
+    ROUTING_REGISTRY,
+    SERIES_RELATIONSHIP,
+    TITLE_VARIANT_CLASSES,
+    RoutingMeta,
+    _hub_target_type,
+    _identifier_scheme_token,
+    apply_all_routings,
+    drop_music_mode_residue,
+    drop_music_residue,
+    drop_note_type,
+    drop_subseries_residue,
+    drop_undeclared_bf_terms,
+    drop_variant_type,
+    loc_scheme_uri,
+    route_axis_default_classes,
+    route_axis_default_predicates,
+    route_hubs,
+    route_identifier_schemes,
+    route_inverse_predicates,
+    route_music_key,
+    route_music_medium,
+    route_note_for,
+    route_provision_activity_statement,
+    route_relation_predicates,
+    route_series_links,
+    route_title_variants,
+    route_work_split,
+)
+
+# --- @routing decorator registry --------------------------------------
+
+
+def test_routing_registry_attaches_metadata_to_decorated_functions() -> None:
+    """Every routing function decorated with ``@routing`` exposes its
+    metadata via ``func._routing_meta`` and shows up exactly once in
+    ``ROUTING_REGISTRY``. Locks the decorator's contract."""
+    expected_handlers = {
+        "route_identifier_schemes",
+        "route_title_variants",
+        "route_series_links",
+        "route_relation_predicates",
+        "route_hubs",
+        "route_axis_default_classes",
+        "route_axis_default_predicates",
+        "route_provision_activity_statement",
+        "route_inverse_predicates",
+        "route_note_for",
+        "drop_note_type",
+        "drop_variant_type",
+        "route_music_key",
+        "route_music_medium",
+        "drop_music_residue",
+        "drop_music_mode_residue",
+        "drop_subseries_residue",
+        "route_work_split",
+    }
+    registered = {meta.handler for meta in ROUTING_REGISTRY}
+    assert registered == expected_handlers
+
+
+def test_routing_registry_resolves_dynamic_terms_to_static_tuples() -> None:
+    """Routings declared with a callable ``terms=`` (currently
+    :func:`route_identifier_schemes` walking the BIBFRAME ontology
+    and :func:`route_relation_predicates` filtering hasSeries) flatten
+    to a static tuple via ``resolve_terms``."""
+    by_handler = {meta.handler: meta for meta in ROUTING_REGISTRY}
+    ident_terms = by_handler["route_identifier_schemes"].resolve_terms()
+    assert len(ident_terms) >= 40  # ~52 in BIBFRAME 3.0.1
+    assert BF.Isbn in ident_terms
+    # route_relation_predicates excludes bf:hasSeries (handled by
+    # its dedicated route_series_links).
+    rel_terms = by_handler["route_relation_predicates"].resolve_terms()
+    assert BF.hasSeries not in rel_terms
+    assert BF.accompaniedBy in rel_terms
+
+
+def test_routing_registry_per_term_callables_resolve_per_term() -> None:
+    """``replacement`` and ``link_kind`` declared as callables produce
+    distinct strings for different terms within the same routing."""
+    by_handler = {meta.handler: meta for meta in ROUTING_REGISTRY}
+    music_key = by_handler["route_music_key"]
+    repl_predicate = music_key.replacement_for(BF.keyMode)
+    repl_class = music_key.replacement_for(BF.KeyMode)
+    assert repl_predicate != repl_class
+    assert "extracts" in repl_predicate  # the active routing's wording
+    assert "removed implicitly" in repl_class  # the bnode-cleanup wording
+
+
+def test_routing_meta_is_drop_flag_drives_drop_status() -> None:
+    """The ``is_drop=True`` flag distinguishes drops from rewrites. The
+    auto-table generator renders drops with the **drop** status."""
+    by_handler = {meta.handler: meta for meta in ROUTING_REGISTRY}
+    assert by_handler["drop_variant_type"].is_drop is True
+    assert by_handler["drop_note_type"].is_drop is True
+    assert by_handler["route_music_key"].is_drop is False
+    assert by_handler["route_identifier_schemes"].is_drop is False
+
+
+def test_routing_meta_is_hashable_dataclass() -> None:
+    """``RoutingMeta`` is a frozen dataclass so it can be put in sets /
+    used as dict keys if a future consumer wants to."""
+    meta = RoutingMeta(
+        handler="x",
+        terms=(BF.Isbn,),
+        replacement="r",
+        link_kind="k",
+    )
+    {meta}  # noqa: B018 — just checking the type is hashable
+
+
+# --- Identifier-scheme routing -----------------------------------------
+
+
+def test_route_identifier_schemes_rewrites_each_loc_class() -> None:
+    g = Graph()
+    isbn_node = URIRef("http://example.org/isbn-1")
+    issn_node = URIRef("http://example.org/issn-1")
+    g.add((isbn_node, RDF.type, BF.Isbn))
+    g.add((isbn_node, RDF.value, Literal("9780123456789")))
+    g.add((issn_node, RDF.type, BF.Issn))
+
+    rewritten = route_identifier_schemes(g)
+    assert rewritten == 2
+
+    # Both nodes now type as bffi:Identifier.
+    assert (isbn_node, RDF.type, BFFI.Identifier) in g
+    assert (issn_node, RDF.type, BFFI.Identifier) in g
+
+    # And carry the LoC scheme URI via bffi:source.
+    assert (isbn_node, BFFI.source, loc_scheme_uri(BF.Isbn)) in g
+    assert (issn_node, BFFI.source, loc_scheme_uri(BF.Issn)) in g
+
+    # rdf:value passes through untouched.
+    assert (isbn_node, RDF.value, Literal("9780123456789")) in g
+
+    # The bf:* typing triples are gone.
+    assert (isbn_node, RDF.type, BF.Isbn) not in g
+    assert (issn_node, RDF.type, BF.Issn) not in g
+
+
+def test_route_identifier_schemes_routes_classes_we_never_hardcoded() -> None:
+    """The ontology-driven routing picks up every bf:Identifier subclass
+    in BIBFRAME 3.0.1, not just the 16 we hard-coded originally. bf:Doi
+    and bf:OclcNumber were never in the old hard-coded table; they
+    should now route automatically via the subclass walk."""
+    g = Graph()
+    doi_node = URIRef("http://example.org/doi-1")
+    oclc_node = URIRef("http://example.org/oclc-1")
+    g.add((doi_node, RDF.type, BF.Doi))
+    g.add((oclc_node, RDF.type, BF.OclcNumber))
+
+    rewritten = route_identifier_schemes(g)
+    assert rewritten == 2
+
+    assert (doi_node, RDF.type, BFFI.Identifier) in g
+    assert (oclc_node, RDF.type, BFFI.Identifier) in g
+    assert (doi_node, BFFI.source, loc_scheme_uri(BF.Doi)) in g
+    assert (oclc_node, BFFI.source, loc_scheme_uri(BF.OclcNumber)) in g
+
+
+def test_route_identifier_schemes_skips_already_renamed_block() -> None:
+    """A graph that already has only bffi:Identifier (no bf:Isbn) is a no-op."""
+    g = Graph()
+    s = URIRef("http://example.org/ident")
+    g.add((s, RDF.type, BFFI.Identifier))
+    g.add((s, BFFI.source, loc_scheme_uri(BF.Isbn)))
+    assert route_identifier_schemes(g) == 0
+
+
+# --- scheme-token derivation --------------------------------------------
+
+
+def test_identifier_scheme_token_convention_handles_camelcase() -> None:
+    """The default CamelCase → kebab-case convention handles all the
+    standard cases from BIBFRAME 3.0.1's Identifier subclasses."""
+    assert _identifier_scheme_token("Isbn") == "isbn"
+    assert _identifier_scheme_token("Issn") == "issn"
+    assert _identifier_scheme_token("IssnL") == "issn-l"
+    assert _identifier_scheme_token("Ean") == "ean"
+    assert _identifier_scheme_token("AudioIssueNumber") == "audio-issue-number"
+    assert _identifier_scheme_token("MusicPlate") == "music-plate"
+    assert _identifier_scheme_token("OclcNumber") == "oclc-number"
+    assert _identifier_scheme_token("Doi") == "doi"
+
+
+def test_identifier_scheme_token_applies_overrides() -> None:
+    """Two BIBFRAME class names need explicit override tokens because
+    they don't match the convention."""
+    # "OtherIdentifier" drops the "Identifier" suffix.
+    assert _identifier_scheme_token("OtherIdentifier") == "other"
+    # "VideoRecordingNumber" fuses video+recording into one token.
+    assert _identifier_scheme_token("VideoRecordingNumber") == "videorecording-number"
+
+
+def test_loc_scheme_uri_builds_full_loc_vocabulary_path() -> None:
+    """The public helper composes the LoC vocabulary stem + the token."""
+    assert str(loc_scheme_uri(BF.Isbn)) == "http://id.loc.gov/vocabulary/identifiers/isbn"
+    assert (
+        str(loc_scheme_uri(BF.OtherIdentifier)) == "http://id.loc.gov/vocabulary/identifiers/other"
+    )
+
+
+# --- Title-variant routing ---------------------------------------------
+
+
+def test_route_title_variants_collapses_subclasses_to_bffi_title() -> None:
+    g = Graph()
+    for i, bf_class in enumerate(TITLE_VARIANT_CLASSES):
+        node = URIRef(f"http://example.org/t-{i}")
+        g.add((node, RDF.type, bf_class))
+
+    rewritten = route_title_variants(g)
+    assert rewritten == len(TITLE_VARIANT_CLASSES)
+    # All four type slots collapse to bffi:Title.
+    for i, bf_class in enumerate(TITLE_VARIANT_CLASSES):
+        node = URIRef(f"http://example.org/t-{i}")
+        assert (node, RDF.type, BFFI.Title) in g
+        assert (node, RDF.type, bf_class) not in g
+
+
+# --- Series-link routing -----------------------------------------------
+
+
+def test_route_series_links_emits_structured_relation_bnode() -> None:
+    g = Graph()
+    m = URIRef("http://example.org/manifestation")
+    series = URIRef("http://example.org/series-1")
+    g.add((m, BF.hasSeries, series))
+
+    rewritten = route_series_links(g)
+    assert rewritten == 1
+
+    # bf:hasSeries triple is gone.
+    assert (m, BF.hasSeries, series) not in g
+
+    # Manifestation now has a bffi:relation to a fresh Relation bnode.
+    rel_objs = list(g.objects(m, BFFI.relation))
+    assert len(rel_objs) == 1
+    rel = rel_objs[0]
+
+    # Relation bnode carries the series relationship and points at series.
+    assert (rel, RDF.type, BFFI.Relation) in g
+    assert (rel, BFFI.relationship, SERIES_RELATIONSHIP) in g
+    assert (rel, BFFI.associatedResource, series) in g
+
+
+# --- Hub routing --------------------------------------------------------
+
+
+def test_hub_target_type_marckey_dispatch_table() -> None:
+    """Spot-check the routing-table decisions from the mapping doc."""
+    # Default: no marcKey → Work.
+    assert _hub_target_type("") == BFFI.Work
+    # $o arrangement → Arrangement.
+    assert _hub_target_type("24000$aFoo$oarrangement") == BFFI.Arrangement
+    # $l language → Expression.
+    assert _hub_target_type("73002$aFoo$lenglanti") == BFFI.Expression
+    # $r key → Expression.
+    assert _hub_target_type("24000$aFoo$rD major") == BFFI.Expression
+    # 100 + $t (author-attributed Work).
+    assert _hub_target_type("1001 $aBach$tBrandenburg concertos") == BFFI.Work
+    # 130 series → SeriesExpression (axis default).
+    assert _hub_target_type("13000$aSeries title") == BFFI.SeriesExpression
+    # 830 series → SeriesExpression.
+    assert _hub_target_type("83000$aSeries title") == BFFI.SeriesExpression
+    # 730 plain (no Expression signal) → Work.
+    assert _hub_target_type("73002$aPlain transcribed title") == BFFI.Work
+    # 740 plain → Work.
+    assert _hub_target_type("74002$aAnother") == BFFI.Work
+
+
+def test_route_hubs_picks_type_from_marckey() -> None:
+    g = Graph()
+    hub = URIRef("http://example.org/hub")
+    g.add((hub, RDF.type, BF.Hub))
+    g.add((hub, BFFI.marcKey, Literal("73002$aSymphonie no. 5$lenglanti")))
+
+    rewritten = route_hubs(g)
+    assert rewritten == 1
+    # $l in the marcKey routes the Hub to Expression.
+    assert (hub, RDF.type, BFFI.Expression) in g
+    assert (hub, RDF.type, BF.Hub) not in g
+
+
+def test_route_hubs_defaults_to_work_when_marckey_absent() -> None:
+    g = Graph()
+    hub = URIRef("http://example.org/hub")
+    g.add((hub, RDF.type, BF.Hub))
+    rewritten = route_hubs(g)
+    assert rewritten == 1
+    assert (hub, RDF.type, BFFI.Work) in g
+
+
+# --- apply_all_routings -------------------------------------------------
+
+
+def test_apply_all_routings_returns_per_routing_counts() -> None:
+    """End-to-end on a small synthetic graph: every routing fires at least
+    once, the counter dict shape matches the documented keys."""
+    g = Graph()
+    # Identifier
+    isbn = URIRef("http://example.org/isbn")
+    g.add((isbn, RDF.type, BF.Isbn))
+    # Title variant
+    vt = URIRef("http://example.org/vt")
+    g.add((vt, RDF.type, BF.VariantTitle))
+    # bf:Audio — folded into axis-default class routing. Without a
+    # Work-axis co-type the discriminator picks the Expression variant.
+    au = URIRef("http://example.org/audio")
+    g.add((au, RDF.type, BF.Audio))
+    # Series link
+    m = URIRef("http://example.org/m")
+    s = URIRef("http://example.org/s")
+    g.add((m, BF.hasSeries, s))
+    # Hub: the marcKey arrives as bffi:marcKey because the generic
+    # rename_graph pass renames bflc:marcKey upstream of this routing.
+    hub = URIRef("http://example.org/hub")
+    g.add((hub, RDF.type, BF.Hub))
+    g.add((hub, BFFI.marcKey, Literal("73002$aFoo")))
+
+    counters = apply_all_routings(g)
+
+    assert counters == {
+        "identifier_scheme": 1,
+        "title_variant": 1,
+        "series_link": 1,
+        "relation_predicate": 0,
+        "hub": 1,
+        "inverse_predicate": 0,
+        "note_for": 0,
+        "note_type_dropped": 0,
+        "variant_type_dropped": 0,
+        "subseries_dropped": 0,
+        "music_key_collapsed": 0,
+        "music_mode_dropped": 0,
+        "music_medium_collapsed": 0,
+        "music_medium_residue_dropped": 0,
+        "axis_default_class_work": 0,
+        "axis_default_class_expression": 1,  # bf:Audio → NonMusicAudioExpression
+        "instance_of_work": 0,
+        "instance_of_expression": 0,
+        "has_instance_of_work": 0,
+        "has_instance_of_expression": 0,
+        "issuance": 0,
+        "provision_statement_to_date": 0,
+        "provision_statement_to_note": 0,
+        "dropped_undeclared_bf": 0,
+        "work_split": 0,
+    }
+
+    # The Hub routing reads bffi:marcKey (after rename), so the rename
+    # must have run first — Hub's chosen type is Work since the marcKey
+    # is a plain 730 without Expression-level signals.
+    assert (hub, RDF.type, BFFI.Work) in g
+    # bf:Audio without a Work signal lands on the Expression-axis variant.
+    assert (au, RDF.type, BFFI.NonMusicAudioExpression) in g
+
+
+# --- Work split routing ----------------------------------------------------
+
+
+def test_route_work_split_splits_bibframework_into_work_and_expression() -> None:
+    """A `bffi:BibframeWork` is split into a conceptual `bffi:Work` (the original
+    subject) and a specific `bffi:Expression` (a new BNode). The expression
+    is linked via `bffi:expressionOf`. All other properties remain on the Work."""
+    g = Graph()
+    work_node = URIRef("http://example.org/work-1")
+    g.add((work_node, RDF.type, BFFI.BibframeWork))
+    g.add((work_node, RDFS.label, Literal("Conceptual Work Title")))
+
+    rewritten = route_work_split(g)
+    assert rewritten == 1
+
+    # Original subject is now a bffi:Work.
+    assert (work_node, RDF.type, BFFI.Work) in g
+    assert (work_node, RDF.type, BFFI.BibframeWork) not in g
+    assert (work_node, RDFS.label, Literal("Conceptual Work Title")) in g
+
+    # A new bffi:Expression was minted.
+    expr_nodes = list(g.subjects(RDF.type, BFFI.Expression))
+    assert len(expr_nodes) == 1
+    expr = expr_nodes[0]
+
+    # Expression is linked to the Work.
+    assert (expr, BFFI.expressionOf, work_node) in g
+
+
+def test_route_work_split_migrates_expression_domain_properties() -> None:
+    """Properties with an Expression domain (e.g. `bffi:languageOfExpression`,
+    `bffi:summary`) are moved from the original subject to the new Expression
+    node. Properties with a Work domain (e.g. `bffi:subject`) stay on the Work."""
+    g = Graph()
+    work_node = URIRef("http://example.org/work-2")
+    g.add((work_node, RDF.type, BFFI.BibframeWork))
+    # Work-domain prop (stays)
+    g.add((work_node, BFFI.subject, URIRef("http://example.org/subj")))
+    # Expression-domain props (move)
+    g.add((work_node, BFFI.languageOfExpression, Literal("fi")))
+    g.add((work_node, BFFI.summary, Literal("A short summary")))
+
+    route_work_split(g)
+
+    # Work still has its subject.
+    assert (work_node, BFFI.subject, URIRef("http://example.org/subj")) in g
+    # Work no longer has expression-domain props.
+    assert (work_node, BFFI.languageOfExpression, Literal("fi")) not in g
+    assert (work_node, BFFI.summary, Literal("A short summary")) not in g
+
+    # Expression now has the migrated props.
+    expr = next(g.subjects(RDF.type, BFFI.Expression))
+    assert (expr, BFFI.languageOfExpression, Literal("fi")) in g
+    assert (expr, BFFI.summary, Literal("A short summary")) in g
+
+
+def test_route_work_split_no_op_when_already_routed() -> None:
+    """A graph with no `bffi:BibframeWork` is a no-op."""
+    g = Graph()
+    s = URIRef("http://example.org/work-3")
+    g.add((s, RDF.type, BFFI.Work))
+    assert route_work_split(g) == 0
+
+
+def test_route_work_split_hands_instance_link_to_axis_default_as_expression() -> None:
+    """The split migrates `bf:hasInstance` onto the minted Expression, and
+    the axis-default routing then reads that BNode's `bffi:Expression` type
+    as its discriminator — so the link lands on
+    `bffi:manifestationOfExpression`, not on the Work-axis variant.
+
+    Covers the seam between the two routings: the discriminator tests above
+    exercise untyped and Expression-*URI* subjects, but the post-split
+    subject is a freshly minted *BNode*, which is the shape
+    `apply_all_routings` actually feeds forward."""
+    g = Graph()
+    work = URIRef("http://example.org/work-4")
+    manifestation = URIRef("http://example.org/manifestation-4")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((work, BF.hasInstance, manifestation))
+
+    route_work_split(g)
+    route_axis_default_predicates(g)
+
+    expr = next(g.subjects(RDF.type, BFFI.Expression))
+    assert (expr, BFFI.manifestationOfExpression, manifestation) in g
+    # The Work keeps neither the raw BIBFRAME link nor a routed copy of it.
+    assert (work, BF.hasInstance, manifestation) not in g
+    assert (work, BFFI.manifestationOfExpression, manifestation) not in g
+
+
+# --- routing 6 (axis-default classes) -----------------------------------
+
+
+def test_route_axis_default_classes_picks_expression_when_no_work_signal() -> None:
+    """Default for subjects with no Work-axis co-type: every axis-split
+    ``bf:*`` class lands on the Expression-axis BFFI variant. This is
+    the Helmet "Instance URI" pattern — bf:Instance is the subject,
+    bf:Monograph is just the content-type echo, no Work signal."""
+    g = Graph()
+    for i, bf_class in enumerate(AXIS_DEFAULT_CLASSES):
+        node = URIRef(f"http://example.org/c-{i}")
+        g.add((node, RDF.type, bf_class))
+    counters = route_axis_default_classes(g)
+    assert counters == {
+        "axis_default_class_work": 0,
+        "axis_default_class_expression": len(AXIS_DEFAULT_CLASSES),
+    }
+    for i, (bf_class, (_work_pick, expr_pick)) in enumerate(AXIS_DEFAULT_CLASSES.items()):
+        node = URIRef(f"http://example.org/c-{i}")
+        assert (node, RDF.type, expr_pick) in g
+        assert (node, RDF.type, bf_class) not in g
+
+
+def test_route_axis_default_classes_picks_work_when_subject_co_typed_bibframework() -> None:
+    """A Work URI emitted by marc2bibframe2 is typed ``bf:Work`` (renamed
+    to ``bffi:BibframeWork`` by the clean-rename pass that runs before
+    any routing) AND ``bf:Monograph`` / etc. The discriminator catches
+    the Work signal and routes to the Work-axis BFFI variant."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((work, RDF.type, BF.Monograph))
+
+    counters = route_axis_default_classes(g)
+    assert counters == {
+        "axis_default_class_work": 1,
+        "axis_default_class_expression": 0,
+    }
+    assert (work, RDF.type, BFFI.MonographWork) in g
+    assert (work, RDF.type, BF.Monograph) not in g
+    # The original Work signal is preserved on the subject.
+    assert (work, RDF.type, BFFI.BibframeWork) in g
+
+
+def test_route_axis_default_classes_music_audio_picks_bffi_music_work() -> None:
+    """``bf:MusicAudio`` has asymmetric naming in lkd.rdf — there is no
+    ``bffi:MusicAudioWork``; the Work-axis pick is ``bffi:MusicWork``."""
+    g = Graph()
+    work = URIRef("http://example.org/music-work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((work, RDF.type, BF.MusicAudio))
+
+    route_axis_default_classes(g)
+    assert (work, RDF.type, BFFI.MusicWork) in g
+    # Belt-and-braces: confirm we didn't mint the non-existent class.
+    assert (work, RDF.type, URIRef(str(BFFI) + "MusicAudioWork")) not in g
+
+
+def test_route_axis_default_classes_hub_routed_work_signal_picks_work() -> None:
+    """Hub routing (which runs before axis-default-class) may have re-typed
+    a subject as ``bffi:Work`` / ``bffi:Arrangement`` / etc. without the
+    ``bffi:BibframeWork`` co-type. The discriminator must still catch
+    those as Work-axis signals (since they're under bffi:BibframeWork
+    via the lkd.rdf class hierarchy)."""
+    g = Graph()
+    hub = URIRef("http://example.org/hub-as-work")
+    g.add((hub, RDF.type, BFFI.Work))  # Hub-routed; not BibframeWork
+    g.add((hub, RDF.type, BF.Serial))
+
+    route_axis_default_classes(g)
+    assert (hub, RDF.type, BFFI.SerialWork) in g
+    assert (hub, RDF.type, BF.Serial) not in g
+
+
+def test_route_axis_default_classes_audio_folded_into_routing() -> None:
+    """``bf:Audio`` is now handled by route_axis_default_classes (was a
+    separate route_audio function). marc2bibframe2 emits ``bf:Audio``
+    only for non-music audio, so the picks mirror NonMusicAudio's."""
+    g = Graph()
+    work_audio = URIRef("http://example.org/audio-work")
+    g.add((work_audio, RDF.type, BFFI.BibframeWork))
+    g.add((work_audio, RDF.type, BF.Audio))
+
+    inst_audio = URIRef("http://example.org/audio-instance")
+    g.add((inst_audio, RDF.type, BF.Audio))
+
+    route_axis_default_classes(g)
+    # Work URI → Work-axis pick.
+    assert (work_audio, RDF.type, BFFI.NonMusicAudioWork) in g
+    # Instance URI (no Work signal) → Expression-axis pick.
+    assert (inst_audio, RDF.type, BFFI.NonMusicAudioExpression) in g
+
+
+def test_route_axis_default_classes_no_op_when_already_routed() -> None:
+    """Subjects already typed with a BFFI axis variant aren't re-routed —
+    only ``bf:*`` axis-split subjects are touched."""
+    g = Graph()
+    s = URIRef("http://example.org/s")
+    g.add((s, RDF.type, BFFI.SeriesExpression))
+    counters = route_axis_default_classes(g)
+    assert counters == {
+        "axis_default_class_work": 0,
+        "axis_default_class_expression": 0,
+    }
+
+
+# --- routing 7 (axis-default predicates) --------------------------------
+
+
+# --- route_provision_activity_statement (URI-fragment discriminator) ----
+
+
+def test_route_provision_activity_statement_routes_succession_link_to_bffi_date() -> None:
+    """``bf:provisionActivityStatement`` on an Instance whose URI carries
+    a MARC 76X-78X tag in its fragment (the marc2bibframe2 shape for
+    related-Instance hubs from succession-link MARC fields) routes to
+    ``bffi:date`` — those statements are date ranges per the corpus.
+    """
+    g = Graph()
+    # Mimics the corpus shape: Instance URI fragment carries the MARC tag.
+    inst = URIRef("http://example.org/bib1#Instance780-25")
+    g.add((inst, BF.provisionActivityStatement, Literal("1980-1981")))
+
+    counters = route_provision_activity_statement(g)
+    assert counters == {"provision_statement_to_date": 1, "provision_statement_to_note": 0}
+    assert (inst, BFFI.date, Literal("1980-1981")) in g
+    assert (inst, BF.provisionActivityStatement, Literal("1980-1981")) not in g
+
+
+def test_route_provision_activity_statement_handles_succession_tag_range() -> None:
+    """The pattern matches all MARC 760-789 (linking-entry fields) —
+    main series (760), has subseries (762), original language (765),
+    translation (767), supplements (770/772), host item (773),
+    constituent (774), other edition (775), additional physical form
+    (776), issued with (777), preceding entry (780), succeeding (785),
+    data source (786), other relationship (787)."""
+    g = Graph()
+    for tag in ("760", "762", "765", "770", "775", "780", "785", "787"):
+        inst = URIRef(f"http://example.org/bib1#Instance{tag}-1")
+        g.add((inst, BF.provisionActivityStatement, Literal(f"date-range-{tag}")))
+
+    counters = route_provision_activity_statement(g)
+    assert counters["provision_statement_to_date"] == 8
+    assert counters["provision_statement_to_note"] == 0
+
+
+def test_route_provision_activity_statement_falls_back_to_note_for_non_succession_context() -> None:
+    """Instance URI without the 76X-78X fragment pattern falls back to
+    a ``bffi:Note`` bnode wrapper. The text is preserved without an
+    EDTF semantic claim."""
+    g = Graph()
+    inst = URIRef("http://example.org/bib1#Instance")  # no succession tag
+    g.add((inst, BF.provisionActivityStatement, Literal("(1990-2013), ISSN")))
+
+    counters = route_provision_activity_statement(g)
+    assert counters == {"provision_statement_to_date": 0, "provision_statement_to_note": 1}
+    # The original triple is gone.
+    assert (inst, BF.provisionActivityStatement, Literal("(1990-2013), ISSN")) not in g
+    # An object property points at a fresh Note bnode.
+    note_objects = list(g.objects(inst, BFFI.note))
+    assert len(note_objects) == 1
+    note = note_objects[0]
+    # The Note bnode is typed and carries the literal as rdfs:label.
+    assert (note, RDF.type, BFFI.Note) in g
+    assert (note, RDFS.label, Literal("(1990-2013), ISSN")) in g
+
+
+def test_route_provision_activity_statement_ignores_unrelated_triples() -> None:
+    """The routing only touches triples with ``bf:provisionActivityStatement``
+    as the predicate. Other triples on the same subject pass through."""
+    g = Graph()
+    inst = URIRef("http://example.org/bib1#Instance780-25")
+    g.add((inst, RDF.type, BF.Instance))
+    g.add((inst, BF.provisionActivityStatement, Literal("1980-1981")))
+
+    route_provision_activity_statement(g)
+    # bf:Instance typing triple still present.
+    assert (inst, RDF.type, BF.Instance) in g
+
+
+# --- drop_undeclared_bf_terms (BIBFRAME-ontology-guarded drop) ----------
+
+
+def test_drop_undeclared_bf_terms_removes_bf_statement_artifact() -> None:
+    """``bf:Statement`` isn't declared in BIBFRAME 3.0.1 — marc2bibframe2
+    emits it as a flat-text duplicate of the structured ProvisionActivity
+    block. Dropping it leaves no information lost (the same content is
+    in the sibling structured block)."""
+    g = Graph()
+    instance = URIRef("http://example.org/instance")
+    # Add a known-good triple (bf:provisionActivity is declared).
+    g.add((instance, BF.provisionActivity, URIRef("http://example.org/pa")))
+    # Add the undeclared bf:Statement artifact predicate.
+    g.add((instance, BF.Statement, Literal("Helsinki: Publisher, 2001")))
+
+    dropped = drop_undeclared_bf_terms(g)
+    assert dropped == 1
+    # Known triple still there.
+    assert (instance, BF.provisionActivity, URIRef("http://example.org/pa")) in g
+    # Artifact triple gone.
+    assert (instance, BF.Statement, Literal("Helsinki: Publisher, 2001")) not in g
+
+
+def test_drop_undeclared_bf_terms_handles_undeclared_class_in_object_slot() -> None:
+    """The guard fires on any of (subject, predicate, object) slots —
+    an unknown bf:* in the rdf:type object also triggers a drop."""
+    g = Graph()
+    s = URIRef("http://example.org/s")
+    # bf:UnknownClass isn't in BIBFRAME 3.0.1.
+    g.add((s, RDF.type, URIRef("http://id.loc.gov/ontologies/bibframe/UnknownClass")))
+    assert drop_undeclared_bf_terms(g) == 1
+
+
+def test_drop_undeclared_bf_terms_keeps_known_bf_triples() -> None:
+    """The guard ONLY drops triples whose bf:* URIs aren't in BIBFRAME.
+    Triples using only declared bf:* terms (or no bf:* at all) pass
+    through unchanged."""
+    g = Graph()
+    s = URIRef("http://example.org/s")
+    # All three of these terms are declared in BIBFRAME 3.0.1.
+    g.add((s, RDF.type, BF.Work))
+    g.add((s, BF.mainTitle, Literal("A Title")))
+    g.add((s, BF.identifiedBy, URIRef("http://example.org/id")))
+    # And one triple with NO bf:* at all.
+    g.add((s, RDF.value, Literal("payload")))
+
+    assert drop_undeclared_bf_terms(g) == 0
+    assert len(list(g)) == 4
+
+
+def test_drop_undeclared_bf_terms_ignores_non_bf_namespace_uris() -> None:
+    """An unknown URI in a different namespace (rdf:, skos:, example.org)
+    is NOT a BIBFRAME artifact and should pass through. The guard fires
+    only on the ``bf:`` namespace."""
+    g = Graph()
+    s = URIRef("http://example.org/s")
+    # bf:notInOntology IS a bf:* artifact → drops
+    g.add((s, URIRef("http://id.loc.gov/ontologies/bibframe/notInOntology"), Literal("x")))
+    # http://example.org/whatever is NOT a bf:* artifact → keeps
+    g.add((s, URIRef("http://example.org/whatever"), Literal("y")))
+
+    assert drop_undeclared_bf_terms(g) == 1
+    # The non-bf: triple survives.
+    assert (s, URIRef("http://example.org/whatever"), Literal("y")) in g
+
+
+# --- routing 8 (catch-all relation-predicate routing) -------------------
+
+
+def test_route_relation_predicates_handles_bf_accompaniedby() -> None:
+    """``bf:accompaniedBy`` is a true gap in lkd.rdf (no bffi:* equivalent).
+    The catch-all routing maps it through the structured bffi:relation
+    chain with a LoC-namespaced relationship URI — same shape as Series-link."""
+    g = Graph()
+    book = URIRef("http://example.org/book")
+    cd = URIRef("http://example.org/cd")
+    g.add((book, BF.accompaniedBy, cd))
+
+    rewritten = route_relation_predicates(g)
+    assert rewritten == 1
+    assert (book, BF.accompaniedBy, cd) not in g
+
+    rel_objs = list(g.objects(book, BFFI.relation))
+    assert len(rel_objs) == 1
+    rel = rel_objs[0]
+    assert (rel, RDF.type, BFFI.Relation) in g
+    assert (rel, BFFI.relationship, RELATION_PREDICATE_ROUTINGS[BF.accompaniedBy]) in g
+    assert (rel, BFFI.associatedResource, cd) in g
+
+
+def test_route_relation_predicates_skips_bf_hasseries() -> None:
+    """``bf:hasSeries`` has its own dedicated routing function so the
+    catch-all leaves it alone (avoid double-counting in the
+    observability summary)."""
+    g = Graph()
+    m = URIRef("http://example.org/m")
+    s = URIRef("http://example.org/s")
+    g.add((m, BF.hasSeries, s))
+    rewritten = route_relation_predicates(g)
+    assert rewritten == 0
+    # bf:hasSeries triple is still there — series_link routing handles it.
+    assert (m, BF.hasSeries, s) in g
+
+
+def test_route_axis_default_predicates_instance_of_picks_work_when_object_untyped() -> None:
+    """``bf:instanceOf`` with an untyped object lands on the Work-axis
+    default ``bffi:workManifested`` — the safe pick matching marc2bibframe2's
+    predominant emit (Instance → Work)."""
+    g = Graph()
+    inst = URIRef("http://example.org/inst")
+    work = URIRef("http://example.org/work")
+    g.add((inst, BF.instanceOf, work))
+
+    counters = route_axis_default_predicates(g)
+    assert counters["instance_of_work"] == 1
+    assert counters["instance_of_expression"] == 0
+    assert (inst, BFFI.workManifested, work) in g
+    assert (inst, BF.instanceOf, work) not in g
+
+
+def test_route_axis_default_predicates_instance_of_expression_object_picks_expression() -> None:
+    """``bf:instanceOf`` with an object typed bffi:Expression lands on
+    ``bffi:expressionManifested`` — the discriminator catches the
+    Expression-axis signal on the object side."""
+    g = Graph()
+    inst = URIRef("http://example.org/inst")
+    expr = URIRef("http://example.org/expr")
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((inst, BF.instanceOf, expr))
+
+    counters = route_axis_default_predicates(g)
+    assert counters["instance_of_expression"] == 1
+    assert counters["instance_of_work"] == 0
+    assert (inst, BFFI.expressionManifested, expr) in g
+
+
+def test_route_axis_default_predicates_has_instance_picks_work_when_subject_untyped() -> None:
+    """``bf:hasInstance`` with an untyped subject lands on
+    ``bffi:manifestationOfWork`` (the inverse-direction default)."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    inst = URIRef("http://example.org/inst")
+    g.add((work, BF.hasInstance, inst))
+
+    counters = route_axis_default_predicates(g)
+    assert counters["has_instance_of_work"] == 1
+    assert (work, BFFI.manifestationOfWork, inst) in g
+
+
+def test_route_axis_default_predicates_has_instance_expression_subject_picks_expression() -> None:
+    """``bf:hasInstance`` from an Expression URI lands on
+    ``bffi:manifestationOfExpression`` — discriminator on subject side."""
+    g = Graph()
+    expr = URIRef("http://example.org/expr")
+    inst = URIRef("http://example.org/inst")
+    g.add((expr, RDF.type, BFFI.SeriesExpression))  # a leaf Expression-axis class
+    g.add((expr, BF.hasInstance, inst))
+
+    counters = route_axis_default_predicates(g)
+    assert counters["has_instance_of_expression"] == 1
+    assert (expr, BFFI.manifestationOfExpression, inst) in g
+
+
+def test_route_axis_default_predicates_issuance_is_flat_rename_regardless_of_context() -> None:
+    """``bf:issuance`` always renames to ``bffi:issuance`` — the
+    mapping-doc-listed alternative ``bffi:extensionPlan`` has a
+    different domain AND range, so it isn't a per-statement substitute."""
+    g = Graph()
+    # Manifestation context
+    inst = URIRef("http://example.org/inst")
+    serl = URIRef("http://id.loc.gov/vocabulary/issuance/serl")
+    g.add((inst, BF.issuance, serl))
+    # Work context — same outcome.
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((work, BF.issuance, serl))
+
+    counters = route_axis_default_predicates(g)
+    assert counters["issuance"] == 2
+    assert (inst, BFFI.issuance, serl) in g
+    assert (work, BFFI.issuance, serl) in g
+    # And neither bf:issuance triple survives.
+    assert (inst, BF.issuance, serl) not in g
+    assert (work, BF.issuance, serl) not in g
+
+
+def test_route_axis_default_predicates_counter_dict_shape() -> None:
+    """Empty graph: counter dict carries all five keys at zero — locks
+    the shape downstream observability code depends on."""
+    counters = route_axis_default_predicates(Graph())
+    assert counters == {
+        "instance_of_work": 0,
+        "instance_of_expression": 0,
+        "has_instance_of_work": 0,
+        "has_instance_of_expression": 0,
+        "issuance": 0,
+    }
+
+
+# --- inverse-predicate triple-swap --------------------------------------
+
+
+def test_route_inverse_predicates_swaps_subject_and_object() -> None:
+    """``?s bf:agentOf ?o`` rewrites as ``?o bffi:agent ?s`` — the
+    triple direction flips, the predicate switches to the forward
+    form. Same shape for the four other inverse predicates."""
+    g = Graph()
+    agent = URIRef("http://example.org/agent")
+    contrib = URIRef("http://example.org/contribution")
+    g.add((agent, BF.agentOf, contrib))
+
+    rewritten = route_inverse_predicates(g)
+    assert rewritten == 1
+    # Original direction gone; canonical forward direction present.
+    assert (agent, BF.agentOf, contrib) not in g
+    assert (contrib, BFFI.agent, agent) in g
+
+
+def test_route_inverse_predicates_covers_all_five_pairs() -> None:
+    """Smoke-test the entire INVERSE_PREDICATE_ROUTINGS registry —
+    each (bf:Xof → bffi:X) pair fires once on a representative triple."""
+    g = Graph()
+    for i, bf_pred in enumerate(INVERSE_PREDICATE_ROUTINGS):
+        s = URIRef(f"http://example.org/s-{i}")
+        o = URIRef(f"http://example.org/o-{i}")
+        g.add((s, bf_pred, o))
+
+    rewritten = route_inverse_predicates(g)
+    assert rewritten == len(INVERSE_PREDICATE_ROUTINGS)
+    for i, (bf_pred, bffi_forward) in enumerate(INVERSE_PREDICATE_ROUTINGS.items()):
+        s = URIRef(f"http://example.org/s-{i}")
+        o = URIRef(f"http://example.org/o-{i}")
+        assert (o, bffi_forward, s) in g
+        assert (s, bf_pred, o) not in g
+
+
+# --- note-shape routings ------------------------------------------------
+
+
+def test_route_note_for_swaps_to_forward_bffi_note() -> None:
+    """``?note bf:noteFor ?subject`` becomes ``?subject bffi:note ?note`` —
+    same swap pattern as the inverse predicates, but bf:noteFor isn't
+    in the INVERSE_PREDICATE_ROUTINGS registry (it has its own routing
+    because its semantic — *anchoring a Note to its subject* — is
+    note-specific rather than a generic inverse-relation pattern)."""
+    g = Graph()
+    note = URIRef("http://example.org/note")
+    subject = URIRef("http://example.org/subject")
+    g.add((note, BF.noteFor, subject))
+
+    rewritten = route_note_for(g)
+    assert rewritten == 1
+    assert (subject, BFFI.note, note) in g
+    assert (note, BF.noteFor, subject) not in g
+
+
+def test_drop_note_type_removes_uncarried_categorisation() -> None:
+    """``bf:noteType`` carries a literal categorisation BFFI 1.0.0
+    doesn't model — no ``bffi:noteType`` predicate, no relevant
+    ``bffi:Note`` subclass for arbitrary values. Reaching for a foreign
+    vocabulary (``dct:type``, ``skos:notation``) would violate the
+    "DC Terms → BFFI alternatives" pattern, so the routing drops the
+    triple — see the ``bf:noteType`` subsection in
+    ``docs/bf_to_bffi_mapping.md``."""
+    g = Graph()
+    note = URIRef("http://example.org/note")
+    g.add((note, BF.noteType, Literal("Summary")))
+    g.add((note, RDFS.label, Literal("Summary text…")))
+
+    dropped = drop_note_type(g)
+    assert dropped == 1
+    # bf:noteType triple removed.
+    assert (note, BF.noteType, Literal("Summary")) not in g
+    # Note text survives — the categorisation context is preserved
+    # implicitly in the note body.
+    assert (note, RDFS.label, Literal("Summary text…")) in g
+
+
+# --- bf:Review (class) + bf:review (predicate) -------------------------
+
+
+def test_route_review_class_via_axis_default_anchored_at_bibframework() -> None:
+    """``bf:Review`` has no parent in BIBFRAME — both AXIS_DEFAULT_CLASSES
+    slots collapse to ``bffi:BibframeWork`` so the routing picks that
+    anchor regardless of co-type signal."""
+    g = Graph()
+    review = URIRef("http://example.org/review-work")
+    g.add((review, RDF.type, BF.Review))
+
+    route_axis_default_classes(g)
+    assert (review, RDF.type, BFFI.BibframeWork) in g
+    assert (review, RDF.type, BF.Review) not in g
+
+
+def test_route_review_predicate_via_relation_chain() -> None:
+    """``?w bf:review ?r`` rewrites to the structured ``bffi:relation`` chain
+    with ``…/relationship/review`` (parallel to bf:accompaniedBy)."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    target = URIRef("http://example.org/reviewed")
+    g.add((work, BF.review, target))
+
+    rewritten = route_relation_predicates(g)
+    assert rewritten == 1
+    rel_objs = list(g.objects(work, BFFI.relation))
+    assert len(rel_objs) == 1
+    rel = rel_objs[0]
+    assert (rel, RDF.type, BFFI.Relation) in g
+    assert (
+        rel,
+        BFFI.relationship,
+        URIRef("http://id.loc.gov/vocabulary/relationship/review"),
+    ) in g
+    assert (rel, BFFI.associatedResource, target) in g
+
+
+# --- bf:variantType drop -----------------------------------------------
+
+
+def test_drop_variant_type_removes_redundant_triple() -> None:
+    """``bf:variantType`` info is already encoded in the marcKey first-3-
+    char MARC tag (246 parallel / 740 added-entry / etc.). The predicate
+    is redundant signal; drop it so it doesn't pollute the closed-namespace
+    emit graph."""
+    g = Graph()
+    title = URIRef("http://example.org/title")
+    g.add((title, BF.variantType, Literal("parallel")))
+    # An unrelated triple should survive.
+    g.add((title, BFFI.marcKey, Literal("24631$aParallel form")))
+
+    dropped = drop_variant_type(g)
+    assert dropped == 1
+    assert (title, BF.variantType, Literal("parallel")) not in g
+    assert (title, BFFI.marcKey, Literal("24631$aParallel form")) in g
+
+
+# --- bf:subseriesStatement / bf:subseriesEnumeration drop --------------
+
+
+def test_drop_subseries_residue_removes_both_predicates() -> None:
+    """marc2bibframe2's XSLT never emits these (grep -rn returns zero
+    hits across the XSLT tree); BIBFRAME 3.0.1 declares them. Defensive
+    drop avoids closed-namespace residue if a future upstream begins
+    emitting them — the proper handling at that point is marcKey-based
+    pairing with the parent Series entity, not a literal copy."""
+    g = Graph()
+    series = URIRef("http://example.org/series")
+    g.add((series, BF.subseriesStatement, Literal("Subseries B")))
+    g.add((series, BF.subseriesEnumeration, Literal("vol. 3")))
+    # An unrelated triple must survive.
+    g.add((series, BFFI.seriesStatement, Literal("Series A")))
+
+    dropped = drop_subseries_residue(g)
+    assert dropped == 2
+    assert (series, BF.subseriesStatement, Literal("Subseries B")) not in g
+    assert (series, BF.subseriesEnumeration, Literal("vol. 3")) not in g
+    assert (series, BFFI.seriesStatement, Literal("Series A")) in g
+
+
+def test_drop_subseries_residue_no_op_when_predicates_absent() -> None:
+    """Empty graph: the routing reports zero drops. Locks the no-op
+    behaviour for the predominant corpus shape (zero prevalence in the
+    500-file sample)."""
+    assert drop_subseries_residue(Graph()) == 0
+
+
+# --- music-key collapse (bf:keyMode → bffi:musicKey) -------------------
+
+
+def test_route_music_key_collapses_structured_bnode_to_literal() -> None:
+    """marc2bibframe2 emits ``?work bf:keyMode [a bf:KeyMode;
+    rdfs:label "B♭ major"]``. The routing collapses the entire bnode
+    to a flat ``?work bffi:musicKey "B♭ major"`` literal and removes
+    the bnode subgraph completely."""
+
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    keymode = BNode()
+    g.add((work, BF.keyMode, keymode))
+    g.add((keymode, RDF.type, BF.KeyMode))
+    g.add((keymode, RDFS.label, Literal("B-flat major")))
+
+    rewritten = route_music_key(g)
+    assert rewritten == 1
+    # Flat literal landed on the Work.
+    assert (work, BFFI.musicKey, Literal("B-flat major")) in g
+    # Every triple anchored at the keymode bnode is gone.
+    assert (work, BF.keyMode, keymode) not in g
+    assert (keymode, RDF.type, BF.KeyMode) not in g
+    assert (keymode, RDFS.label, Literal("B-flat major")) not in g
+    # And the bnode is no longer a subject anywhere.
+    assert not list(g.triples((keymode, None, None)))
+
+
+def test_route_music_key_preserves_language_tag_on_label() -> None:
+    """A KeyMode bnode with a language-tagged rdfs:label produces a
+    matching language-tagged bffi:musicKey literal."""
+
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    keymode = BNode()
+    g.add((work, BF.keyMode, keymode))
+    g.add((keymode, RDFS.label, Literal("B-duuri", lang="fi")))
+
+    route_music_key(g)
+    assert (work, BFFI.musicKey, Literal("B-duuri", lang="fi")) in g
+
+
+def test_route_music_key_multiple_labels_emit_multiple_literals() -> None:
+    """Multilingual KeyMode bnodes (one rdfs:label per language) each
+    become their own ``bffi:musicKey`` literal — language tags
+    preserved end-to-end."""
+
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    keymode = BNode()
+    g.add((work, BF.keyMode, keymode))
+    g.add((keymode, RDFS.label, Literal("B-flat major", lang="en")))
+    g.add((keymode, RDFS.label, Literal("B-duuri", lang="fi")))
+
+    route_music_key(g)
+    assert (work, BFFI.musicKey, Literal("B-flat major", lang="en")) in g
+    assert (work, BFFI.musicKey, Literal("B-duuri", lang="fi")) in g
+
+
+def test_route_music_key_no_label_still_removes_bnode() -> None:
+    """A KeyMode bnode without an rdfs:label (defensive) still gets
+    its bf:keyMode link and its rdf:type triple removed — no
+    bffi:musicKey is emitted (no literal to carry), but the bf:* URIs
+    don't pollute the closed-namespace emit."""
+
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    keymode = BNode()
+    g.add((work, BF.keyMode, keymode))
+    g.add((keymode, RDF.type, BF.KeyMode))
+
+    rewritten = route_music_key(g)
+    assert rewritten == 1
+    assert (work, BF.keyMode, keymode) not in g
+    assert (keymode, RDF.type, BF.KeyMode) not in g
+    # No bffi:musicKey emitted.
+    assert not list(g.triples((work, BFFI.musicKey, None)))
+
+
+# --- bf:mode / bf:Mode defensive drop ----------------------------------
+
+
+def test_drop_music_mode_residue_removes_predicate_and_class_typing() -> None:
+    """marc2bibframe2 doesn't emit ``bf:mode`` or ``bf:Mode`` (PMO
+    additions to BIBFRAME 3.0.1). Defensive drop covers both
+    predicate triples and class-typing triples."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    mode_node = URIRef("http://example.org/mode-1")
+    g.add((work, BF.mode, mode_node))
+    g.add((mode_node, RDF.type, BF.Mode))
+
+    dropped = drop_music_mode_residue(g)
+    assert dropped == 2
+    assert (work, BF.mode, mode_node) not in g
+    assert (mode_node, RDF.type, BF.Mode) not in g
+
+
+def test_drop_music_mode_residue_no_op_when_absent() -> None:
+    """Empty graph: zero drops. Locks the no-op for the corpus-prevalent
+    case (zero occurrences in the 500-file sample)."""
+    assert drop_music_mode_residue(Graph()) == 0
+
+
+# --- medium-of-performance collapse (bf:ensemble tree → bffi:musicMedium) ---
+
+
+def test_route_music_medium_collapses_full_382_tree() -> None:
+    """A complete MARC 382 emit (multiple components, qualifier, per-component
+    and total ensembleSize, status=partial) collapses to a single
+    bffi:musicMedium block carrying a semicolon-separated synth string."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    ens, comp1, mop1, qual1, size1, comp2, mop2, total, status = (BNode() for _ in range(9))
+    g.add((work, BF.ensemble, ens))
+    g.add((ens, RDF.type, BF.Ensemble))
+    g.add((ens, BF.mediumComponent, comp1))
+    g.add((ens, BF.mediumComponent, comp2))
+    g.add((ens, BF.ensembleSize, total))
+    g.add((ens, BF.status, status))
+    g.add((status, RDFS.label, Literal("partial")))
+    g.add((comp1, BF.mediumOfPerformance, mop1))
+    g.add((comp1, BF.mediumComponentQualifier, qual1))
+    g.add((comp1, BF.ensembleSize, size1))
+    g.add((mop1, RDFS.label, Literal("violin")))
+    g.add((qual1, RDFS.label, Literal("solo")))
+    g.add((size1, RDFS.label, Literal("1")))
+    g.add((comp2, BF.mediumOfPerformance, mop2))
+    g.add((mop2, RDFS.label, Literal("piano")))
+    g.add((total, RDFS.label, Literal("2")))
+
+    rewritten = route_music_medium(g)
+    assert rewritten == 1
+
+    # One bffi:musicMedium block emerged.
+    mm_objs = list(g.objects(work, BFFI.musicMedium))
+    assert len(mm_objs) == 1
+    mm = mm_objs[0]
+    assert (mm, RDF.type, BFFI.MusicMedium) in g
+    # Synth string carries every label component in order.
+    label = str(next(g.objects(mm, BFFI.readMarc382)))
+    assert label == "violin (solo), n=1; piano; ensemble: 2; (partial)"
+
+    # Source bf:ensemble link gone; its subtree wiped (no bf:* residue).
+    assert (work, BF.ensemble, ens) not in g
+    bf_namespace = "http://id.loc.gov/ontologies/bibframe/"
+    for s, p, o in g:
+        for node in (s, p, o):
+            if isinstance(node, URIRef):
+                assert not str(node).startswith(bf_namespace), f"bf:* leak: {node}"
+
+
+def test_route_music_medium_handles_minimal_component() -> None:
+    """A component with just a MoP label (no qualifier, no size) renders
+    as the bare label."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    ens, comp, mop = (BNode() for _ in range(3))
+    g.add((work, BF.ensemble, ens))
+    g.add((ens, BF.mediumComponent, comp))
+    g.add((comp, BF.mediumOfPerformance, mop))
+    g.add((mop, RDFS.label, Literal("flute")))
+
+    route_music_medium(g)
+    mm = next(g.objects(work, BFFI.musicMedium))
+    assert str(next(g.objects(mm, BFFI.readMarc382))) == "flute"
+
+
+def test_route_music_medium_handles_marc_048_bare_instrument() -> None:
+    """MARC 048 emits bare ``bf:instrument`` / ``bf:voice`` on the Work
+    (no enclosing bf:ensemble). Each becomes its own bffi:MusicMedium
+    block carrying the simple label."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    inst1, inst2, voi = (BNode() for _ in range(3))
+    g.add((work, BF.instrument, inst1))
+    g.add((work, BF.instrument, inst2))
+    g.add((work, BF.voice, voi))
+    g.add((inst1, RDFS.label, Literal("guitar")))
+    g.add((inst2, RDFS.label, Literal("drums")))
+    g.add((voi, RDFS.label, Literal("soprano")))
+
+    rewritten = route_music_medium(g)
+    assert rewritten == 3
+    # Three separate bffi:musicMedium blocks emerged.
+    mm_blocks = list(g.objects(work, BFFI.musicMedium))
+    assert len(mm_blocks) == 3
+    labels = {str(next(g.objects(mm, BFFI.readMarc382))) for mm in mm_blocks}
+    assert labels == {"guitar", "drums", "soprano"}
+
+
+def test_route_music_medium_empty_ensemble_emits_typed_marker() -> None:
+    """A bf:ensemble bnode with no labels extractable still produces the
+    structural bffi:musicMedium → bffi:MusicMedium marker, but no
+    bffi:readMarc382 literal (since there's nothing to carry)."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    ens = BNode()
+    g.add((work, BF.ensemble, ens))
+    g.add((ens, RDF.type, BF.Ensemble))
+
+    rewritten = route_music_medium(g)
+    assert rewritten == 1
+    mm = next(g.objects(work, BFFI.musicMedium))
+    assert (mm, RDF.type, BFFI.MusicMedium) in g
+    assert not list(g.objects(mm, BFFI.readMarc382))
+
+
+def test_route_music_medium_drops_entire_bnode_subtree() -> None:
+    """Every bf:* triple anchored in the original ensemble subtree is
+    removed — including grandchild bnodes (e.g. bf:MediumComponent
+    typed bnodes inside the ensemble)."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    ens, comp, mop = (BNode() for _ in range(3))
+    g.add((work, BF.ensemble, ens))
+    g.add((ens, RDF.type, BF.Ensemble))
+    g.add((ens, BF.mediumComponent, comp))
+    g.add((comp, RDF.type, BF.MediumComponent))
+    g.add((comp, BF.mediumOfPerformance, mop))
+    g.add((mop, RDF.type, BF.MediumOfPerformance))
+    g.add((mop, RDFS.label, Literal("oboe")))
+
+    route_music_medium(g)
+    # Every bnode in the source tree is fully drained.
+    for bn in (ens, comp, mop):
+        assert not list(g.triples((bn, None, None))), f"residue triples remain on {bn}"
+
+
+def test_route_music_medium_multilingual_label_first_only() -> None:
+    """When a MoP node has multiple rdfs:labels (e.g. multilingual),
+    the synth picks one (the first iterated). The contract is "pick a
+    representative label" — round-trip eval users querying for a
+    specific language should use the source MARC, not the synth string."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    ens, comp, mop = (BNode() for _ in range(3))
+    g.add((work, BF.ensemble, ens))
+    g.add((ens, BF.mediumComponent, comp))
+    g.add((comp, BF.mediumOfPerformance, mop))
+    g.add((mop, RDFS.label, Literal("violin", lang="en")))
+    g.add((mop, RDFS.label, Literal("viulu", lang="fi")))
+
+    route_music_medium(g)
+    mm = next(g.objects(work, BFFI.musicMedium))
+    label = str(next(g.objects(mm, BFFI.readMarc382)))
+    # One of the two languages — both are acceptable representatives.
+    assert label in ("violin", "viulu")
+
+
+# --- bf:tempo / bf:dramaticRole / bf:numberOfHands / bf:usesMediumOfPerformance + classes ---
+
+
+def test_drop_music_residue_removes_predicates_and_class_typings() -> None:
+    """marc2bibframe2 doesn't emit any of these 6 PMO terms (verified by
+    grep across the XSLT). Defensive drop covers both predicates and
+    class-typing triples for all six."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    tempo_node, dr_node = BNode(), BNode()
+    g.add((work, BF.tempo, tempo_node))
+    g.add((work, BF.dramaticRole, dr_node))
+    g.add((work, BF.numberOfHands, Literal("4")))
+    g.add((work, BF.usesMediumOfPerformance, BNode()))
+    g.add((tempo_node, RDF.type, BF.Tempo))
+    g.add((dr_node, RDF.type, BF.DramaticRole))
+
+    dropped = drop_music_residue(g)
+    # 4 predicates + 2 class-typings = 6
+    assert dropped == 6
+    assert not list(g.triples((work, BF.tempo, None)))
+    assert not list(g.triples((work, BF.dramaticRole, None)))
+    assert not list(g.triples((work, BF.numberOfHands, None)))
+    assert not list(g.triples((work, BF.usesMediumOfPerformance, None)))
+    assert (tempo_node, RDF.type, BF.Tempo) not in g
+    assert (dr_node, RDF.type, BF.DramaticRole) not in g
+
+
+def test_drop_music_residue_no_op_when_absent() -> None:
+    """Empty graph: zero drops (corpus-prevalent case)."""
+    assert drop_music_residue(Graph()) == 0

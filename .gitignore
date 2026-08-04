@@ -1,0 +1,48 @@
+# Generated / runtime data (configurable via BFFI_*_DIR env vars).
+# Anchor with a leading slash so test fixtures under tests/data/ are tracked.
+/marcxml/
+/scratchpad/
+# P-32: canonical runs root (BFFI_RUNS_ROOT, default <repo>/runs/).
+/runs/
+# Runtime logs (exporter, pipeline drivers) — operator-side artifacts.
+/logs/
+# Eval JSON summaries (BFFI_EVAL_DIR, default <repo>/eval-runs/).
+# bffi-pipeline eval writes one ``<run-label>.json`` per invocation.
+/eval-runs/
+# Shared Finto authority-vocab cache (BFFI_FINTO_DUMP_DIR,
+# default <repo>/finto-dumps/). ~850 MB of SKOS Turtle dumps;
+# regeneratable via `bffi-pipeline load-finto` but slow + depends
+# on Finto availability.
+/finto-dumps/
+
+# Local environment. Live .env and any operator-side rollback / swap
+# copies (e.g. .env.ollama-baseline, .env.mlx-lm) stay local — they
+# carry secrets like DB_PASSWORD. .env.example is the tracked
+# template.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# uv / virtualenv
+.venv/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+.claude/
+.pi-container/exports
+.pi-container/agent/sessions

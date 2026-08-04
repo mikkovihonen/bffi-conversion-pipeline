@@ -1,0 +1,1492 @@
+"""P-56 Phase 4: per-instance discriminator routings.
+
+The clean-rename pass in :mod:`bffi_pipeline.stages.bibframe_to_bffi.mappings`
+handles every ``bf:*`` term with a direct ``owl:equivalentClass`` /
+``owl:equivalentProperty`` to ``bffi:*``. Phase 4 covers the residue:
+classes and predicates that don't have a single direct counterpart but
+*do* have a canonical routing in `docs/bf_to_bffi_mapping.md`.
+
+Six routings ship in this module, in the order documented in the
+mapping doc:
+
+1. **Identifier-scheme** — ``bf:Isbn`` / ``bf:Issn`` / ``bf:Ean`` /
+   ``bf:AudioIssueNumber`` / ``bf:Lccn`` / ``bf:IssnL`` / ``bf:OtherIdentifier``
+   → ``bffi:Identifier`` + ``bffi:source <loc-scheme-URI>``.
+2. **Title-variant** — ``bf:VariantTitle`` / ``bf:ParallelTitle`` /
+   ``bf:KeyTitle`` / ``bf:CollectiveTitle`` → ``bffi:Title``. The
+   ``bffi:marcKey`` discriminator survives the generic ``rename_graph``
+   pass (which renames ``bflc:marcKey`` to ``bffi:marcKey`` via the
+   ``owl:equivalentProperty`` extracted from ``lkd.rdf``).
+3. **Series-link** — ``bf:hasSeries`` → ``bffi:relation`` ⇒ structured
+   ``bffi:Relation`` bnode with ``bffi:relationship
+   <vocabulary/relationship/series>`` + ``bffi:associatedResource``.
+4. **Hub** — ``bf:Hub`` → ``bffi:Work`` or ``bffi:Expression`` (or a leaf
+   subclass) based on the ``bflc:marcKey`` content.
+5. **Axis-default class** — ``bf:Monograph`` / ``bf:Series`` /
+   ``bf:Serial`` / ``bf:MusicAudio`` / ``bf:MovingImage`` /
+   ``bf:Cartography`` / ``bf:NonMusicAudio`` / ``bf:Audio`` →
+   per-subject pick between the Work-axis and Expression-axis BFFI
+   variants (discriminated by the subject's co-typed ``rdf:type``
+   assertions; see :data:`_WORK_AXIS_SIGNALS`).
+6. **Axis-default predicate** — ``bf:instanceOf`` / ``bf:hasInstance``
+   / ``bf:issuance`` → BFFI defaults per :data:`AXIS_DEFAULT_PREDICATES`.
+
+Each routing is a single graph-mutation function returning the number
+of patterns it rewrote (or a per-discriminator counter dict for the
+two routings that split — axis-default class and
+provision-activity-statement). :func:`apply_all_routings` runs them in
+order and returns the merged counter dict for the observability
+``end`` event.
+
+Out of scope for v0 — flagged in the mapping doc but deferred to a
+follow-on:
+
+- Hub routing currently picks the *type* per marcKey signals but does
+  NOT also attach the optional facet predicates (``bffi:languageOfExpression``,
+  ``bffi:musicKey``, ``bffi:version``). Those are nice-to-have signal
+  promotions; the type rewrite is what unblocks closed-namespace
+  discipline.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from typing import Any, Final, TypeVar
+
+from rdflib import BNode, Graph, Literal, Namespace, URIRef
+from rdflib.namespace import RDF, RDFS
+from rdflib.term import Node
+
+from bffi_pipeline.bibframe import BibframeOntology, load_ontology
+from bffi_pipeline.rdf_utils import local_name
+
+#: BIBFRAME namespace — the input side. Routings remove triples that
+#: still carry these URIs after the clean-rename pass.
+BF: Final[Namespace] = Namespace("http://id.loc.gov/ontologies/bibframe/")
+
+#: BFFI emit namespace.
+BFFI: Final[Namespace] = Namespace("http://urn.fi/URN:NBN:fi:schema:bffi:")
+
+
+# --- routing registry (decorator-driven) --------------------------------
+
+
+@dataclass(frozen=True)
+class RoutingMeta:
+    """Metadata declared by a :func:`routing`-decorated function for the
+    auto-table generator. Each routing function in this module
+    declares the set of ``bf:*`` terms it handles and how the
+    auto-table should render those rows. The generator walks
+    :data:`ROUTING_REGISTRY` at table-generation time — no parallel
+    registry to keep in sync.
+
+    ``terms`` and ``replacement`` each accept a static or dynamic form:
+
+      - ``terms`` may be a static tuple, OR a zero-argument callable
+        that yields URIRefs at resolution time (used by
+        :func:`route_identifier_schemes` to walk the BIBFRAME
+        ontology's ``bf:Identifier`` descendants on demand).
+      - ``replacement`` may be a static string (every term renders the
+        same description) OR a per-term callable taking a URIRef and
+        returning the row's replacement-column text (used by
+        :func:`route_axis_default_classes` and similar routings whose
+        replacement text varies per term).
+    """
+
+    handler: str
+    terms: tuple[URIRef, ...] | Callable[[], Iterable[URIRef]]
+    replacement: str | Callable[[URIRef], str]
+    link_kind: str | Callable[[URIRef], str]
+    is_drop: bool = False
+
+    def resolve_terms(self) -> tuple[URIRef, ...]:
+        """Materialise dynamic-term callables to a static tuple."""
+        if callable(self.terms):
+            return tuple(self.terms())
+        return self.terms
+
+    def replacement_for(self, term: URIRef) -> str:
+        """Resolve the replacement string for a specific term."""
+        if callable(self.replacement):
+            return self.replacement(term)
+        return self.replacement
+
+    def link_kind_for(self, term: URIRef) -> str:
+        """Resolve the link-kind string for a specific term."""
+        if callable(self.link_kind):
+            return self.link_kind(term)
+        return self.link_kind
+
+
+#: Single source of truth for auto-table row data. Each decorated
+#: routing function appends its :class:`RoutingMeta` at import time.
+ROUTING_REGISTRY: list[RoutingMeta] = []
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def routing(
+    *,
+    terms: Iterable[URIRef] | Callable[[], Iterable[URIRef]],
+    replacement: str | Callable[[URIRef], str],
+    link_kind: str | Callable[[URIRef], str],
+    is_drop: bool = False,
+) -> Callable[[F], F]:
+    """Attach :class:`RoutingMeta` to a routing function and register it.
+
+    Adding a new routing now requires editing one place: this decorator
+    on the routing function in this module. The auto-table generator
+    discovers the entry via :data:`ROUTING_REGISTRY`; no parallel
+    registry lives elsewhere.
+    """
+
+    def decorator(func: F) -> F:
+        materialised: tuple[URIRef, ...] | Callable[[], Iterable[URIRef]]
+        materialised = terms if callable(terms) else tuple(terms)
+        meta = RoutingMeta(
+            handler=func.__name__,
+            terms=materialised,
+            replacement=replacement,
+            link_kind=link_kind,
+            is_drop=is_drop,
+        )
+        func._routing_meta = meta  # type: ignore[attr-defined]
+        ROUTING_REGISTRY.append(meta)
+        return func
+
+    return decorator
+
+
+#: LoC identifier-scheme vocabulary stem. Every BIBFRAME ``bf:Identifier``
+#: subclass routes to ``<stem><scheme-token>`` on ``bffi:source``.
+_LOC_IDENTIFIER_SCHEME_STEM: Final[str] = "http://id.loc.gov/vocabulary/identifiers/"
+
+#: BIBFRAME class local names whose LoC vocabulary token doesn't match the
+#: default CamelCase → kebab-case convention. Two cases:
+#:
+#: - ``OtherIdentifier`` collapses to just ``other`` (drops the redundant
+#:   "Identifier" suffix; LoC's vocab uses the bare adjective).
+#: - ``VideoRecordingNumber`` fuses ``video`` + ``recording`` into one
+#:   token; LoC's vocab is ``videorecording-number``, not
+#:   ``video-recording-number``.
+#:
+#: Everything else (``Isbn`` → ``isbn``, ``IssnL`` → ``issn-l``,
+#: ``AudioIssueNumber`` → ``audio-issue-number``, ``MusicPlate`` →
+#: ``music-plate``, the 36 less-common subclasses…) follows the
+#: convention deterministically.
+_IDENTIFIER_SCHEME_TOKEN_OVERRIDES: Final[dict[str, str]] = {
+    "OtherIdentifier": "other",
+    "VideoRecordingNumber": "videorecording-number",
+}
+
+_CAMEL_TO_KEBAB: Final[re.Pattern[str]] = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _identifier_scheme_token(local_name: str) -> str:
+    """LoC vocabulary token for the given BIBFRAME class local name.
+
+    Applies the documented override map first, falls back to the
+    CamelCase → kebab-case convention (insert hyphen between lowercase
+    or digit followed by uppercase; then lowercase everything).
+    """
+    if local_name in _IDENTIFIER_SCHEME_TOKEN_OVERRIDES:
+        return _IDENTIFIER_SCHEME_TOKEN_OVERRIDES[local_name]
+    return _CAMEL_TO_KEBAB.sub("-", local_name).lower()
+
+
+def loc_scheme_uri(bf_class: URIRef) -> URIRef:
+    """Public helper: the canonical LoC scheme URI for a BIBFRAME identifier class.
+
+    ``bf:Isbn`` → ``<…/identifiers/isbn>``,
+    ``bf:OclcNumber`` → ``<…/identifiers/oclc-number>``,
+    ``bf:OtherIdentifier`` → ``<…/identifiers/other>``, etc.
+    """
+    local_name = str(bf_class).rsplit("/", 1)[-1]
+    return URIRef(_LOC_IDENTIFIER_SCHEME_STEM + _identifier_scheme_token(local_name))
+
+
+#: Predicate-side gaps with no direct ``bffi:*`` equivalent in `lkd.rdf`
+#: but a natural routing through the structured ``bffi:relation`` chain
+#: (same shape as Series-link). Each maps the BIBFRAME predicate to a
+#: LoC ``vocabulary/relationship/<term>`` URI that the Relation bnode
+#: carries on its ``bffi:relationship`` slot.
+RELATION_PREDICATE_ROUTINGS: Final[dict[URIRef, URIRef]] = {
+    BF.hasSeries: URIRef("http://id.loc.gov/vocabulary/relationship/series"),
+    BF.accompaniedBy: URIRef("http://id.loc.gov/vocabulary/relationship/accompaniedby"),
+    BF.review: URIRef("http://id.loc.gov/vocabulary/relationship/review"),
+}
+
+#: Inverse predicates whose forward-direction equivalent exists in BFFI.
+#: ``?subject bf:Xof ?object`` rewrites as ``?object bffi:X ?subject``
+#: (swap subject and object, rename the predicate to the forward form).
+#: All five forward predicates have ``owl:equivalentProperty`` links to
+#: their ``bf:*`` counterparts in lkd.rdf, so the swap lands on a
+#: canonical forward triple.
+INVERSE_PREDICATE_ROUTINGS: Final[dict[URIRef, URIRef]] = {
+    BF.agentOf: BFFI.agent,
+    BF.contributionOf: BFFI.contribution,
+    BF.materialOf: BFFI.material,
+    BF.appliedMaterialOf: BFFI.appliedMaterial,
+    BF.baseMaterialOf: BFFI.baseMaterial,
+}
+
+#: P-56 Phase 3 axis-pick: BIBFRAME classes that BFFI splits into
+#: Work-axis and Expression-axis variants. Each entry maps a ``bf:*``
+#: class to a ``(work_axis_pick, expression_axis_pick)`` tuple.
+#:
+#: :func:`route_axis_default_classes` picks per subject: if the subject
+#: carries any of :data:`_WORK_AXIS_SIGNALS` as another ``rdf:type``
+#: (i.e. it's the Work URI marc2bibframe2 emitted), it routes to the
+#: Work-axis variant; otherwise to the Expression-axis variant. The
+#: Helmet corpus pattern is marc2bibframe2 emitting the same axis-split
+#: class on BOTH the Work URI (co-typed ``bf:Work``) and the Instance
+#: URI (typed ``bf:Instance`` only), so this discriminator catches the
+#: Work side cleanly while the Instance side defaults to Expression
+#: (the existing behaviour for Helmet's "one localised Expression
+#: per record" pattern).
+#:
+#: ``bf:MusicAudio`` has asymmetric naming in lkd.rdf: the Work-axis
+#: pick is ``bffi:MusicWork`` (no ``MusicAudioWork`` class exists);
+#: only the Expression-axis pick keeps the ``MusicAudio`` prefix.
+#:
+#: ``bf:Audio`` shares NonMusicAudio's targets — marc2bibframe2 emits
+#: ``bf:Audio`` only for non-music audio (music gets the more specific
+#: ``bf:MusicAudio`` directly), so both route to the same BFFI pair.
+AXIS_DEFAULT_CLASSES: Final[dict[URIRef, tuple[URIRef, URIRef]]] = {
+    BF.Monograph: (BFFI.MonographWork, BFFI.MonographExpression),
+    BF.Series: (BFFI.SeriesWork, BFFI.SeriesExpression),
+    BF.Serial: (BFFI.SerialWork, BFFI.SerialExpression),
+    BF.MusicAudio: (BFFI.MusicWork, BFFI.MusicAudioExpression),
+    BF.MovingImage: (BFFI.MovingImageWork, BFFI.MovingImageExpression),
+    BF.Cartography: (BFFI.CartographyWork, BFFI.CartographyExpression),
+    BF.NonMusicAudio: (BFFI.NonMusicAudioWork, BFFI.NonMusicAudioExpression),
+    BF.Audio: (BFFI.NonMusicAudioWork, BFFI.NonMusicAudioExpression),
+    # bf:Review has no rdfs:subClassOf in BIBFRAME — it's a top-level
+    # class. Anchor at bffi:BibframeWork (a review IS a Work per
+    # BIBFRAME's definition). Both axis slots collapse since there's
+    # no axis distinction at the anchor level.
+    BF.Review: (BFFI.BibframeWork, BFFI.BibframeWork),
+}
+
+#: ``rdf:type`` assertions that signal a subject is the Work-axis side.
+#: The set covers both clean-rename outcomes (``bffi:BibframeWork`` ←
+#: ``bf:Work``) and Hub-routing outcomes (``bffi:Work`` /
+#: ``bffi:AggregatingWork`` / ``bffi:Arrangement``). Any subject
+#: carrying one of these as a co-type is routed to the Work-axis
+#: variant by :func:`route_axis_default_classes`.
+_WORK_AXIS_SIGNALS: Final[frozenset[URIRef]] = frozenset(
+    {
+        BFFI.BibframeWork,
+        BFFI.Work,
+        BFFI.AggregatingWork,
+        BFFI.Arrangement,
+    }
+)
+
+#: Per-statement axis discriminator: BIBFRAME predicates that BFFI
+#: splits into Work-axis and Expression-axis variants. Each entry maps
+#: a ``bf:*`` predicate to a ``(work_axis_pick, expression_axis_pick)``
+#: tuple. :func:`route_axis_default_predicates` picks per statement by
+#: inspecting the rdf:type of either the subject or the object,
+#: depending on the predicate's direction:
+#:
+#:   - ``bf:instanceOf`` (Manifestation → Work/Expression): inspect the
+#:     OBJECT's rdf:type. Object typed bffi:Expression (or descendant)
+#:     → ``bffi:expressionManifested``; otherwise → ``bffi:workManifested``.
+#:   - ``bf:hasInstance`` (Work/Expression → Manifestation): inspect the
+#:     SUBJECT's rdf:type. Subject typed bffi:Expression (or descendant)
+#:     → ``bffi:manifestationOfExpression``; otherwise →
+#:     ``bffi:manifestationOfWork``.
+#:   - ``bf:issuance`` is a flat rename — both tuple slots are
+#:     ``bffi:issuance``. The ``lkd.rdf`` peer ``bffi:extensionPlan``
+#:     is NOT an alternative for the same triple; it's a separate
+#:     concept linked to a different RDA term list
+#:     (``RDAExtensionPlan`` m5119, on the Work side) while
+#:     ``bffi:issuance`` links to ``ModeIssue`` (m4372, on the
+#:     Manifestation side). Both happen to carry
+#:     ``bffi-meta:broadMatch bf:issuance`` but they are not
+#:     interchangeable.
+AXIS_DEFAULT_PREDICATES: Final[dict[URIRef, tuple[URIRef, URIRef]]] = {
+    BF.instanceOf: (BFFI.workManifested, BFFI.expressionManifested),
+    BF.hasInstance: (BFFI.manifestationOfWork, BFFI.manifestationOfExpression),
+    BF.issuance: (BFFI.issuance, BFFI.issuance),
+}
+
+#: ``rdf:type`` assertions that signal a subject (or object) is on the
+#: Expression axis. The set covers the BFFI Expression class and its
+#: declared descendants in ``lkd.rdf`` — :func:`route_axis_default_predicates`
+#: uses this as the per-statement discriminator. Any axis-default
+#: predicate statement whose discriminator-side type intersects this
+#: set routes to the Expression-axis variant; everything else lands on
+#: the Work-axis default.
+_EXPRESSION_AXIS_SIGNALS: Final[frozenset[URIRef]] = frozenset(
+    {
+        BFFI.Expression,
+        BFFI.AggregatingExpression,
+        BFFI.MonographExpression,
+        BFFI.SeriesExpression,
+        BFFI.SerialExpression,
+        BFFI.MusicAudioExpression,
+        BFFI.MovingImageExpression,
+        BFFI.CartographyExpression,
+        BFFI.NonMusicAudioExpression,
+    }
+)
+
+#: BIBFRAME ``bf:Title`` subclasses that BFFI collapses into the
+#: ``bffi:Title`` anchor + ``bffi:marcKey`` discriminator.
+TITLE_VARIANT_CLASSES: Final[tuple[URIRef, ...]] = (
+    BF.VariantTitle,
+    BF.ParallelTitle,
+    BF.KeyTitle,
+    BF.CollectiveTitle,
+)
+
+#: Relationship URI for Series membership (LoC's relationships vocab).
+SERIES_RELATIONSHIP: Final[URIRef] = URIRef("http://id.loc.gov/vocabulary/relationship/series")
+
+
+# --- routing 1: Identifier-scheme ---------------------------------------
+
+
+def _identifier_scheme_replacement(term: URIRef) -> str:
+    token = _identifier_scheme_token(local_name(term))
+    return f"`bffi:Identifier` + `bffi:source <…/identifiers/{token}>`"
+
+
+@routing(
+    terms=lambda: load_ontology().class_descendants(BF.Identifier),
+    replacement=_identifier_scheme_replacement,
+    link_kind="discriminator: BIBFRAME subclass → LoC scheme URI",
+)
+def route_identifier_schemes(graph: Graph, ontology: BibframeOntology | None = None) -> int:
+    """``bf:Isbn`` / ``bf:Issn`` / etc. → ``bffi:Identifier`` + ``bffi:source``.
+
+    The mapping doc's Identifier-scheme routing: every BIBFRAME
+    subclass of ``bf:Identifier`` collapses into the ``bffi:Identifier``
+    anchor with the scheme encoded as a LoC-vocabulary URI on
+    ``bffi:source``. The ``rdf:value`` carrying the actual identifier
+    text is left untouched.
+
+    Subclass discovery is ontology-driven via :func:`load_ontology`,
+    so the routing automatically picks up any ``bf:Identifier``
+    descendant declared in BIBFRAME 3.0.1 (currently 52 subclasses).
+    Subclasses that BFFI's ``lkd.rdf`` already covers via
+    ``owl:equivalentClass`` (``bf:Local`` → ``bffi:Local``,
+    ``bf:ShelfMark`` → ``bffi:ShelfMark``) get rewritten by the
+    upstream clean-rename pass and are no-ops here — the
+    ``graph.subjects()`` query returns zero matches for them.
+
+    Returns the count of identifier blocks rewritten across all
+    schemes. Pass ``ontology`` explicitly in tests using a fixture
+    snippet; production callers leave it ``None`` to use the cached
+    vendored vocab.
+    """
+    if ontology is None:
+        ontology = load_ontology()
+    rewritten = 0
+    for bf_class in ontology.class_descendants(BF.Identifier):
+        scheme_uri = loc_scheme_uri(bf_class)
+        for subject in list(graph.subjects(RDF.type, bf_class)):
+            graph.remove((subject, RDF.type, bf_class))
+            graph.add((subject, RDF.type, BFFI.Identifier))
+            graph.add((subject, BFFI.source, scheme_uri))
+            rewritten += 1
+    return rewritten
+
+
+# --- routing 2: Title-variant -------------------------------------------
+
+
+@routing(
+    terms=TITLE_VARIANT_CLASSES,
+    replacement="`bffi:Title` (anchor; subclass info preserved on `bffi:marcKey`)",
+    link_kind="discriminator: marcKey",
+)
+def route_title_variants(graph: Graph) -> int:
+    """``bf:VariantTitle`` / ``bf:ParallelTitle`` / ``bf:KeyTitle`` /
+    ``bf:CollectiveTitle`` → ``bffi:Title``.
+
+    BFFI deliberately collapses the BIBFRAME Title subclass tree into
+    one class with marcKey-discriminated instances. The marcKey itself
+    is preserved by the generic ``rename_graph`` pass (which renames
+    ``bflc:marcKey`` to ``bffi:marcKey`` via the ``owl:equivalentProperty``
+    rule extracted from ``lkd.rdf``).
+    """
+    rewritten = 0
+    for bf_class in TITLE_VARIANT_CLASSES:
+        for subject in list(graph.subjects(RDF.type, bf_class)):
+            graph.remove((subject, RDF.type, bf_class))
+            graph.add((subject, RDF.type, BFFI.Title))
+            rewritten += 1
+    return rewritten
+
+
+# --- routing 4b: Work split --------------------------------------------------
+
+
+BFFI_EXPRESSION_PROPS: Final[frozenset[URIRef]] = frozenset(
+    {
+        BFFI.aggregatedBy,
+        BFFI.awards,
+        BFFI.content,
+        BFFI.expressionOf,
+        BFFI.languageOfExpression,
+        BFFI.manifestationOfExpression,
+        BFFI.mediumOfChoreographicContent,
+        BFFI.notation,
+        BFFI.representativeExpressionOf,
+        BFFI.scale,
+        BFFI.summary,
+    }
+)
+
+
+@routing(
+    terms=(BFFI.BibframeWork,),
+    replacement="`bffi:Work` (conceptual) + `bffi:Expression` (realisation)",
+    link_kind="entity split: BibframeWork → Work + Expression",
+)
+def route_work_split(graph: Graph) -> int:
+    """Split every `bffi:BibframeWork` into a conceptual `bffi:Work` and
+    a specific `bffi:Expression`.
+
+    The original subject is re-typed as `bffi:Work`. A new BNode is minted
+    as the `bffi:Expression`, linked via `bffi:expressionOf`. Properties
+    with an Expression domain are migrated to the new node.
+    """
+    rewritten = 0
+    for subject in list(graph.subjects(RDF.type, BFFI.BibframeWork)):
+        # 1. Re-type original subject to bffi:Work
+        graph.remove((subject, RDF.type, BFFI.BibframeWork))
+        graph.add((subject, RDF.type, BFFI.Work))
+
+        # 2. Mint bffi:Expression and link it
+        expr_node = BNode()
+        graph.add((expr_node, RDF.type, BFFI.Expression))
+        graph.add((expr_node, BFFI.expressionOf, subject))
+
+        # 3. Migrate expression-domain properties AND instance links
+        for _, p, o in list(graph.triples((subject, None, None))):
+            if p in BFFI_EXPRESSION_PROPS or p == BF.hasInstance:
+                graph.remove((subject, p, o))
+                graph.add((expr_node, p, o))
+
+        rewritten += 1
+    return rewritten
+
+
+def _route_predicate_via_relation(graph: Graph, bf_pred: URIRef, relationship_uri: URIRef) -> int:
+    """Rewrite ``?m <bf_pred> ?o`` to the structured ``bffi:relation`` chain.
+
+    Used by Series-link routing and any other BIBFRAME predicate that
+    BFFI exposes through the general ``bffi:Relation`` shape with a
+    LoC-namespaced ``bffi:relationship`` URI.
+    """
+    rewritten = 0
+    for s, _, o in list(graph.triples((None, bf_pred, None))):
+        graph.remove((s, bf_pred, o))
+        rel_bnode = BNode()
+        graph.add((s, BFFI.relation, rel_bnode))
+        graph.add((rel_bnode, RDF.type, BFFI.Relation))
+        graph.add((rel_bnode, BFFI.relationship, relationship_uri))
+        graph.add((rel_bnode, BFFI.associatedResource, o))
+        rewritten += 1
+    return rewritten
+
+
+@routing(
+    terms=(BF.hasSeries,),
+    replacement=(
+        "`bffi:relation` → `bffi:Relation` bnode (`bffi:relationship <…/relationship/series>`)"
+    ),
+    link_kind="structured-relation chain",
+)
+def route_series_links(graph: Graph) -> int:
+    """``?m bf:hasSeries ?s`` → structured ``bffi:relation`` chain.
+
+    The mapping doc's Series-link routing: a fresh ``bffi:Relation``
+    bnode carries ``bffi:relationship <…/relationship/series>`` +
+    ``bffi:associatedResource ?s``. ``?m bffi:relation [relation-bnode]``
+    threads it back onto the Manifestation.
+    """
+    return _route_predicate_via_relation(graph, BF.hasSeries, SERIES_RELATIONSHIP)
+
+
+def _relation_predicate_replacement(term: URIRef) -> str:
+    token = str(RELATION_PREDICATE_ROUTINGS[term]).rsplit("/", 1)[-1]
+    return f"`bffi:relation` → `bffi:Relation` bnode (`bffi:relationship <…/relationship/{token}>`)"
+
+
+@routing(
+    terms=lambda: tuple(p for p in RELATION_PREDICATE_ROUTINGS if p != BF.hasSeries),
+    replacement=_relation_predicate_replacement,
+    link_kind="structured-relation chain",
+)
+def route_relation_predicates(graph: Graph) -> int:
+    """Catch-all for predicates with no direct ``bffi:*`` equivalent but a
+    natural routing through ``bffi:relation`` (see
+    :data:`RELATION_PREDICATE_ROUTINGS`). Covers ``bf:accompaniedBy``
+    today; the table extends with future true-gap predicates.
+
+    Excludes ``bf:hasSeries`` (handled by :func:`route_series_links`
+    above so its counter stays separate in the observability summary).
+    """
+    rewritten = 0
+    for bf_pred, relationship_uri in RELATION_PREDICATE_ROUTINGS.items():
+        if bf_pred == BF.hasSeries:
+            continue
+        rewritten += _route_predicate_via_relation(graph, bf_pred, relationship_uri)
+    return rewritten
+
+
+# --- routing 5: Hub ------------------------------------------------------
+
+
+def _hub_target_type(marc_key: str) -> URIRef:  # noqa: PLR0911 — the routing table from the mapping doc is intentionally flat; collapsing branches into a lookup dict would obscure which subfield drives which target.
+    """Discriminate a ``bf:Hub`` by its ``marcKey`` content.
+
+    Implements the mapping doc's Hub routing table (first-match-wins).
+    The marcKey shape is ``<3-char-tag><ind1><ind2> $a…$l…$o…`` etc.
+    Empty / missing marcKey falls through to the safe ``bffi:Work``
+    default.
+    """
+    if not marc_key:
+        return BFFI.Work
+    tag = marc_key[:3]
+
+    # $o = arrangement; Expression-level by definition.
+    if "$o" in marc_key:
+        return BFFI.Arrangement
+    # $l language qualifier — the dominant Expression signal.
+    if "$l" in marc_key:
+        return BFFI.Expression
+    # $r key — Expression-level.
+    if "$r" in marc_key:
+        return BFFI.Expression
+    # $s version — Expression-level.
+    if "$s" in marc_key:
+        return BFFI.Expression
+    # 100/700 + $t (author-attributed uniform title): Work-level.
+    if tag in ("100", "700") and "$t" in marc_key:
+        return BFFI.Work
+    # 130/830 series uniform title: axis-pick. v0 defaults to
+    # Expression per the mapping doc's recommendation.
+    if tag in ("130", "830"):
+        return BFFI.SeriesExpression
+    # 730/740 plain transcribed title with no Expression signal.
+    if tag in ("730", "740"):
+        return BFFI.Work
+    return BFFI.Work
+
+
+@routing(
+    terms=(BF.Hub,),
+    replacement=(
+        "`bffi:Work` / `bffi:Expression` / `bffi:Arrangement` / "
+        "`bffi:SeriesExpression` (per marcKey)"
+    ),
+    link_kind="discriminator: marcKey",
+)
+def route_hubs(graph: Graph) -> int:
+    """``bf:Hub`` → ``bffi:Work`` / ``bffi:Expression`` / leaf subclass.
+
+    Per-instance choice driven by the ``bffi:marcKey`` literal already
+    attached to the Hub bnode (which started as ``bflc:marcKey`` in the
+    marc2bibframe2 output and was renamed to ``bffi:marcKey`` by the
+    generic ``rename_graph`` pass before this routing runs).
+    """
+    rewritten = 0
+    for hub in list(graph.subjects(RDF.type, BF.Hub)):
+        marc_key_lit = next(graph.objects(hub, BFFI.marcKey), None)
+        marc_key = str(marc_key_lit) if isinstance(marc_key_lit, Literal) else ""
+        target = _hub_target_type(marc_key)
+        graph.remove((hub, RDF.type, BF.Hub))
+        graph.add((hub, RDF.type, target))
+        rewritten += 1
+    return rewritten
+
+
+# --- routing 6: axis-default class rewrites -----------------------------
+
+
+def _axis_class_replacement(term: URIRef) -> str:
+    work_pick, expr_pick = AXIS_DEFAULT_CLASSES[term]
+    if work_pick == expr_pick:
+        return f"`bffi:{local_name(work_pick)}` (anchored — no axis split)"
+    return (
+        f"`bffi:{local_name(work_pick)}` (Work-axis) / "
+        f"`bffi:{local_name(expr_pick)}` (Expression-axis)"
+    )
+
+
+def _axis_class_link_kind(term: URIRef) -> str:
+    work_pick, expr_pick = AXIS_DEFAULT_CLASSES[term]
+    if work_pick == expr_pick:
+        return "anchor downgrade (no Work/Expression alternative)"
+    return "discriminator: subject's Work-axis co-type signal"
+
+
+@routing(
+    terms=tuple(AXIS_DEFAULT_CLASSES),
+    replacement=_axis_class_replacement,
+    link_kind=_axis_class_link_kind,
+)
+def route_axis_default_classes(graph: Graph) -> dict[str, int]:
+    """Per-subject axis discriminator for axis-split BIBFRAME classes.
+
+    For each ``bf:*`` class in :data:`AXIS_DEFAULT_CLASSES`, inspects
+    every typed subject and routes to:
+
+      - the **Work-axis** variant if the subject also carries any of
+        :data:`_WORK_AXIS_SIGNALS` as another ``rdf:type`` — i.e. it's
+        the Work URI marc2bibframe2 emitted (typed ``bf:Work`` →
+        renamed to ``bffi:BibframeWork``), or a Hub URI that
+        :func:`route_hubs` already routed to ``bffi:Work`` /
+        ``bffi:AggregatingWork`` / ``bffi:Arrangement``.
+      - the **Expression-axis** variant otherwise — Instance URIs
+        (which marc2bibframe2 also tags with the content-type class
+        but doesn't co-type as ``bf:Work``) plus the fallback for any
+        subject without a clear axis signal.
+
+    Returns a counter dict split by axis so the observability summary
+    can show the discriminator's effect:
+
+        {"axis_default_class_work":       <n>,
+         "axis_default_class_expression": <n>}
+    """
+    work_count = 0
+    expr_count = 0
+    for bf_class, (work_pick, expr_pick) in AXIS_DEFAULT_CLASSES.items():
+        for subject in list(graph.subjects(RDF.type, bf_class)):
+            co_types = set(graph.objects(subject, RDF.type)) - {bf_class}
+            if co_types & _WORK_AXIS_SIGNALS:
+                pick = work_pick
+                work_count += 1
+            else:
+                pick = expr_pick
+                expr_count += 1
+            graph.remove((subject, RDF.type, bf_class))
+            graph.add((subject, RDF.type, pick))
+    return {
+        "axis_default_class_work": work_count,
+        "axis_default_class_expression": expr_count,
+    }
+
+
+# --- routing 7: axis-default predicate rewrites -------------------------
+
+
+def drop_undeclared_bf_terms(graph: Graph, ontology: BibframeOntology | None = None) -> int:
+    """Drop every triple referencing a ``bf:*`` URI not declared in the
+    vendored BIBFRAME ontology.
+
+    The guard set is the union of the ontology's classes, object
+    properties, and datatype properties — i.e. every URI BIBFRAME
+    formally declares. A ``bf:*`` URI appearing in the subject,
+    predicate, or object slot of a triple that isn't in that set is an
+    upstream artifact (typically marc2bibframe2 emitting a term
+    BIBFRAME itself doesn't recognise — e.g. ``bf:Statement`` carrying
+    a flat-text publisher statement redundant with a sibling
+    structured ``bf:ProvisionActivity`` block).
+
+    The whole triple is removed when any of its three slots references
+    an undeclared ``bf:*`` URI. Returns the count of triples dropped so
+    the observability sidecar can surface the artifact rate per run.
+
+    Pass ``ontology`` explicitly in tests; production callers leave it
+    ``None`` to use :func:`load_ontology`'s cached vendored vocab.
+
+    Runs LAST in :func:`apply_all_routings` so legitimate ``bf:*`` URIs
+    that earlier routings consumed are out of the graph before this
+    check. A non-zero count after this routing means a real
+    marc2bibframe2 artifact, not a routing oversight.
+    """
+    if ontology is None:
+        ontology = load_ontology()
+    known = ontology.classes | ontology.object_properties | ontology.datatype_properties
+
+    dropped = 0
+    for s, p, o in list(graph):
+        for node in (s, p, o):
+            if isinstance(node, URIRef) and str(node).startswith(str(BF)) and node not in known:
+                graph.remove((s, p, o))
+                dropped += 1
+                break
+    return dropped
+
+
+#: marc2bibframe2 attaches ``bf:provisionActivityStatement`` to related-Instance
+#: hubs from MARC 76X-78X linking-entry fields (760 main series, 762 has
+#: subseries, 765 original language, 767 translation, 770/772 supplements,
+#: 773 host-item, 774 constituent, 775 other edition, 776 additional
+#: physical form, 777 issued with, 780 preceding entry, 785 succeeding
+#: entry, 786 data source, 787 other relationship). The Instance URI's
+#: fragment carries the MARC tag (``…#Instance780-25``), giving us a
+#: structural discriminator analogous to Hub routing's marcKey check.
+_PROVISION_STATEMENT_SUCCESSION_LINK_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"#Instance(76[0-9]|77[0-9]|78[0-9])-"
+)
+
+
+@routing(
+    terms=(BF.provisionActivityStatement,),
+    replacement="`bffi:date` (76X-78X linking-entry hubs) / `bffi:Note` (otherwise)",
+    link_kind="discriminator: URI fragment",
+)
+def route_provision_activity_statement(graph: Graph) -> dict[str, int]:
+    """``bf:provisionActivityStatement`` → ``bffi:date`` (when on a 76X-78X
+    related-Instance hub) or wrapped in a ``bffi:Note`` bnode (otherwise).
+
+    BFFI has no ``bffi:provisionActivityStatement`` equivalent in
+    `lkd.rdf`. The corpus shape on Helmet (102 occurrences in the 20 k
+    bench, all on related-Instance hubs from MARC 78X succession
+    fields) is **date ranges** — ``"1980-1981"``, ``"1909-1993"``, etc.
+    The URI-fragment discriminator confirms the succession-link
+    context; in that case we route to ``bffi:date`` as a plain string
+    literal (no EDTF datatype claim — content isn't always
+    EDTF-conformant, e.g. ``"(1990-2013), ISSN"``).
+
+    If the Instance URI doesn't match the succession-link pattern, we
+    fall back to wrapping the literal in a ``bffi:Note`` bnode
+    (``?inst bffi:note [a bffi:Note ; rdfs:label "text"]``). This is
+    the generic carrier that preserves the text without asserting a
+    semantic interpretation.
+
+    Returns counts for both targets so the operator can see the
+    discriminator split in the observability summary.
+    """
+    routed_to_date = 0
+    routed_to_note = 0
+    for s, _, o in list(graph.triples((None, BF.provisionActivityStatement, None))):
+        graph.remove((s, BF.provisionActivityStatement, o))
+        if isinstance(s, URIRef) and _PROVISION_STATEMENT_SUCCESSION_LINK_PATTERN.search(str(s)):
+            graph.add((s, BFFI.date, o))
+            routed_to_date += 1
+        else:
+            note_bnode = BNode()
+            graph.add((s, BFFI.note, note_bnode))
+            graph.add((note_bnode, RDF.type, BFFI.Note))
+            graph.add((note_bnode, RDFS.label, o))
+            routed_to_note += 1
+    return {
+        "provision_statement_to_date": routed_to_date,
+        "provision_statement_to_note": routed_to_note,
+    }
+
+
+def _expression_axis(types: set[Node]) -> bool:
+    """Helper: does ``types`` contain any Expression-axis BFFI signal?"""
+    return any(t in _EXPRESSION_AXIS_SIGNALS for t in types)
+
+
+def _axis_predicate_replacement(term: URIRef) -> str:
+    work_pick, expr_pick = AXIS_DEFAULT_PREDICATES[term]
+    if work_pick == expr_pick:
+        return f"`bffi:{local_name(work_pick)}` (flat rename)"
+    return (
+        f"`bffi:{local_name(work_pick)}` (Work-axis) / "
+        f"`bffi:{local_name(expr_pick)}` (Expression-axis)"
+    )
+
+
+def _axis_predicate_link_kind(term: URIRef) -> str:
+    work_pick, expr_pick = AXIS_DEFAULT_PREDICATES[term]
+    if work_pick == expr_pick:
+        return "flat rename (no per-statement axis alternative)"
+    return "discriminator: subject's/object's Expression-axis signal"
+
+
+@routing(
+    terms=tuple(AXIS_DEFAULT_PREDICATES),
+    replacement=_axis_predicate_replacement,
+    link_kind=_axis_predicate_link_kind,
+)
+def route_axis_default_predicates(graph: Graph) -> dict[str, int]:
+    """Per-statement axis discriminator for the broadMatch predicates
+    ``bf:instanceOf`` / ``bf:hasInstance`` / ``bf:issuance``.
+
+    Each statement is routed individually based on the rdf:type
+    assertions on the discriminator-side node — see
+    :data:`AXIS_DEFAULT_PREDICATES`. The signal direction differs per
+    predicate:
+
+      - ``bf:instanceOf`` (Manifestation → Work/Expression): the
+        OBJECT carries the axis signal.
+      - ``bf:hasInstance`` (Work/Expression → Manifestation): the
+        SUBJECT carries the axis signal.
+      - ``bf:issuance``: flat rename to ``bffi:issuance``. The
+        ``lkd.rdf`` peer ``bffi:extensionPlan`` reads as an
+        "alternative" only on first glance — it's actually a
+        separate concept, linked to RDA's ``RDAExtensionPlan`` term
+        list (m5119: "Will not be extended" / "Has no plan to be
+        extended" / …) on the Work side, while ``bffi:issuance``
+        links to RDA's ``ModeIssue`` (m4372: serial / monograph /
+        integrating resource / multipart). Both happen to carry
+        ``bffi-meta:broadMatch bf:issuance`` but they are not
+        interchangeable on a single triple. The object URI of a
+        ``bf:issuance`` statement (``<…/issuance/{serl,mono,intg,mulu}>``)
+        is a meaningful signal — but it discriminates between codes
+        *inside* the ``ModeIssue`` vocabulary, all of which map
+        cleanly to ``bffi:issuance``.
+
+    Returns a counter dict split per predicate-and-axis so the
+    observability summary surfaces the discriminator's per-direction
+    effect.
+    """
+    counters = {
+        "instance_of_work": 0,
+        "instance_of_expression": 0,
+        "has_instance_of_work": 0,
+        "has_instance_of_expression": 0,
+        "issuance": 0,
+    }
+
+    # bf:instanceOf — discriminate by object's type.
+    work_pred, expr_pred = AXIS_DEFAULT_PREDICATES[BF.instanceOf]
+    for s, _, o in list(graph.triples((None, BF.instanceOf, None))):
+        graph.remove((s, BF.instanceOf, o))
+        object_types = set(graph.objects(o, RDF.type))
+        if _expression_axis(object_types):
+            graph.add((s, expr_pred, o))
+            counters["instance_of_expression"] += 1
+        else:
+            graph.add((s, work_pred, o))
+            counters["instance_of_work"] += 1
+
+    # bf:hasInstance — discriminate by subject's type.
+    work_pred, expr_pred = AXIS_DEFAULT_PREDICATES[BF.hasInstance]
+    for s, _, o in list(graph.triples((None, BF.hasInstance, None))):
+        graph.remove((s, BF.hasInstance, o))
+        subject_types = set(graph.objects(s, RDF.type))
+        if _expression_axis(subject_types):
+            graph.add((s, expr_pred, o))
+            counters["has_instance_of_expression"] += 1
+        else:
+            graph.add((s, work_pred, o))
+            counters["has_instance_of_work"] += 1
+
+    # bf:issuance — flat rename (both tuple slots equal bffi:issuance).
+    flat_pred, _ = AXIS_DEFAULT_PREDICATES[BF.issuance]
+    for s, _, o in list(graph.triples((None, BF.issuance, None))):
+        graph.remove((s, BF.issuance, o))
+        graph.add((s, flat_pred, o))
+        counters["issuance"] += 1
+
+    return counters
+
+
+# --- inverse-predicate triple-swap --------------------------------------
+
+
+@routing(
+    terms=lambda: tuple(INVERSE_PREDICATE_ROUTINGS),
+    replacement=lambda t: (
+        f"`bffi:{local_name(INVERSE_PREDICATE_ROUTINGS[t])}` (triple-swap: ?s → ?o)"
+    ),
+    link_kind="inverse-direction swap",
+)
+def route_inverse_predicates(graph: Graph) -> int:
+    """Rewrite each ``?s bf:Xof ?o`` triple as ``?o bffi:X ?s``.
+
+    Five BIBFRAME inverse predicates (``bf:agentOf``, ``bf:contributionOf``,
+    ``bf:materialOf``, ``bf:appliedMaterialOf``, ``bf:baseMaterialOf``)
+    have direct forward-direction equivalents in BFFI
+    (``bffi:agent``, ``bffi:contribution``, …, each ``owl:equivalentProperty``
+    to its ``bf:*`` counterpart in lkd.rdf). The clean-rename pass
+    doesn't touch them because ``bf:Xof`` and ``bf:X`` are separate
+    predicates — but the swap-and-rename produces the canonical
+    forward-direction triple BFFI already supports.
+
+    Returns the count of inverse triples rewritten across all five
+    predicates.
+    """
+    rewritten = 0
+    for bf_pred, bffi_forward in INVERSE_PREDICATE_ROUTINGS.items():
+        for s, _, o in list(graph.triples((None, bf_pred, None))):
+            graph.remove((s, bf_pred, o))
+            graph.add((o, bffi_forward, s))
+            rewritten += 1
+    return rewritten
+
+
+# --- note-shape routings ------------------------------------------------
+
+
+@routing(
+    terms=(BF.noteFor,),
+    replacement="`bffi:note` (triple-swap: ?note bf:noteFor ?subj → ?subj bffi:note ?note)",
+    link_kind="inverse-direction swap",
+)
+def route_note_for(graph: Graph) -> int:
+    """Rewrite ``?note bf:noteFor ?subject`` as ``?subject bffi:note ?note``.
+
+    ``bf:noteFor`` is the BIBFRAME inverse of ``bf:note`` (which has a
+    clean ``owl:equivalentProperty bffi:note`` rename). Swap the
+    direction and route through the forward predicate.
+    """
+    rewritten = 0
+    for s, _, o in list(graph.triples((None, BF.noteFor, None))):
+        graph.remove((s, BF.noteFor, o))
+        graph.add((o, BFFI.note, s))
+        rewritten += 1
+    return rewritten
+
+
+@routing(
+    terms=(BF.noteType,),
+    replacement=(
+        "no BFFI carrier — BFFI 1.0.0 doesn't model literal note categorisation; "
+        "candidate for a future BFFI extension via NLF"
+    ),
+    link_kind="no BFFI carrier; bounded data loss",
+    is_drop=True,
+)
+def drop_note_type(graph: Graph) -> int:
+    """Drop every ``?note bf:noteType ?type`` triple.
+
+    ``bf:noteType`` carries a Literal categorisation of a Note (e.g.
+    "Summary", "Biography", "Bibliography"). BFFI 1.0.0 deliberately
+    didn't model literal note typing — ``bffi:Note`` has zero predicates
+    declared with it as domain, and the only subclass is
+    ``bffi:TitleNote``. Reaching for a foreign vocabulary substitute
+    (``dct:type``, ``skos:notation``) would violate the "DC Terms → BFFI
+    alternatives" pattern documented in the mapping doc, which expects
+    BFFI-native carriers wherever possible.
+
+    The drop is a candidate for a future ``bffi:noteType`` extension
+    via NLF conversation. The note's text content (in ``rdfs:label`` /
+    ``bffi:note``) typically carries the categorisation implicitly
+    ("Bibliography: …", "Summary: …"), so this is bounded data loss
+    pending the ontology extension. See the "bf:noteType literal
+    categorisation — dropped, no BFFI carrier" subsection in
+    ``docs/bf_to_bffi_mapping.md`` for context.
+    """
+    dropped = 0
+    for s, _, o in list(graph.triples((None, BF.noteType, None))):
+        graph.remove((s, BF.noteType, o))
+        dropped += 1
+    return dropped
+
+
+# --- bf:variantType drop (redundant with marcKey discriminator) ---------
+
+
+@routing(
+    terms=(BF.variantType,),
+    replacement="redundant with the title-variant `bffi:marcKey` discriminator",
+    link_kind="redundant signal",
+    is_drop=True,
+)
+def drop_variant_type(graph: Graph) -> int:
+    """Drop every ``?title bf:variantType ?type`` triple.
+
+    The title-variant routing's ``bffi:marcKey`` discriminator already
+    encodes the variant type via the first-3-char MARC tag
+    (``246`` parallel title, ``740`` analytical-added title, etc.).
+    The standalone ``bf:variantType`` predicate is redundant — its
+    information is recoverable from the marcKey on the same Title
+    subject. Drop to avoid the closed-namespace residue.
+    """
+    dropped = 0
+    for s, _, o in list(graph.triples((None, BF.variantType, None))):
+        graph.remove((s, BF.variantType, o))
+        dropped += 1
+    return dropped
+
+
+#: BIBFRAME predicates declared by the ontology that the LoC marc2bibframe2
+#: XSLT does NOT emit — defensive drops for upstream-stability rather
+#: than hot-path routing decisions. Each entry is verified by grepping
+#: the marc2bibframe2 XSLT tree for zero hits.
+_SUBSERIES_PREDICATES: Final[tuple[URIRef, ...]] = (
+    BF.subseriesStatement,
+    BF.subseriesEnumeration,
+)
+
+#: BIBFRAME 3.0.1 PMO terms that marc2bibframe2 doesn't emit (bf:keyMode
+#: IS emitted — see :func:`route_music_key` — but bf:mode / bf:Mode are
+#: only-in-ontology PMO additions). If a future upstream begins emitting
+#: them, the routing should be expanded to read the mode value and
+#: append it to the bffi:musicKey literal.
+_MUSIC_MODE_PREDICATES: Final[tuple[URIRef, ...]] = (BF.mode,)
+_MUSIC_MODE_CLASSES: Final[tuple[URIRef, ...]] = (BF.Mode,)
+
+#: BIBFRAME 3.0.1 medium-of-performance PMO terms NOT emitted by the LoC
+#: marc2bibframe2 XSLT. The active MoP terms — bf:ensemble, bf:Ensemble,
+#: bf:mediumOfPerformance, bf:MediumOfPerformance, bf:mediumComponent,
+#: bf:MediumComponent, bf:mediumComponentQualifier,
+#: bf:MediumComponentQualifier, bf:MusicEnsemble, bf:MusicInstrument,
+#: bf:MusicVoice, bf:ensembleSize, bf:ensembleType, bf:instrument,
+#: bf:instrumentalType, bf:voice, bf:voiceType — are all handled by
+#: :func:`route_music_medium`. The terms below are defensive only.
+_MUSIC_RESIDUE_PREDICATES: Final[tuple[URIRef, ...]] = (
+    BF.tempo,
+    BF.dramaticRole,
+    BF.numberOfHands,
+    BF.usesMediumOfPerformance,
+)
+_MUSIC_RESIDUE_CLASSES: Final[tuple[URIRef, ...]] = (
+    BF.Tempo,
+    BF.DramaticRole,
+)
+
+
+def _music_key_replacement(term: URIRef) -> str:
+    if term == BF.keyMode:
+        return (
+            "`bffi:musicKey` literal — extracts `rdfs:label` from the `bf:KeyMode` "
+            "bnode and attaches as a flat literal on the Work; bnode subgraph "
+            "dropped"
+        )
+    return (
+        "(class typing removed implicitly when the parent `bf:keyMode` "
+        "structured bnode is collapsed to a `bffi:musicKey` literal)"
+    )
+
+
+def _music_key_link_kind(term: URIRef) -> str:
+    return "structured-bnode → literal collapse" if term == BF.keyMode else "bnode subgraph cleanup"
+
+
+@routing(
+    terms=(BF.keyMode, BF.KeyMode),
+    replacement=_music_key_replacement,
+    link_kind=_music_key_link_kind,
+)
+def route_music_key(graph: Graph) -> int:
+    """Collapse the BIBFRAME ``bf:keyMode`` structured bnode into a
+    ``bffi:musicKey`` literal on the parent Work.
+
+    marc2bibframe2 emits key/mode information as a structured bnode:
+
+    .. code-block:: turtle
+
+        <work> bf:keyMode [
+            a bf:KeyMode ;
+            rdfs:label "B♭ major"
+        ] .
+
+    BFFI's canonical shape for the same data is a flat literal:
+
+    .. code-block:: turtle
+
+        <work> bffi:musicKey "B♭ major" .
+
+    The routing extracts every ``rdfs:label`` value from the inner
+    KeyMode bnode, emits one ``bffi:musicKey`` literal per label, then
+    deletes the entire bnode subgraph (its ``rdf:type bf:KeyMode``,
+    ``rdfs:label``, and any optional ``bf:source`` triples). This
+    handles ``bf:KeyMode`` implicitly — the class disappears when its
+    bnode is removed.
+
+    Returns the count of ``bf:keyMode`` statements rewritten.
+
+    Edge cases handled:
+
+    - **No label**: if the bnode has no ``rdfs:label``, the routing
+      still removes the bnode (no ``bffi:musicKey`` is emitted). This
+      keeps the closed-namespace emit clean; the operator can spot
+      the drop via the gap between ``music_key_collapsed`` and the
+      record's source-MARC-384 count.
+    - **Multiple labels** (e.g. multilingual ``rdfs:label`` rows on
+      the bnode): each becomes its own ``bffi:musicKey`` literal,
+      preserving the language tags.
+    """
+    rewritten = 0
+    for work, _, keymode_node in list(graph.triples((None, BF.keyMode, None))):
+        for label in list(graph.objects(keymode_node, RDFS.label)):
+            graph.add((work, BFFI.musicKey, label))
+        graph.remove((work, BF.keyMode, keymode_node))
+        # Drop every triple anchored at the keymode bnode (its rdf:type,
+        # rdfs:label, optional bf:source, etc.). marc2bibframe2 mints a
+        # fresh bnode per bf:keyMode emit so no other references exist.
+        for s, p, o in list(graph.triples((keymode_node, None, None))):
+            graph.remove((s, p, o))
+        rewritten += 1
+    return rewritten
+
+
+def _first_label(graph: Graph, node: Node) -> str | None:
+    """First ``rdfs:label`` literal on ``node`` as a plain string, or None."""
+    for label in graph.objects(node, RDFS.label):
+        return str(label)
+    return None
+
+
+def _drop_bnode_subgraph(graph: Graph, root: Node) -> None:
+    """Recursively delete every triple anchored at ``root`` and its
+    descendants.
+
+    Bnode descendants are followed completely (every triple anchored at
+    them is removed). URI descendants are partially cleaned — only their
+    ``rdf:type bf:*`` and ``rdfs:label`` triples are removed, since they
+    may be shared LoC vocabulary URIs (e.g. ``<…/ensemblesize/ensemble>``
+    is marc2bibframe2's typed instance of ``bf:EnsembleSize``; the URI
+    itself is harmless but the rdf:type triple is a bf:* residue we
+    want gone). This keeps the cleanup conservative on URI references.
+    """
+    visited: set[Node] = set()
+    stack: list[Node] = [root]
+    while stack:
+        node = stack.pop()
+        if node in visited:
+            continue
+        visited.add(node)
+        # Discover children before removing anything.
+        for _, _, obj in graph.triples((node, None, None)):
+            if isinstance(obj, BNode | URIRef) and obj not in visited:
+                stack.append(obj)
+        if isinstance(node, BNode):
+            # Bnode: drop every triple anchored at it.
+            for s, p, o in list(graph.triples((node, None, None))):
+                graph.remove((s, p, o))
+        else:
+            # URIRef: drop only the bf:*-related residue (rdf:type bf:* and
+            # rdfs:label), leaving any unrelated triples intact in case
+            # the URI is shared with other parts of the graph.
+            bf_namespace = str(BF)
+            for s, p, o in list(graph.triples((node, RDF.type, None))):
+                if isinstance(o, URIRef) and str(o).startswith(bf_namespace):
+                    graph.remove((s, p, o))
+            for s, p, o in list(graph.triples((node, RDFS.label, None))):
+                graph.remove((s, p, o))
+
+
+def _synthesise_mop_string(graph: Graph, ensemble_node: Node) -> str:
+    """Synthesise a semicolon-separated MoP summary from a ``bf:Ensemble``
+    subtree. The output format is best-effort human-readable and is the
+    canonical carrier for ``bffi:readMarc382``; it is NOT byte-identical
+    to the source MARC 382 field (marc2bibframe2 doesn't preserve the
+    source field verbatim — see the L-NN limitation entry)."""
+    parts: list[str] = []
+
+    for comp in graph.objects(ensemble_node, BF.mediumComponent):
+        mop_labels = [
+            lab
+            for mop in graph.objects(comp, BF.mediumOfPerformance)
+            if (lab := _first_label(graph, mop)) is not None
+        ]
+        if not mop_labels:
+            continue
+        formatted = "/".join(mop_labels)
+        qualifier_labels = [
+            lab
+            for q in graph.objects(comp, BF.mediumComponentQualifier)
+            if (lab := _first_label(graph, q)) is not None
+        ]
+        if qualifier_labels:
+            formatted += f" ({', '.join(qualifier_labels)})"
+        for size_node in graph.objects(comp, BF.ensembleSize):
+            if (size := _first_label(graph, size_node)) is not None:
+                formatted += f", n={size}"
+                break
+        parts.append(formatted)
+
+    # Top-level ensembleSize (total performers / total ensembles).
+    for size_node in graph.objects(ensemble_node, BF.ensembleSize):
+        if (size := _first_label(graph, size_node)) is not None:
+            parts.append(f"ensemble: {size}")
+            break
+
+    # Status (e.g. "partial" from MARC 382 ind1=1).
+    for status_node in graph.objects(ensemble_node, BF.status):
+        if (status := _first_label(graph, status_node)) is not None:
+            parts.append(f"({status})")
+            break
+
+    return "; ".join(parts)
+
+
+def _emit_music_medium(graph: Graph, work: Node, literal: str | None) -> None:
+    """Emit a ``?work bffi:musicMedium [a bffi:MusicMedium; ...]`` block.
+
+    When ``literal`` is non-empty, attach it as ``bffi:readMarc382`` on
+    the new bnode. When empty / None, emit just the typed bnode (the
+    structural marker survives even when no labels were extractable).
+    """
+    mm = BNode()
+    graph.add((work, BFFI.musicMedium, mm))
+    graph.add((mm, RDF.type, BFFI.MusicMedium))
+    if literal:
+        graph.add((mm, BFFI.readMarc382, Literal(literal)))
+
+
+#: Active MoP terms that :func:`route_music_medium` handles. Each contributes
+#: a row to the auto-table with the same replacement/link-kind text.
+_MUSIC_MEDIUM_ACTIVE_TERMS: Final[tuple[URIRef, ...]] = (
+    # Predicates
+    BF.ensemble,
+    BF.mediumComponent,
+    BF.mediumOfPerformance,
+    BF.mediumComponentQualifier,
+    BF.ensembleSize,
+    BF.ensembleType,
+    BF.instrument,
+    BF.instrumentalType,
+    BF.voice,
+    BF.voiceType,
+    # Classes
+    BF.Ensemble,
+    BF.EnsembleSize,
+    BF.MediumComponent,
+    BF.MediumOfPerformance,
+    BF.MediumComponentQualifier,
+    BF.MusicEnsemble,
+    BF.MusicInstrument,
+    BF.MusicVoice,
+)
+
+
+@routing(
+    terms=_MUSIC_MEDIUM_ACTIVE_TERMS,
+    replacement=(
+        "`bffi:musicMedium` → `bffi:MusicMedium` bnode with a "
+        "synthesised `bffi:readMarc382` literal — labels from the "
+        "BIBFRAME tree collapsed into a semicolon-separated summary"
+    ),
+    link_kind="structured-tree → synth literal collapse",
+)
+def route_music_medium(graph: Graph) -> int:
+    """Collapse the BIBFRAME medium-of-performance structured tree into
+    ``bffi:musicMedium → bffi:MusicMedium`` bnodes carrying a synthesised
+    ``bffi:readMarc382`` literal on the parent Work.
+
+    Three input shapes are handled:
+
+    1. **MARC 382 nested tree** — marc2bibframe2 emits:
+
+       .. code-block:: turtle
+
+           <work> bf:ensemble [
+               a bf:Ensemble ;
+               bf:mediumComponent [
+                   bf:mediumOfPerformance [rdfs:label "violin"] ;
+                   bf:mediumComponentQualifier [rdfs:label "solo"]
+               ] ;
+               bf:mediumComponent [
+                   bf:mediumOfPerformance [rdfs:label "piano"]
+               ] ;
+               bf:ensembleSize [rdfs:label "2"]
+           ] .
+
+       The routing synthesises a semicolon-separated summary like
+       ``"violin (solo); piano; ensemble: 2"`` and attaches it as
+       ``bffi:readMarc382``.
+
+    2. **MARC 048 bare ``bf:instrument`` / ``bf:voice``** — emitted
+       outside any enclosing ``bf:ensemble``. Each becomes its own
+       ``bffi:MusicMedium`` bnode with the bare label as
+       ``bffi:readMarc382``.
+
+    3. **Stray ``bf:mediumOfPerformance`` / ``bf:mediumComponent``** —
+       defensive cleanup (shouldn't occur after the ensemble walk, but
+       handles edge cases).
+
+    All ``bf:*`` triples in the source subtree are dropped; the
+    structured PMO classes (``bf:Ensemble`` / ``bf:MediumComponent`` /
+    etc.) are removed implicitly when their bnodes are purged.
+
+    Returns the count of ``bffi:musicMedium`` blocks emitted.
+
+    **Lossiness note.** marc2bibframe2 doesn't preserve the source MARC
+    382 field verbatim (no ``bflc:marcKey`` on the ``bf:Ensemble``
+    bnode, unlike 6XX / X30 entities). The ``bffi:readMarc382``
+    literal we emit is a synthesised summary from the BIBFRAME tree's
+    labels, not the original MARC string. Round-trip to MARC 382 will
+    reconstruct from this summary — see the limitations doc.
+    """
+    rewritten = 0
+
+    # Step 1: structured MARC 382 trees.
+    for work, _, ensemble_node in list(graph.triples((None, BF.ensemble, None))):
+        literal = _synthesise_mop_string(graph, ensemble_node)
+        _emit_music_medium(graph, work, literal)
+        graph.remove((work, BF.ensemble, ensemble_node))
+        _drop_bnode_subgraph(graph, ensemble_node)
+        rewritten += 1
+
+    # Step 2: bare MARC 048 emits (bf:instrument / bf:voice) and any
+    # surviving bare bf:mediumOfPerformance. Each gets its own
+    # bffi:MusicMedium bnode with the simple label.
+    for predicate in (BF.instrument, BF.voice, BF.mediumOfPerformance):
+        for work, _, node in list(graph.triples((None, predicate, None))):
+            label = _first_label(graph, node)
+            _emit_music_medium(graph, work, label)
+            graph.remove((work, predicate, node))
+            if isinstance(node, BNode):
+                _drop_bnode_subgraph(graph, node)
+            rewritten += 1
+
+    # Step 3: defensive — strip any orphan bf:mediumComponent left over.
+    for s, _, o in list(graph.triples((None, BF.mediumComponent, None))):
+        graph.remove((s, BF.mediumComponent, o))
+        if isinstance(o, BNode):
+            _drop_bnode_subgraph(graph, o)
+
+    return rewritten
+
+
+def _music_residue_replacement(term: URIRef) -> str:
+    if term in _MUSIC_RESIDUE_PREDICATES:
+        return (
+            "not emitted by the LoC marc2bibframe2 XSLT — defensive drop "
+            "(forward path: append the value to the `bffi:readMarc382` "
+            "synth string if upstream begins emitting)"
+        )
+    return "not emitted by the LoC marc2bibframe2 XSLT — defensive drop"
+
+
+@routing(
+    terms=_MUSIC_RESIDUE_PREDICATES + _MUSIC_RESIDUE_CLASSES,
+    replacement=_music_residue_replacement,
+    link_kind="defensive (upstream-stability)",
+    is_drop=True,
+)
+def drop_music_residue(graph: Graph) -> int:
+    """Drop the BIBFRAME 3.0.1 PMO medium-of-performance terms the LoC
+    marc2bibframe2 XSLT never emits: ``bf:tempo``, ``bf:dramaticRole``,
+    ``bf:numberOfHands``, ``bf:usesMediumOfPerformance`` (predicates);
+    ``bf:Tempo``, ``bf:DramaticRole`` (classes). Defensive parallel to
+    :func:`drop_music_mode_residue` and :func:`drop_subseries_residue`.
+
+    If upstream changes, these should be expanded into the
+    :func:`route_music_medium` synthesis (append tempo / dramatic-role
+    / number-of-hands annotations to the MoP summary string)."""
+    dropped = 0
+    for predicate in _MUSIC_RESIDUE_PREDICATES:
+        for s, _, o in list(graph.triples((None, predicate, None))):
+            graph.remove((s, predicate, o))
+            dropped += 1
+    for cls in _MUSIC_RESIDUE_CLASSES:
+        for s in list(graph.subjects(RDF.type, cls)):
+            graph.remove((s, RDF.type, cls))
+            dropped += 1
+    return dropped
+
+
+def _music_mode_replacement(term: URIRef) -> str:
+    if term in _MUSIC_MODE_PREDICATES:
+        return (
+            "not emitted by the LoC marc2bibframe2 XSLT — defensive drop "
+            "(forward path: append mode value to the `bffi:musicKey` literal "
+            "if upstream begins emitting)"
+        )
+    return "not emitted by the LoC marc2bibframe2 XSLT — defensive drop"
+
+
+@routing(
+    terms=_MUSIC_MODE_PREDICATES + _MUSIC_MODE_CLASSES,
+    replacement=_music_mode_replacement,
+    link_kind="defensive (upstream-stability)",
+    is_drop=True,
+)
+def drop_music_mode_residue(graph: Graph) -> int:
+    """Drop ``bf:mode`` / ``bf:Mode`` triples — never emitted by the LoC
+    marc2bibframe2 XSLT.
+
+    BIBFRAME 3.0.1 declares both as part of the PMO absorption (Dec 2025),
+    but the LoC XSLT doesn't produce them. Defensive drop parallel to
+    :func:`drop_subseries_residue`. If upstream changes, the routing
+    should be expanded — the natural strategy is to append the mode
+    value to the ``bffi:musicKey`` literal that :func:`route_music_key`
+    already emits (e.g. combining ``key="B♭"`` and ``mode="minor"`` into
+    ``"B♭ minor"``).
+    """
+    dropped = 0
+    for predicate in _MUSIC_MODE_PREDICATES:
+        for s, _, o in list(graph.triples((None, predicate, None))):
+            graph.remove((s, predicate, o))
+            dropped += 1
+    for cls in _MUSIC_MODE_CLASSES:
+        for s in list(graph.subjects(RDF.type, cls)):
+            graph.remove((s, RDF.type, cls))
+            dropped += 1
+    return dropped
+
+
+@routing(
+    terms=_SUBSERIES_PREDICATES,
+    replacement=(
+        "not emitted by the LoC marc2bibframe2 XSLT — defensive drop "
+        "(see forward-looking note below the Predicates table)"
+    ),
+    link_kind="defensive (upstream-stability)",
+    is_drop=True,
+)
+def drop_subseries_residue(graph: Graph) -> int:
+    """Drop every ``bf:subseriesStatement`` / ``bf:subseriesEnumeration`` triple.
+
+    Defensive routing for terms BIBFRAME 3.0.1 declares but our actual
+    upstream (the LoC marc2bibframe2 XSLT) never emits — subseries
+    information in MARC 490 / 8XX gets folded into ordinary
+    ``bf:Series`` + ``bf:seriesEnumeration`` triples instead of these
+    specialised literal predicates. Zero corpus prevalence across the
+    500-file sample. Drop avoids closed-namespace residue.
+
+    If upstream ever changes — a new marc2bibframe2 version or a
+    different MARC-to-BIBFRAME converter feeding us data — the
+    routing should be replaced by one that pairs each subseries
+    literal with its parent series via the ``bflc:marcKey`` literal
+    on the Series entity (the first 3 chars of which give the source
+    MARC tag, e.g. ``490`` / ``800`` / ``810`` / ``811`` / ``830``).
+    Subseries data on a 490-marcKey-tagged Series belongs to that
+    Series; pair by matching marcKey prefixes when multiple Series
+    entities exist on one Manifestation.
+    """
+    dropped = 0
+    for predicate in _SUBSERIES_PREDICATES:
+        for s, _, o in list(graph.triples((None, predicate, None))):
+            graph.remove((s, predicate, o))
+            dropped += 1
+    return dropped
+
+
+# --- top-level entry point ----------------------------------------------
+
+
+def apply_all_routings(graph: Graph) -> dict[str, int]:
+    """Apply every Phase 4 routing in dependency order.
+
+    Prerequisite: the generic ``rename_graph`` pass must have run before
+    this — that's what renames ``bflc:marcKey`` to ``bffi:marcKey`` (and
+    every other ``owl:equivalentProperty``-aliased term), which the Hub
+    discriminator below reads. Identifier / Title / Audio / Series-link
+    are independent and can run in any order.
+
+    Returns a per-routing counter dict suitable for inclusion in the
+    observability ``end`` event.
+    """
+    counters: dict[str, int] = {
+        "identifier_scheme": route_identifier_schemes(graph),
+        "title_variant": route_title_variants(graph),
+        "series_link": route_series_links(graph),
+        "relation_predicate": route_relation_predicates(graph),
+        "work_split": route_work_split(graph),
+        "hub": route_hubs(graph),
+        "inverse_predicate": route_inverse_predicates(graph),
+        "note_for": route_note_for(graph),
+        "note_type_dropped": drop_note_type(graph),
+        "variant_type_dropped": drop_variant_type(graph),
+        "subseries_dropped": drop_subseries_residue(graph),
+        "music_key_collapsed": route_music_key(graph),
+        "music_mode_dropped": drop_music_mode_residue(graph),
+        "music_medium_collapsed": route_music_medium(graph),
+        "music_medium_residue_dropped": drop_music_residue(graph),
+    }
+    # The remaining three routings each split their counters into
+    # per-discriminator buckets so the observability summary surfaces
+    # the pick distribution per axis / direction.
+    counters.update(route_axis_default_predicates(graph))
+    counters.update(route_axis_default_classes(graph))
+    counters.update(route_provision_activity_statement(graph))
+    # Runs LAST. By the time we get here, every legitimate bf:* URI
+    # has either been renamed (clean-rename pass) or routed
+    # (Phase 4 / axis defaults / provision-statement). What survives
+    # is either undeclared in BIBFRAME (artifact — drop) or declared
+    # but unrouted (residue — leave for observability to surface).
+    counters["dropped_undeclared_bf"] = drop_undeclared_bf_terms(graph)
+    return counters

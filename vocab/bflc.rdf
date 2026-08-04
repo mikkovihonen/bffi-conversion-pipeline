@@ -1,0 +1,2177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xml:base="http://id.loc.gov/ontologies/bflc/" xmlns:bf="http://id.loc.gov/ontologies/bibframe/" xmlns:bf-abstract="http://bibframe.org/model-abstract/" xmlns:bflc="http://id.loc.gov/ontologies/bflc/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:marc-fields="http://bibframe.org/marc/" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rda-fields="http://bibframe.org/rda/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:skos="http://www.w3.org/2004/02/skos/core#">
+ <owl:Ontology rdf:about="http://id.loc.gov/ontologies/bflc/">
+  <owl:versionInfo rdf:datatype="http://www.w3.org/2001/XMLSchema#string" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3.0.0
+  </owl:versionInfo>
+  <owl:ontologyIRI rdf:resource="http://id.loc.gov/ontologies/bflc/" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <owl:versionIRI rdf:resource="http://id.loc.gov/ontologies/bflc-3-0-0/" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <owl:priorVersion rdf:resource="http://id.loc.gov/ontologies/bflc-2-6-0/" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   BIBFRAME vocabulary with LC extensions
+  </rdfs:label>
+  <dcterms:issued rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-12-01T12:00:00.000-05:00
+  </dcterms:issued>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-12-01T18:53:12.795449603-05:00
+  </dcterms:modified>
+  <dcterms:creator rdfs:resource="http://id.loc.gov/vocabulary/organizations/dlc" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <dcterms:publisher rdfs:resource="http://id.loc.gov/vocabulary/organizations/dlcmrc" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <dcterms:rights rdf:resource="https://creativecommons.org/publicdomain/zero/1.0/" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <cc:license rdf:resource="https://creativecommons.org/publicdomain/zero/1.0/" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <owl:imports rdf:resource="http://id.loc.gov/vocabulary/relators"/>
+  <owl:imports rdf:resource="http://id.loc.gov/ontologies/bibframe"/>
+ </owl:Ontology>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/PrimaryContribution">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Primary contribution
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/Contribution"/>
+  <skos:definition>
+   Contribution for which the agent is the name chosen as the name part of the name and title access point.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Added to BF [GH104])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Deprecated [GH21])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/Relationship">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Relationship
+  </rdfs:label>
+  <skos:definition>
+   Resource and its connection to another resource.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   1
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH22])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/TransliteratedTitle">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Transliterated title
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/VariantTitle"/>
+  <skos:definition>
+   Title transliterated from one script to another.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   13c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   8
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Added to BF [GH94])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Deprecated [GH21])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/DemographicGroup">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Demographic group
+  </rdfs:label>
+  <skos:definition>
+   Characteristics of a group of agents.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   385, 386
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   18c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   9
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/CreatorCharacteristic">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Creator characteristic
+  </rdfs:label>
+  <skos:definition>
+   Category to which the creators of the resource belong.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   385, 386
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   18e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   10
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesTreatment">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series treatment
+  </rdfs:label>
+  <skos:definition>
+   Technical specification relating to the encoding of series data in a resource
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   640-646 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19a
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesSequentialDesignation">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series sequential designation
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   Beginning/ending date(s) of publication and/or sequential designations used in the bf:title field for a work. May also include a citation for the source of information.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   640 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   12
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesNumberingPeculiarities">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series numbering peculiarities
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   Listing of irregularities in the report year coverage and/or numbering used in the bf:title field for a work. May also include a citation for the source of information.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   641 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   13
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesNumbering">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series numbering
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   Sequential designation or numbering used in the bf:title field for a work.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   642 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   14
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesProvider">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series provider
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   Place of publication and the name of the publisher/issuing body used in the bf:title field for a work.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   643 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   15
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesAnalysis">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series analysis
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   A specific organization's analysis practice for a series named in the bf:title field for a work. May also contain the volumes/dates and/or the institution/copy identification to which the practice applies.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   644 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   16
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesTracing">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series tracing
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   A specific organization's tracing practice for a series named in the bf:title field for a work. May also contain the volumes/dates and/or the institution/copy identification to which the practice applies.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   645 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19m
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   17
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SeriesClassification">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series classification
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   A specific organization's classification practice for a series named in the bf:title field for a work. May also contain the volumes/dates and/or the institution/copy identification to which the practice applies.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   646 (auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19o
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   18
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/MovingImageTechnique">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Moving Image Technique
+  </rdfs:label>
+  <skos:definition>
+   Specifies the technique used in creating motion in motion pictures or videorecordings.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/VM/34
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19q
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-02-13 (New [GH9])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/GovernmentPubType">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Government Publication Type
+  </rdfs:label>
+  <skos:definition>
+   Information recording that the resource is published or produced by or for an international, national, state, provincial, or local government agency, or by any subdivision of such a body.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/BK/28
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19s
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   20
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-03-09 (New [GH10])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SerialPubType">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Serial Publication Type
+  </rdfs:label>
+  <skos:definition>
+   Information recording the type of continuing resource.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/CR/28
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19u
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   21
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-03-18 (New [GH11])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/Relief">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Relief
+  </rdfs:label>
+  <skos:definition>
+   Relief term specified on a cartographic resource
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/18-21
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   22c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   22
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2019-05-07 (New [GH13])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Added to BF [GH104])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Deprecated [GH21])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/CaptureStorage">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Capture and Storage Technique
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/SoundCharacteristic"/>
+  <skos:definition>
+   Specifies the sound capture and storage technique used on a sound recording resource.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   007/SR/13
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   22e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   23
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2019-05-20 (New [GH16])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Added to BF [GH104])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Deprecated [GH21])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/MachineModel">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Model
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/SystemRequirement"/>
+  <skos:definition>
+   Model of the computing device on which the resource operates.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   753
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   24
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/ProgrammingLanguage">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Programming language
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/SystemRequirement"/>
+  <skos:definition>
+   Name of the programming language associated with the data comprising the resource.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   753
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26f
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   25
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/OperatingSystem">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Operating system
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/SystemRequirement"/>
+  <skos:definition>
+   Software that directly operates a system's hardware and serves as a platform for applications.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   753
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/ImageBitDepth">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Image bit depth
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/DigitalCharacteristic"/>
+  <skos:definition>
+   The number of bits used to represent each pixel in an image.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   007/ER/06-08
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26h
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   27
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/GrooveCutting">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Groove cutting
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/SoundCharacteristic"/>
+  <skos:definition>
+   Kind of cutting of the grooves used on a disc whose sound reproduction process involves a cutting head inscribing a modulated groove into the surface of a rotating cylinder or disc.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   28
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/MetadataLicensor">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Metadata licensor
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/Agent"/>
+  <skos:definition>
+   Organization that licenses the intellectual property rights to the data contained in the description.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   038
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   32c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   29
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/EncodingLevel">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Encoding level
+  </rdfs:label>
+  <skos:definition>
+   Designation of the fullness of the bibliographic description.
+  </skos:definition>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   LDR/17
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   32e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   30
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/Relation">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Relation
+  </rdfs:label>
+  <skos:definition>
+   Connection between resources.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7b
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH22])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/AppliesTo">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Applies to
+  </rdfs:label>
+  <skos:definition>
+   The component of a resource to which a characteristic applies.
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/Uncontrolled">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Uncontrolled
+  </rdfs:label>
+  <skos:definition>
+   Component of the resource that is not under authority control
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   4
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2021-11-02 (New [GH15])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/Deprecated">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Deprecated
+  </rdfs:label>
+  <skos:definition>
+   The resource has been deprecated
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   5
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (New [GH6])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:Class rdf:about="http://id.loc.gov/ontologies/bflc/SecondaryInstance">
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Secondary Instance
+  </rdfs:label>
+  <rdfs:subClassOf rdf:resource="http://id.loc.gov/ontologies/bibframe/Instance"/>
+  <skos:definition>
+   Instance created when a single MARC record is split into multiple MARC records for conversion to BIBFRAME; used to connect multiple Instance resources to a single Work
+  </skos:definition>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   6
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (New [GH19])
+  </dcterms:modified>
+ </owl:Class>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/demographicGroup">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/DemographicGroup"/>
+  <skos:definition>
+   Characteristics of a group of agents.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Demographic group
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   385, 386
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   9
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/creatorCharacteristic">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/CreatorCharacteristic"/>
+  <skos:definition>
+   Category to which the creators of the resource belong.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Creator characteristic
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   385, 386
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   10
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/alternateMediumOfPerformance">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/pmo:DeclaredMedium"/>
+  <skos:definition>
+   Alternative to the primary declared medium of performance.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Alternate declared medium
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   382 $p
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (Deprecated [GH8])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/seriesTreatment">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/SeriesTreatment"/>
+  <skos:definition>
+   Information concerning the treatment of a series in a resource
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Series treatment
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   640-646 (Auth)
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   12
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-10-12 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/movingImageTechnique">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/MovingImageTechnique"/>
+  <skos:definition>
+   Information recording the technique used in creating motion in motion pictures or videorecordings.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Moving Image Technique
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/VM/34
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   13
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-02-13 (New [GH9])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/governmentPubType">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/GovernmentPubType"/>
+  <skos:definition>
+   Information recording that the resource is published or produced by or for an international, national, state, provincial, or local government agency, or by any subdivision of such a body.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Government publication type
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/BK/28
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11m
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   14
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-03-09 (New [GH10])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/serialPubType">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/SerialPubType"/>
+  <skos:definition>
+   Information recording the type of continuing resource.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Serial publication type
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/CR/21
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11o
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   15
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2020-03-18 (New [GH11])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/readMarc382">
+  <skos:definition>
+   String representing the medium of performance information located in the 382 field of the original MARC record
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Read-only 382 field
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   382
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   11s
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   16
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2021-11-02 (New [GH12])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-12-01 (Deprecated [GH27])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/projectedProvisionDate">
+  <skos:definition>
+   Projected date of publication of the resource.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Projected publication date
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   263
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   17c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   17
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/relief">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/Relief"/>
+  <skos:definition>
+   Relief term specified on a cartographic resource
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Relief
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   008/18-21
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   18
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2019-05-07 (New [GH13])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Added to BF [GH104])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Deprecated [GH21])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/simpleAgent">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Name of publisher, distributor, manufacturer or producer as transcribed from the resource
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Agent
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26X $b
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (New [GH14])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/simpleDate">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Date of publication, distribution, manufacture or production as transcribed from the resource
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Date
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26X $c
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   20
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (New [GH14])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/simplePlace">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Location of publication, distribution, manufacture or production as transcribed from the resource
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Place
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26X $a
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   21
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (New [GH14])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/distributionStatement">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Statement related to the distribution of the resource; usually transcribed.
+  </skos:definition>
+  <rdfs:subPropertyOf rdf:resource="http://id.loc.gov/ontologies/bibframe/provisionActivityStatement"/>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Distribution statement
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   264 2
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19j
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   22
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-04 (New [GH18])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH23])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-01-24 (Deprecated [GH24])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/manufactureStatement">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Statement related to the manufacture of the resource; usually transcribed.
+  </skos:definition>
+  <rdfs:subPropertyOf rdf:resource="http://id.loc.gov/ontologies/bibframe/provisionActivityStatement"/>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Manufacture statement
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   264 3
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   23
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-04 (New [GH18])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH23])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-01-24 (Deprecated [GH24])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/productionStatement">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Statement related to the production of the resource; usually transcribed.
+  </skos:definition>
+  <rdfs:subPropertyOf rdf:resource="http://id.loc.gov/ontologies/bibframe/provisionActivityStatement"/>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Production statement
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   264 0
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19l
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   24
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-04 (New [GH18])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH23])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-01-24 (Deprecated [GH24])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/publicationStatement">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Statement related to the publication of the resource; ususally transcribed.
+  </skos:definition>
+  <rdfs:subPropertyOf rdf:resource="http://id.loc.gov/ontologies/bibframe/provisionActivityStatement"/>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Publication statement
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   264 1
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19m
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   25
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-04 (New [GH18])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH23])
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-01-24 (Deprecated [GH24])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/citation">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   A bibliographic reference to a related resource, which may include the specific location within the resource.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   missingLabel
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   510
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   19n
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   26
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2025-06-30 (New [GH25])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/indexedIn">
+  <skos:definition>
+   Citation to the resource where the material being described is indexed.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Indexed in
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   510 I1=0,1,2
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   29c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   27
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/metadataLicensor">
+  <rdfs:domain rdf:resource="http://id.loc.gov/ontologies/bflc/bf:AdminMetadata"/>
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/MetadataLicensor"/>
+  <skos:definition>
+   Organization that licenses the intellectual property rights to the data contained in the description.
+  </skos:definition>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Metadata licensor
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   038
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   28
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/encodingLevel">
+  <rdfs:domain rdf:resource="http://id.loc.gov/ontologies/bflc/bf:AdminMetadata"/>
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/EncodingLevel"/>
+  <skos:definition>
+   Designation of the fullness of the bibliographic description.
+  </skos:definition>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Encoding level
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   LDR
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   29
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/catalogerId">
+  <rdfs:domain rdf:resource="http://id.loc.gov/ontologies/bflc/bf:AdminMetadata"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   ID of the cataloger who created or edited the description.
+  </skos:definition>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Cataloger ID
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   30
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/profile">
+  <rdfs:domain rdf:resource="http://id.loc.gov/ontologies/bflc/bf:AdminMetadata"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Name of the BIBFRAME editor profile used to create or edit the description.
+  </skos:definition>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   LC Editor profile
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   31
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/procInfo">
+  <rdfs:domain rdf:resource="http://id.loc.gov/ontologies/bflc/bf:AdminMetadata"/>
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   System-supplied processing information for the BIBFRAME description (e.g. "ibc update").
+  </skos:definition>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Processing Info
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   32
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/appliesTo">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/AppliesTo"/>
+  <skos:definition>
+   The component of a resource to which a characteristic applies.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Applies to
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   $3
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3b
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   1
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/applicableInstitution">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bibframe/Agent"/>
+  <skos:definition>
+   Institutional location of a resource to which a particular piece of description applies.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Applicable institution
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   $5
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/relationship">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/Relationship"/>
+  <skos:definition>
+   Resource and its connection to another resource.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Related resource and relationship
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   6XX/$4, 7XX/$i
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3d
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH22])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/relation">
+  <rdfs:range rdf:resource="http://id.loc.gov/ontologies/bflc/Relation"/>
+  <skos:definition>
+   Connection between resources.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Specific relationship
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   6XX/$4, 7XX/$i
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   4
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2024-07-10 (Moved to BF [GH22])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:ObjectProperty rdf:about="http://id.loc.gov/ontologies/bflc/target">
+  <skos:definition>
+   End resource of a BIBFRAME structure.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Target resource
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   5
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2018-07-12 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (Deprecated [GH4])
+  </dcterms:modified>
+ </owl:ObjectProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/aap">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   A text string that represents the label of the resource. It could be a name/title combination, but could also include additional fields to make it unique within the catalog.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Authorized access point
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   6
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2021-11-02 (New [GH2])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/aap-normalized">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Normalized version of the authorized access point with spaces, capitalization, and punctuation removed.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Normalized authorized access point
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   7
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2021-11-02 (New [GH2])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/nonSortNum">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   Number of characters at the start of a label that should be skipped for indexing and sorting.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Non-sort character count
+  </rdfs:label>
+  <bf-abstract:marcField xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   130, 240, 242, 243, 245, 630, 730, 740, 830
+  </bf-abstract:marcField>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   3m
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   8
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-04 (New [GH17])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/marcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String to store MARC data
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   MARC key for headings
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40b
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   33
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   accepted
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2022-10-03 (New [GH7])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name00MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for X00 Name
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40c
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   34
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name10MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for X10 Name
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40d
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   35
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name11MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for X11 Name
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40e
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   36
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name00MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for personal name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   MARC key for X00 Names
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40f
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   37
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name10MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   MARC key for X10 Names
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40g
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   38
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/name11MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   MARC key for X11 Names
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40h
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   39
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/primaryContributorName00MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for entry name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Primary X00 Name Match key
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40i
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/primaryContributorName10MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for entry name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Primary X10 Name Match key
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40j
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   41
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/primaryContributorName11MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for entry name matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Primary X11 Name Match key
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40k
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   42
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title00MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for Title X00
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40o
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   43
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title10MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for Title X10
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40p
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   44
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated) [GH20]
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title11MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Match key for Title X11
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40q
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   45
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title30MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title30MatchKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40r
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   46
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title40MatchKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title40MatchKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40s
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   47
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title00MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title00MarcKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40t
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   48
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title10MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title10MarcKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40u
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   49
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title11MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title11MarcKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40v
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   50
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title30MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title30MarcKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40w
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   51
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/title40MarcKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for title matching.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   title40MarcKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40x
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   52
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+ <owl:DatatypeProperty rdf:about="http://id.loc.gov/ontologies/bflc/titleSortKey">
+  <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal" xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/"/>
+  <skos:definition>
+   String for sorting.
+  </skos:definition>
+  <rdfs:comment xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   Used with Work, Instance or Item
+  </rdfs:comment>
+  <rdfs:label xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   titleSortKey
+  </rdfs:label>
+  <bf-abstract:sort xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   40y
+  </bf-abstract:sort>
+  <bf-abstract:pos xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   53
+  </bf-abstract:pos>
+  <bf-abstract:status xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   bibframe deprecated
+  </bf-abstract:status>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2017-02-02 (New)
+  </dcterms:modified>
+  <dcterms:modified xmlns:cc="http://creativecommons.org/ns#" xmlns:foaf="http://xmlns.com/foaf/0.1/">
+   2023-11-30 (Deprecated [GH20])
+  </dcterms:modified>
+ </owl:DatatypeProperty>
+</rdf:RDF>

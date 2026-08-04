@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel in-progress runs when a new commit lands on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: lint + unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - name: Install Python toolchain
+        run: uv sync --frozen
+      - name: ruff check
+        run: uv run ruff check src tests
+      - name: ruff format --check
+        run: uv run ruff format --check src tests
+      - name: mypy --strict
+        run: uv run mypy --strict src
+      # The whole suite, matching `make test`. Every test is a unit test
+      # against on-disk fixtures — no Docker services, no network, no
+      # triple store. If a test ever needs one, it gets the `integration`
+      # marker and its own job here.
+      - name: pytest
+        run: uv run pytest tests -v

@@ -1,0 +1,162 @@
+# Boundary 2 — SHACL shapes for the post-XSLT BIBFRAME graph.
+#
+# Validates the marc2bibframe2 output *after* the M2 post-processor has added
+# Helmet identifiers, the MarcConversion provenance Activity, and the initial
+# AdminMetadata block. Failures emit `error_type: "bibframe-shape"` per
+# docs/BUILD_PLAN.md M2.
+#
+# Intentionally narrow: we want to catch egregious conversion errors (no Work,
+# no Instance, missing Helmet identifier, missing AdminMetadata) without
+# pre-empting downstream property-routing decisions that are M3's job.
+
+@prefix sh:        <http://www.w3.org/ns/shacl#> .
+@prefix bf:        <http://id.loc.gov/ontologies/bibframe/> .
+@prefix bffi:      <http://urn.fi/URN:NBN:fi:schema:bffi:> .
+@prefix prov:      <http://www.w3.org/ns/prov#> .
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+
+# Note: "graph contains at least one bf:Work / bf:Instance" is enforced in
+# stages.marc_to_bf._find_root_resources before the shape runs — SHACL's
+# targetClass-based shapes can't express that absence directly.
+#
+# Targeting note (vs spec § 10): aggregate records (MARC 700 ind2=2,
+# 740, 776) produce additional bf:Work / bf:Instance resources for the
+# *contained* / *related* works. Those don't carry our pipeline's
+# Helmet identifier or AdminMetadata — they're external references the
+# main Work points at via bf:associatedResource. The Helmet-id and
+# AdminMetadata shapes therefore use SPARQL targeting to filter out
+# resources that appear as the object of bf:associatedResource.
+# Blank-node Works (marc2bibframe2's internal sub-component nodes) are
+# also excluded because they're never the object of our Helmet-id or
+# AdminMetadata triples.
+
+# --- Every (main) Work and Instance must carry a Helmet bf:identifiedBy ---
+bffi:HelmetIdShape
+    a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [
+                sh:prefix "bf" ;
+                sh:namespace "http://id.loc.gov/ontologies/bibframe/"^^xsd:anyURI ;
+            ]
+        ] ;
+        sh:select """
+            SELECT ?this WHERE {
+                { ?this a bf:Work } UNION { ?this a bf:Instance }
+                FILTER(isIRI(?this))
+                FILTER NOT EXISTS { ?ref bf:associatedResource ?this }
+                FILTER NOT EXISTS {
+                    ?contained bf:hasInstance ?this .
+                    ?ref       bf:associatedResource ?contained .
+                }
+                # marc2bibframe2 also mints secondary Work / Instance
+                # IRIs attached directly to the main Work (no
+                # bf:associatedResource chain to walk) — most commonly
+                # an `#Instance856-NN` from a MARC 856 electronic-
+                # location field. Their URI shape is the marc2bibframe2
+                # convention "<base>#<Type><tag>-<idx>" where <tag> is
+                # the MARC field number and <idx> is a per-record
+                # counter; the main Work / Instance are just
+                # "<base>#Work" / "<base>#Instance" with no suffix.
+                # Exclude the suffixed form so the shape stays focused
+                # on the main resources `post_process` actually stamps
+                # with Helmet identifier + AdminMetadata.  See
+                # docs/proposals/prop-07-bibframe-856-as-item.md for the
+                # deeper semantic question this exclusion sidesteps.
+                FILTER(!REGEX(STR(?this), "#(Work|Instance)[0-9]+-[0-9]+$"))
+            }
+        """ ;
+    ] ;
+    sh:property [
+        sh:path bf:identifiedBy ;
+        sh:minCount 1 ;
+        sh:message "bf:Work / bf:Instance lacks bf:identifiedBy." ;
+        sh:qualifiedValueShape [
+            sh:property [
+                sh:path bf:source ;
+                sh:hasValue <http://urn.fi/URN:NBN:fi:bib:source:helmet> ;
+            ] ;
+            sh:property [
+                sh:path rdf:value ;
+                sh:minCount 1 ;
+                sh:datatype xsd:string ;
+            ] ;
+        ] ;
+        sh:qualifiedMinCount 1 ;
+    ] .
+
+# --- Every (main) Work and Instance must carry an AdminMetadata block -----
+bffi:AdminMetadataLinkShape
+    a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [
+                sh:prefix "bf" ;
+                sh:namespace "http://id.loc.gov/ontologies/bibframe/"^^xsd:anyURI ;
+            ]
+        ] ;
+        sh:select """
+            SELECT ?this WHERE {
+                { ?this a bf:Work } UNION { ?this a bf:Instance }
+                FILTER(isIRI(?this))
+                FILTER NOT EXISTS { ?ref bf:associatedResource ?this }
+                FILTER NOT EXISTS {
+                    ?contained bf:hasInstance ?this .
+                    ?ref       bf:associatedResource ?contained .
+                }
+                # marc2bibframe2 also mints secondary Work / Instance
+                # IRIs attached directly to the main Work (no
+                # bf:associatedResource chain to walk) — most commonly
+                # an `#Instance856-NN` from a MARC 856 electronic-
+                # location field. Their URI shape is the marc2bibframe2
+                # convention "<base>#<Type><tag>-<idx>" where <tag> is
+                # the MARC field number and <idx> is a per-record
+                # counter; the main Work / Instance are just
+                # "<base>#Work" / "<base>#Instance" with no suffix.
+                # Exclude the suffixed form so the shape stays focused
+                # on the main resources `post_process` actually stamps
+                # with Helmet identifier + AdminMetadata.  See
+                # docs/proposals/prop-07-bibframe-856-as-item.md for the
+                # deeper semantic question this exclusion sidesteps.
+                FILTER(!REGEX(STR(?this), "#(Work|Instance)[0-9]+-[0-9]+$"))
+            }
+        """ ;
+    ] ;
+    sh:property [
+        sh:path bffi:adminMetadata ;
+        sh:minCount 1 ;
+        sh:message "bf:Work / bf:Instance lacks bffi:adminMetadata link." ;
+    ] .
+
+# --- AdminMetadata blocks must carry the M2 mandatory fields --------------
+bffi:AdminMetadataM2Shape
+    a sh:NodeShape ;
+    sh:targetClass bffi:AdminMetadata ;
+    sh:property [
+        sh:path bffi:adminMetadataFor ;
+        sh:minCount 1 ;
+        sh:message "AdminMetadata missing back-link bffi:adminMetadataFor." ;
+    ] ;
+    sh:property [
+        sh:path bffi:generationDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:dateTime ;
+    ] ;
+    sh:property [ sh:path bffi:descriptionModifier ;       sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:descriptionConventions ;    sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:descriptionLevel ;          sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:encodingLevel ;             sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:descriptionAuthentication ; sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:generationProcess ;         sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:metadataLicensor ;          sh:minCount 1 ] ;
+    sh:property [ sh:path bffi:recordingSource ;           sh:minCount 1 ] ;
+    sh:property [ sh:path prov:hadPrimarySource ;          sh:minCount 1 ] ;
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+        sh:message "AdminMetadata missing spine link prov:wasGeneratedBy." ;
+    ] .

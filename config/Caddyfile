@@ -1,0 +1,61 @@
+# Caddy reverse-proxy config for the local observability stack.
+# Routes three services + a static-file browser behind one port so
+# operators only have to remember `http://localhost:8080/`.
+#
+# Bound to 127.0.0.1 in docker-compose.yml; no auth here (mirrors the
+# pre-proxy stance: anonymous Grafana, open Prometheus, local-only
+# observability per CLAUDE.md).
+
+:8080 {
+	# Sensible logs (errors only — info-level is too chatty for a
+	# local dev stack).
+	log {
+		output stdout
+		format console
+		level WARN
+	}
+
+	# Static file browser over the bind-mounted runs/ directory.
+	# `handle_path` strips the /files prefix before the file_server
+	# handler matches against the on-disk path, so URLs like
+	# `/files/<run_uuid>/canonical-mint-failures.tsv` resolve to
+	# `/srv/<run_uuid>/canonical-mint-failures.tsv` inside the
+	# container. `browse` turns on directory listings — operators
+	# can drill from /files/ down to a specific run.
+	handle_path /files/* {
+		root * /srv
+		# Force a download dialog for non-HTML files (paths that don't
+		# end in `/` and aren't *.html) so TSV / TTL / JSONL artifacts
+		# open in Excel / VS Code instead of as raw text in a browser
+		# tab. Directory listings (paths ending in `/`) keep their
+		# native HTML for browsing. HTML files in run dirs — currently
+		# the cataloguer reviewer at
+		# /files/<run_uuid>/cataloguer-review/cataloguer-review.html —
+		# render in-browser so the link can be clicked from the
+		# Grafana dashboard's "Run artifacts" panel and the reviewer
+		# auto-loads its sibling bundle.zip.
+		@download {
+			not path */
+			not path *.html
+		}
+		header @download Content-Disposition attachment
+		file_server browse
+	}
+
+	# Prometheus. Prefix preserved because Prometheus is launched
+	# with `--web.route-prefix=/prometheus/` so it serves its UI +
+	# API under that path natively.
+	handle /prometheus/* {
+		reverse_proxy prometheus:9090
+	}
+
+	# Grafana is the catch-all — it owns `/` and every unmatched
+	# path. `GF_SERVER_SERVE_FROM_SUB_PATH=false` lets it serve at
+	# the root; asset URLs, dashboard links, and login redirects
+	# all stay at `http://localhost:8080/…`. `handle` matchers are
+	# mutually exclusive and more-specific ones win regardless of
+	# order, so `/prometheus/*` and `/files/*` still resolve.
+	handle {
+		reverse_proxy grafana:3000
+	}
+}

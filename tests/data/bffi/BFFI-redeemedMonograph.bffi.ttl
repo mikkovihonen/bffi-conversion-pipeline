@@ -1,0 +1,131 @@
+@prefix bffi: <http://urn.fi/URN:NBN:fi:schema:bffi:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix slm: <http://urn.fi/URN:NBN:fi:au:slm:> .
+@prefix mts: <http://urn.fi/URN:NBN:fi:au:mts:> .
+@prefix yso: <http://www.yso.fi/onto/yso/> .
+@prefix kauno: <http://www.yso.fi/onto/kauno/> .
+@prefix finaf: <http://urn.fi/URN:NBN:fi:au:finaf:> .
+@prefix melinda: <http://example.org/melinda/> .
+@prefix lexvo: <http://lexvo.org/id/iso639-3/> .
+
+melinda:w009121455 a bffi:Work, bffi:MonographWork ;
+  bffi:hasExpression melinda:e009121455 ;
+  bffi:relation [ a bffi:Relation ;
+    bffi:relationship mts:m3475 ; # numero teoksessa
+    bffi:associatedResource melinda:waXXX1 ; # aggregoiva teos
+    bffi:seriesEnumeration "12" # 490 v-osakentästä - TÄMÄ MIETINNÄSSÄ - EI VASTAA NYKYISTÄ BFFI:tä TAI RDA:ta 
+  ] ;
+  bffi:title [ a bffi:Title, mts:m1628 ; #teoksen ensisijainen nimeke
+    bffi:maintTitle "Redeemed"@en
+  ] ;
+  bffi:aap "Cast, P. C. Redeemed" ;
+  bffi:contribution [ a bffi:Contribution, bffi:PrimaryContribution ; # 100-kentästä
+    bffi:agent [ a bffi:Agent ;
+      rdfs:label "Cast, P. C." ] ;
+    bffi:role mts:m552 #kirjoittaja (teoksen suhteet henkilöön)
+  ] ;
+  bffi:contribution [ a bffi:Contribution ; # 700-kentästä, kanssakirjoittaja
+    bffi:agent [ a bffi:Agent ;
+      rdfs:label "Cast, Kristin" ] ;
+    bffi:role mts:m552 #kirjoittaja (teoksen suhteet henkilöön)
+  ] ; 
+  bffi:originDate "2016" ;
+  bffi:genreForm slm:s168 ; # nuortenkirjallisuus
+  bffi:genreForm slm:s518 ; # romaanit # HUOM. näitä olisi enemmänkin
+  bffi:subject [ a bffi:Person ;
+    rdfs:label "Redbird, Zoey (fiktiivinen hahmo)" ;
+    bffi:note mts:m1712 # "fiktiivinen hahmo" Tämä ei synny konversiossa - pitää sopia tehdäänkö näin vai ei
+  ] ;
+  bffi:subject [ a bffi:Uncontrolled ; # 653-kentästä; tämä ei taida olla kovinkaan järkevä kuvailu
+    rdfs:label "nuortenkirjallisuus"
+  ] ;
+  bffi:subject kauno:p2125 ; # hyvän ja pahan välinen taistelu 
+  bffi:subject kauno:p2152 ; # vampyyrit # HUOM. näitä olisi enemmänkin; MARC-kuvailussa ei Kaunokki-tunnisteita
+  bffi:classification [a bffi:Classification ;
+    bffi:classificationPortion "N84.2" ;
+    bffi:subClassificationPortion "Jännitys" ; # TARVITAANKO TÄLLAINEN OMINAISUUS? PITÄÄ RATKAISTA YKL-lisäluokka-asia
+    bffi:source [a bffi:Source ;
+      bffi:code "ykl"
+    ] ;
+  ] ;
+  bffi:adminMetadata [ a bffi:AdminMetadata; # näitä blokkeja tulisi muillekin entiteeteille 
+    bffi:encodingLevel mts:m0021; #"kattava taso" MTS:ään tarvitaan tämä
+    bffi:descriptionLevel <http://schema.finto.fi/bffi/1-0-0/>; #kuvailun tietomalli, tämä pitää miettiä
+    bffi:descriptionConventions mts:m0022; #rda (konversiossa nimiöstä tulisi vielä isbd, mutta se on turha)
+    bffi:identifiedBy [ a bffi:Local;
+      rdf:value "009121455";
+      bffi:assigner [ a bffi:Agent;
+        bffi:code "FI-MELINDA"
+      ] ;
+    ] ;
+  ] .
+
+melinda:e009121455 a bffi:Expression, bffi:MonographExpression, bffi:Text ;
+  bffi:expressionOf melinda:w009121455 ;
+  bffi:manifestationOfExpression melinda:m009121455 ;
+  bffi:manifestationOfExpression melinda:maXXX1 ; # viittaus aggregaattiin
+  bffi:aggregatedBy melinda:eaXXX1 ;
+  bffi:aap "Cast, P. C. Redeemed. Suomi" ;
+  bffi:title [ a bffi:Title, mts:m6037; #ekspression ensisijainen nimeke
+    bffi:mainTitle "Pelastettu"
+  ] ;
+  bffi:content mts:m1620; #teksti (sisältötyyppi) (336);
+  bffi:languageOfExpression lexvo:fin; #kielikoodiasia vielä ratkaistava
+  bffi:note [ a bffi:Note, mts:motx ; # Metatietosanastoon tarvitaan 041-kentän 
+                                      # kieliasiat, vrt. https://id.loc.gov/vocabulary/resourceComponents/otx.html
+    rdf:value lexvo:eng
+  ] ;
+  bffi:intendedAudience yso:p11617 ; # nuoret
+  bffi:contribution [ a bffi:Contribution ;
+    bffi:agent finaf:000109758 ; # Inka Parpola
+    bffi:role mts:m5324 #kääntäjä (ekspression suhteet henkilöön)
+  ] 
+.
+
+melinda:m009121455 a bffi:Manifestation, bffi:Print ;
+  bffi:expressionManifested melinda:e009121455 ;
+  bffi:workManifested melinda:w009121455 ;
+  bffi:aap "Pelastettu, 2016" ;
+  bffi:identifiedBy [ a mts:m0002; #ISBN, tämä tulee MTS:ään, mutta ei vielä ole siellä
+    rdf:value "978-951-1-29139-8" ;
+    bffi:qualifier "kovakantinen"
+  ] ;
+  bffi:title [ a bffi:Title, mts:m646; #päänimeke
+    bffi:mainTitle "Pelastettu"
+  ] ;
+  bffi:responsibilityStatement "P. C. ja Kristin Cast ; suomentanut Inka Parpola"; #(245 $c) 
+  bffi:media mts:m87; #käytettävissä ilman laitetta (mediatyyppi 337)
+  bffi:carrier mts:m744; #nide (tallennetyyppi 338)
+  bffi:contribution [ a bffi:Contribution ; # (710)
+    bffi:agent finaf:000039084; #Otava, kustannusosakeyhtiö
+    bffi:role mts:m64 #kustantaja (yhteisö, uri muuttunee)
+  ] ;
+  bffi:extent [ a bffi:Extent; # (laajuus 300 $a)
+    rdfs:label "414 sivua"
+  ] ;
+  bffi:dimensions "21 cm" ; #(koko 300 $c)
+  # Kaksi 264-kenttää
+  bffi:provisionActivity [a bffi:ProvisionActivity, bffi:Publication; #(264 1) JA 710, jos on olemassa (saadaan urit)
+    bffi:place yso:p94426; # Suomi YSO-paikoista, joka tulee 008-kentän merkkipaikasta 15-17
+    bffi:place yso:p94137; # Helsinki 
+    bffi:agent finaf:000039084; #Otava, kustannusosakeyhtiö; varianttinimi "Kustannusosakeyhtiö Otava" 
+    bffi:simpleDate "2016" 
+  ] ;
+  bffi:publicationStatement "Helsingissä : Kustannusosakeyhtiö Otava, [2016]"; #(264 1)
+  bffi:provisionActivity [a bffi:ProvisionActivity, bffi:Manufacture ; #(264 3)
+    bffi:place yso:p94209 ; #Keuruu
+    bffi:agent finaf:000024630; #Otavan Kirjapaino
+    bffi:simpleDate "2016" 
+  ] ;
+  bffi:manufactureStatement "Keuruu : Otavan Kirjapaino Oy, 2016"; #(264 3)
+  bffi:note [ a bffi:Note; #(500)
+    rdfs:label "Sarjan viimeinen osa."
+  ] ;
+  bffi:relation [ a bffi:Relation ;
+    bffi:associatedResource melinda:m011538518 ; # epubin Melinda-ID haettu manuaalisesti ISBN:n perusteella
+    bffi:relationship mts:m4253 # "muu julkaisumuoto"
+  ] ;
+  bffi:seriesEnumeration "12" ; # 490 v-osakentästä 
+  bffi:seriesStatement "Yön talo ; 12" #(490 0#) tämä menee konversiossa eri lailla
+.

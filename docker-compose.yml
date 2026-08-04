@@ -1,0 +1,114 @@
+# Local observability stack for the BFFI conversion pipeline.
+#
+# Prometheus + Grafana + Caddy, all in the `observability` profile —
+# `docker compose up` with no profile starts nothing. Drive it through
+# `make observability-up` / `make observability-down`, which also manage
+# the host-side `bffi-pipeline serve-metrics` exporter.
+#
+# Single operator-facing entry point: http://localhost:8080 (Caddy).
+# Everything is local; no outbound telemetry. See docs/observability.md.
+#
+# No triple store here. The conversion pipeline reads MARCXML from disk
+# and writes Turtle + MARCXML to the run directory — it never needs a
+# SPARQL endpoint. Fuseki and Skosmos belong to the downstream
+# vocabulary-publishing work, which lives in the legacy
+# `helmet-marcxml-bffi-skos-pipeline` repository.
+
+services:
+  # P-11 Phase D: local observability stack. Scrapes the
+  # ``bffi-pipeline serve-metrics`` exporter running on the host
+  # (Prometheus reaches it via ``host.docker.internal``) and renders
+  # the bundled Grafana dashboard. All local; no outbound telemetry.
+  # Start / stop via ``make observability-up`` / ``make observability-down``.
+  #
+  # Cross-runtime note: ``host.docker.internal`` resolves automatically
+  # on Docker Desktop (macOS / Windows) and on Podman 4.5+ (which
+  # provides it as a built-in alias alongside its native
+  # ``host.containers.internal``). Linux-Docker operators must add
+  # ``extra_hosts: ["host.docker.internal:host-gateway"]`` via a local
+  # ``docker-compose.override.yml`` — the line is intentionally **not**
+  # in the committed file because Podman rejects ``host-gateway`` as a
+  # special value and fails to start the container.
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: bffi-prometheus
+    # No host port mapping — Prometheus is reachable only via the Caddy
+    # reverse proxy at http://localhost:8080/prometheus/. The internal
+    # 9090 stays for the Caddy → Prometheus hop inside the Docker
+    # network; ``host.docker.internal:9100`` for the scrape target is
+    # unaffected (Prometheus initiates that connection itself).
+    # P-32 Phase G: --web.enable-admin-api unlocks the
+    # /api/v1/admin/tsdb/delete_series endpoint that
+    # ``bffi-pipeline runs prune --apply --reset-prometheus`` calls.
+    # --web.route-prefix lets Prometheus serve under /prometheus/ so
+    # the reverse-proxy paths don't require Caddy rewrites; the
+    # external-url makes generated links (redirects, in-UI URLs)
+    # point at the public entry point.
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-admin-api"
+      - "--web.external-url=http://localhost:8080/prometheus/"
+      - "--web.route-prefix=/prometheus/"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    profiles: ["observability"]  # Excluded from the default ``up`` set
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: bffi-grafana
+    # No host port mapping — Grafana is reachable only via the Caddy
+    # reverse proxy at http://localhost:8080/. Grafana is the catch-all
+    # behind Caddy and owns the root path; GF_SERVER_ROOT_URL keeps
+    # asset URLs, dashboard links, and OAuth redirects aligned with
+    # the public entry point.
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SERVER_ROOT_URL: "http://localhost:8080/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+
+  # Caddy reverse-proxy: the single operator-facing entry point for the
+  # observability stack. Routes:
+  #   /grafana/*    → Grafana (UI + dashboard API)
+  #   /prometheus/* → Prometheus (PromQL + admin API)
+  #   /files/*      → static file server over ./runs/ (cataloguer TSVs,
+  #                   export tarballs, per-record artifacts)
+  #   /             → 301 → /grafana/ (default landing)
+  #
+  # Bound to 127.0.0.1:8080 only — never exposed externally. The bundled
+  # Caddyfile carries no auth (Grafana's own anonymous-Viewer model
+  # provides the read-only access tier; Prometheus + the file browser
+  # have no auth either, mirroring the existing local-only stance).
+  caddy:
+    image: caddy:2-alpine
+    container_name: bffi-caddy
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./runs:/srv:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - grafana
+      - prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  caddy-data:
+  caddy-config:
