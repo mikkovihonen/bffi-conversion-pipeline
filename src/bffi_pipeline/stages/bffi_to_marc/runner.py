@@ -1718,6 +1718,18 @@ _LINKING_RELATIONSHIP_TO_MARC: Final[dict[URIRef, str]] = {
 }
 
 
+#: marcKey tag prefixes already consumed by another emit family. A related
+#: resource carrying one of these must not also produce a linking entry:
+#: marc2bibframe2 marks every MARC 730/740 analytic as
+#: ``relationship/relatedwork``, so emitting on the relationship alone
+#: produced a duplicate 787 beside each correct 730 — 223 fabricated fields
+#: on the reference corpus, 84 of them on a single box-set record. Same
+#: reasoning as the ``relationship/series`` omission below.
+_MARCKEY_TAGS_CLAIMED_ELSEWHERE: Final[frozenset[str]] = frozenset(
+    {"700", "710", "711", "730", "740", "800", "810", "811", "830"}
+)
+
+
 #: Series-relation tags emitted via marcKey-driven recovery. 800 is
 #: personal-name traced series, 810 corporate, 811 meeting, 830 the
 #: uniform-title catch-all. Each Hub URI's marcKey starts with the
@@ -1914,6 +1926,12 @@ def _extract_linking_entries(graph: Graph, manifestation: URIRef) -> list[_Added
     Co-exists with :func:`_extract_traced_series` — the two consume
     disjoint relationship URIs (series → traced series; the rest →
     linking entries).
+
+    Resources whose ``bffi:marcKey`` names a tag another family already
+    emits (:data:`_MARCKEY_TAGS_CLAIMED_ELSEWHERE`) are skipped. The
+    relationship URI alone is not enough to decide ownership: every MARC
+    730/740 analytic is also typed ``relationship/relatedwork``, so keying
+    on it emitted a spurious 787 alongside each correct 730.
     """
     work = _find_work_for_manifestation(graph, manifestation)
     anchors: list[URIRef] = [manifestation]
@@ -1931,6 +1949,17 @@ def _extract_linking_entries(graph: Graph, manifestation: URIRef) -> list[_Added
                 continue
             for associated in graph.objects(relation, BFFI.associatedResource):
                 if not isinstance(associated, URIRef):
+                    continue
+                marckey = next(graph.objects(associated, BFFI.marcKey), None)
+                if (
+                    isinstance(marckey, Literal)
+                    and str(marckey)[:3] in _MARCKEY_TAGS_CLAIMED_ELSEWHERE
+                ):
+                    # Added-entry / traced-series family owns this resource.
+                    continue
+                if (associated, RDF.type, _UNCONTROLLED_TYPE) in graph:
+                    # bffi:Uncontrolled belongs to the MARC 653 family; an
+                    # uncontrolled index term is not a related work.
                     continue
                 key = (associated, tag)
                 if key in seen:

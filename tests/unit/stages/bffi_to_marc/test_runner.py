@@ -1951,3 +1951,61 @@ def test_no_040_without_a_description_language() -> None:
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
     assert root.find(f"{{{MARC21_NS}}}datafield[@tag='040']") is None
+
+
+def _related_work(g: Graph, anchor: URIRef, *, title: str, marckey: str | None) -> URIRef:
+    """Attach a relatedwork relation to ``anchor`` and return the resource."""
+    res = URIRef(f"http://example.org/b1#{title.replace(' ', '')}")
+    g.add((res, RDF.type, BFFI.Work))
+    g.add((res, RDFS.label, Literal(title)))
+    if marckey is not None:
+        g.add((res, BFFI.marcKey, Literal(marckey)))
+    rel = URIRef(f"http://example.org/b1#Rel{title.replace(' ', '')}")
+    g.add((rel, RDF.type, BFFI.Relation))
+    g.add((rel, BFFI.relationship, URIRef("http://id.loc.gov/vocabulary/relationship/relatedwork")))
+    g.add((rel, BFFI.associatedResource, res))
+    g.add((anchor, BFFI.relation, rel))
+    return res
+
+
+def test_no_787_for_a_resource_the_added_title_family_owns() -> None:
+    """Fabrication regression: marc2bibframe2 marks every MARC 730/740
+    analytic as ``relationship/relatedwork``, so keying 787 on the
+    relationship alone emitted a duplicate beside each correct 730 — 223
+    invented fields on the reference corpus, 84 on one box-set record.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    _related_work(g, work, title="Analytic One", marckey="730 02$aAnalytic One")
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='787']") is None
+
+
+def test_no_787_for_an_uncontrolled_term() -> None:
+    """``bffi:Uncontrolled`` belongs to the MARC 653 family; an uncontrolled
+    index term is not a related work."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    res = _related_work(g, work, title="Loose Term", marckey=None)
+    g.add((res, RDF.type, URIRef("http://urn.fi/URN:NBN:fi:schema:bffi:Uncontrolled")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='787']") is None
+
+
+def test_787_still_emitted_for_a_genuine_related_work() -> None:
+    """The exclusions must not silence the field entirely — a related work
+    that no other family owns still emits 787."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    _related_work(g, work, title="Genuine Relation", marckey="787 08$tGenuine Relation")
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='787']") is not None
