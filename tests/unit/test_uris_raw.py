@@ -1,4 +1,4 @@
-"""Unit tests for the M3 raw-URI minters and arq:sha1 SPARQL function."""
+"""Unit tests for the raw-URI minters and arq:sha1 SPARQL function."""
 
 from __future__ import annotations
 

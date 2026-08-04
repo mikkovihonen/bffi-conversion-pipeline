@@ -1,7 +1,7 @@
 """Boundary 3: SHACL validation of the post-CONSTRUCT BFFI graph.
 
 The shape lives at ``config/shapes/bffi.shape.ttl``. Per
-stage M3, failures are non-blocking: the stage continues,
+stage ``bibframe-to-bffi``, failures are non-blocking: the stage continues,
 records are flagged in ``_validation.jsonl`` and a summary count is
 surfaced on the CLI.
 """

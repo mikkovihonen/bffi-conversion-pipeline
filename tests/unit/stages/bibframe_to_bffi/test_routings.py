@@ -1,4 +1,4 @@
-"""Unit tests for the P-56 Phase 4 discriminator routings."""
+"""Unit tests for the discriminator routings."""
 
 from __future__ import annotations
 
@@ -465,7 +465,7 @@ def test_route_work_split_hands_instance_link_to_axis_default_as_expression() ->
 def test_route_axis_default_classes_picks_expression_when_no_work_signal() -> None:
     """Default for subjects with no Work-axis co-type: every axis-split
     ``bf:*`` class lands on the Expression-axis BFFI variant. This is
-    the Helmet "Instance URI" pattern — bf:Instance is the subject,
+    the HELMET corpus "Instance URI" pattern — bf:Instance is the subject,
     bf:Monograph is just the content-type echo, no Work signal."""
     g = Graph()
     for i, bf_class in enumerate(AXIS_DEFAULT_CLASSES):

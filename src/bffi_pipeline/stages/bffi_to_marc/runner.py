@@ -1,6 +1,6 @@
 """Pillar 4 orchestrator: BFFI canonical Turtle -> reconstructed MARCXML.
 
-Step 4 of P-057 — v0 emit. Reads a BFFI graph and emits a MARCXML record
+Step 4 — v0 emit. Reads a BFFI graph and emits a MARCXML record
 per Manifestation. Cardinal rule: the reverse converter MUST NOT consult
 ``bffi-prov:`` (pipeline-internal provenance) for bibliographic content.
 Pipeline-internal data is fair for UI / pairing machinery, never for emit
@@ -13,7 +13,7 @@ v0 scope: emit the minimum-viable MARCXML that lets the round-trip diff
 harness (step 5) compare against the source. Concretely:
 
   - leader   placeholder (24 chars; positions populated in a later step)
-  - 001      Helmet bib ID, read from a ``bffi:identifiedBy [ a bffi:Local ;
+  - 001      Source bib ID, read from a ``bffi:identifiedBy [ a bffi:Local ;
              rdf:value ?bib_id ]`` block. Fallback: parse from the
              Manifestation URI fragment (``http://…/<bib_id>#Instance``,
              marc2bibframe2's emit shape with our ``baseuri`` parameter).
@@ -442,7 +442,7 @@ def _build_leader(graph: Graph, manifestation: URIRef) -> str:
         + record_type  # 06: type of record
         + level  # 07: bibliographic level
         + " "  # 08: type of control (default blank)
-        + " "  # 09: character coding (blank = MARC-8; matches Helmet source convention)
+        + " "  # 09: character coding (blank = MARC-8; matches HELMET corpus convention)
         + "22"  # 10-11: indicator count + subfield code count
         + "00000"  # 12-16: base address placeholder
         + encoding_level  # 17: encoding level
@@ -475,7 +475,7 @@ def _leader_status_byte(graph: Graph, manifestation: URIRef) -> str:
     the original source-MARC leader byte. The source's own
     AdminMetadata typically carries ``mstatus/n``; preferring it
     keeps the round-trip byte-faithful for the vast majority of
-    Helmet records.
+    HELMET libraries test corpus records.
 
     Falls through to any other recognised status, then to ``"n"``
     (the corpus-wide default for source-MARC leader position 05).
@@ -756,7 +756,7 @@ def _extract_contributors(graph: Graph, manifestation: URIRef) -> list[_Contribu
     Emits ``$a`` from ``rdfs:label`` on the agent, ``$e`` (relator term)
     from the ``rdfs:label`` of the role bnode, and ``$4`` (LoC relator
     code) from the local-name of ``bffi:role`` when it's a URI. The
-    Helmet corpus uses free-text ``$e`` heavily (~10x more often than
+    The HELMET libraries test corpus uses free-text ``$e`` heavily (~10x more often than
     ``$4``); both shapes are emitted when their respective signals are
     present in BFFI.
     """
@@ -1158,7 +1158,7 @@ class _NoteEmit:
         ),
         notes=(
             "534 records the original publication of a reproduction or "
-            're-release (typical Helmet shape: \\$c "Danjaq : United '
+            're-release (typical HELMET corpus shape: \\$c "Danjaq : United '
             'Artists, 1974" on a 2001 DVD reissue). The full source row '
             "is collapsed into a single \\$c literal at the BFFI layer; "
             "\\$a main entry, \\$b edition, \\$f series etc. are not "
@@ -1721,7 +1721,7 @@ class _UntracedSeriesEmit:
             "discriminator is mstatus/t alone — a co-typed mstatus/tr "
             "signals that an 830 controlled-series partner exists and the "
             "transcribed view is suppressed here to avoid double-emit. "
-            "ind1=0 (Series not traced) per Helmet convention. ISBD "
+            "ind1=0 (Series not traced) per HELMET corpus convention. ISBD "
             'trailing " ;" is added on $a when $v follows.'
         ),
     )
@@ -2063,7 +2063,7 @@ _CLASSIFICATION_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
         ),
         notes=(
             "$2 emitted when bffi:source / bffi:code is present (e.g. 'ykl'); "
-            "omitted otherwise. **Helmet-local 09X classifications "
+            "omitted otherwise. **HELMET-local 09X classifications "
             "(091/092/093/094/095/097) are not reconstructable from BFFI** — "
             "marc2bibframe2's ConvSpec-050-088.xsl has a template only for "
             "MARC 084 and the standard 050-088 tags; the 09X tags fall "
@@ -2245,7 +2245,7 @@ class _VariantTitleEmit:
 
 _VARIANT_TITLE_INDICATORS: Final[dict[str, tuple[str, str]]] = {
     # MARC 210 (Abbreviated Title): ind1 = added-entry flag (0 = no
-    # added entry, 1 = added entry). Helmet records tend to add it.
+    # added entry, 1 = added entry). HELMET corpus records tend to add it.
     "210": ("1", " "),
     # MARC 222 (Key Title): both indicators blank.
     "222": (" ", " "),
@@ -2256,7 +2256,7 @@ _VARIANT_TITLE_INDICATORS: Final[dict[str, tuple[str, str]]] = {
     # nonfiling chars. Default to ind1=1, ind2=0.
     "243": ("1", "0"),
     # MARC 246 (Varying Form of Title): ind1=1 (Note, added entry) per
-    # Helmet convention; ind2 blank.
+    # HELMET corpus convention; ind2 blank.
     "246": ("1", " "),
     # MARC 247 (Former Title): ind1=1 (added entry), ind2=0 (display
     # note) per MARC default.
@@ -2315,7 +2315,7 @@ _VARIANT_TITLE_INDICATORS: Final[dict[str, tuple[str, str]]] = {
             "'246') ; bffi:mainTitle ?text"
         ),
         notes=(
-            "ind1=1 (Note, added entry) per Helmet convention; ind2 blank. "
+            "ind1=1 (Note, added entry) per HELMET corpus convention; ind2 blank. "
             "The specific vartitletype tail maps to different ind2 values "
             "in MARC source but the per-tail ind2 dispatch is deferred."
         ),
@@ -2403,7 +2403,7 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
             "the main entry itself). marc2bibframe2 flattens both into "
             "one Hub240 with the 240 subfields piggy-backing on the 1XX "
             "agent's marcKey. ind1=1 (traced) ind2=0 (0 nonfiling chars) "
-            "per the dominant Helmet convention; the actual source value "
+            "per the dominant HELMET corpus convention; the actual source value "
             "is recoverable from the agent marcKey but not yet preserved."
         ),
     ),
@@ -2494,7 +2494,7 @@ def _hub240_emit(graph: Graph, hub: URIRef) -> _AddedTitleEmit | None:
                 if target is not None:
                     mapped.append((target, value))
             if mapped:
-                # ind1=1 = traced (Helmet's near-universal convention);
+                # ind1=1 = traced (HELMET corpus near-universal convention);
                 # ind2=0 = 0 nonfiling characters (default).
                 return _AddedTitleEmit(tag="240", ind1="1", ind2="0", subfields=tuple(mapped))
     return None
@@ -3088,7 +3088,7 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
             "bffi:source <…/identifiers/audio-issue-number> ; rdf:value ?value ; "
             "bffi:assigner [a bffi:Organization ; rdfs:label ?name]] — "
             "ind1=0 for audio issue numbers; ind2=1 = note maker / no added "
-            "entry (the Helmet default)."
+            "entry (the HELMET corpus default)."
         ),
     ),
     MarcEmitMeta(
@@ -3298,7 +3298,7 @@ def _identifier_marc_target(graph: Graph, ident: Node) -> _IdentifierScheme | No
         source=(
             "?m bffi:electronicLocator ?url — each URI object emits as one "
             "MARC 856 datafield with $u carrying the URL string. Indicators "
-            "default to ind1=4 (HTTP) ind2=0 (Resource) per Helmet convention."
+            "default to ind1=4 (HTTP) ind2=0 (Resource) per HELMET corpus convention."
         ),
         notes=(
             "$y (link text) and $z (public note) are not yet round-tripped "

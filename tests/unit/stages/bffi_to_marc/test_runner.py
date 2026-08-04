@@ -969,7 +969,7 @@ def test_emit_marcxml_emits_084_classification() -> None:
 
 def test_emit_marcxml_emits_084_scheme_code_in_subfield_2() -> None:
     """``bffi:Classification`` with ``bffi:source [a bffi:Source ; bffi:code "ykl"]``
-    produces MARC 084 ``$a 82.3 $2 ykl``. This is the Helmet-canonical
+    produces MARC 084 ``$a 82.3 $2 ykl``. This is the HELMET-canonical
     shape — every 084 in the corpus carries a scheme code; without ``$2``
     the reconstructed record loses the scheme attribution."""
     g = _build_minimal_bffi_graph(
@@ -1036,7 +1036,7 @@ def test_emit_marcxml_emits_100_for_primary_personal_contributor() -> None:
 def test_emit_marcxml_emits_700_with_relator_term_in_subfield_e() -> None:
     """When ``bffi:role`` is a bnode with ``rdfs:label``, the cataloguer's
     free-text relator term (e.g. Finnish ``"näyttelijä"``) emits as MARC
-    ``$e``. This is the high-volume Helmet shape: most 700 contributors
+    ``$e``. This is the high-volume HELMET corpus shape: most 700 contributors
     carry ``$e`` from the source but no ``$4`` URI."""
     g = _build_minimal_bffi_graph(
         manifestation_uri="http://example.org/b1#Instance",
@@ -1447,7 +1447,7 @@ def test_emit_marcxml_falls_back_to_uri_fragment_when_no_local_block() -> None:
 
 def test_emit_marcxml_prefers_local_block_over_uri_fragment() -> None:
     """When both signals exist, the Local block wins — it's the canonical
-    Helmet bib-ID carrier. The URI fragment is a fallback."""
+    Source bib-ID carrier. The URI fragment is a fallback."""
     g = _build_minimal_bffi_graph(
         manifestation_uri="http://example.org/other-uri-id#Instance",
         bib_id="b-canonical",

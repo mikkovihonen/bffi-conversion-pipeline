@@ -18,7 +18,7 @@ in `2634250`.
 A separate cataloguer-facing report —
 [`scratchpad/cataloguer-vocab-typos-2026-06-01.md`](../../../scratchpad/cataloguer-vocab-typos-2026-06-01.md)
 — summarises the survey with bib IDs cataloguers can use to clean the
-Sierra source records.
+source records.
 
 ## Records
 
@@ -30,11 +30,11 @@ Sierra source records.
 | `2493430` | *Kätketty valtakunta* (Sutherland) | `sml/fin` | `slm/fin` | Letters transposed (`slm` → `sml`). Bonus: this record also carries KANTO `$0` on its translator (Meri Kapari, `(FI-ASTERI-N)000129312`) — exercises KANTO-on-700 simultaneously with a vocab typo. |
 | `2636949` | *Lonesome dove* (McMurtry, 2025) | `kauno/ifn` | `kauno/fin`, `slm/fin`, `local`, `yso/fin` | Letters transposed in vocabulary suffix. The same typo appears on `2496749` + `2496750` (Eternals films, video records, leader6=`g`) — so it is *not* a one-off typo, it is a stable misspelling that recurs across cataloguing batches. |
 | `2413136` | *Ja vas ne slyšu* (Ronina) | `lm/fin` | `local` | Single letter dropped (`slm` → `lm`). Russian-language record with `880` Cyrillic alt-script — exercises typo handling on a non-Latin-target record. |
-| `2634250` | *A vision in a dream* (Edward Gregson concertos) | **Structural delimiter-swallow** | `slm/fin` | The `655` field's `$a` value is literally `taidemusiikki‡2slm/fin‡0http://urn.fi/URN:NBN:fi:au:slm:s...` — the cataloguer pasted text-MARC into the `$a` subfield rather than properly subfielding. `‡` (U+2021 DOUBLE DAGGER) is the MARC subfield delimiter. Distinct from the other six: this is a **structural** MARC bug, not a vocabulary-string typo. M2 must tolerate it without crashing; M3 should log and skip rather than try to recover the swallowed `$2` / `$0`. |
+| `2634250` | *A vision in a dream* (Edward Gregson concertos) | **Structural delimiter-swallow** | `slm/fin` | The `655` field's `$a` value is literally `taidemusiikki‡2slm/fin‡0http://urn.fi/URN:NBN:fi:au:slm:s...` — the cataloguer pasted text-MARC into the `$a` subfield rather than properly subfielding. `‡` (U+2021 DOUBLE DAGGER) is the MARC subfield delimiter. Distinct from the other six: this is a **structural** MARC bug, not a vocabulary-string typo. marc-to-bibframe must tolerate it without crashing; bibframe-to-bffi should log and skip rather than try to recover the swallowed `$2` / `$0`. |
 
 ## What this set exercises
 
-- **`$2` vocabulary canonicalisation.** M3's vocabulary mapper must
+- **`$2` vocabulary canonicalisation.** bibframe-to-bffi's vocabulary mapper must
   recognise that `slm/fin`, `slm/fin/`, `slm//fin`, `slm/fi`, `sml/fin`,
   `lm/fin` all denote the same SLM vocabulary, and either canonicalise
   silently or emit a structured warning. Recommendation:
@@ -42,20 +42,20 @@ Sierra source records.
   unrecognisable strings.
 - **Multi-form-in-one-record.** `2492140`, `2627743`, `2378083`,
   `2493430` each carry both a typo'd `$2` and a correctly-tagged `$2`
-  on different `6XX` fields of the same record. M3 must converge them
+  on different `6XX` fields of the same record. bibframe-to-bffi must converge them
   onto the same `bf:Topic`, not emit two separate topics.
 - **Cross-record typo recurrence.** `kauno/ifn` (`2636949`) appears
   identically on at least two other 2022 Marvel-film records
-  (`2496749`, `2496750`). Whatever mapping table M3 uses should be
+  (`2496749`, `2496750`). Whatever mapping table bibframe-to-bffi uses should be
   built once and cached; one record's typo recovery should benefit
   the others.
 - **Structural malformation.** `2634250`'s `‡`-in-`$a` is a structurally
-  malformed `<subfield>` element. M2's XML parser parses it as a single
-  long `$a` value (because that is what the XML says). M3 must
+  malformed `<subfield>` element. marc-to-bibframe's XML parser parses it as a single
+  long `$a` value (because that is what the XML says). bibframe-to-bffi must
   recognise the `‡<code>` pattern and either skip the subject or
   reconstruct the intended `$2`/`$0`. We do not pin behaviour here —
   the fixture exists to *surface* the case; product choice (skip vs.
-  reconstruct) is left to the M3 author.
+  reconstruct) is left to the bibframe-to-bffi author.
 - **Cataloguing dirt at non-trivial scale.** Combined, the seven typo
   patterns named in this set affect ~450 records in the 30k discovery
   corpus (`slm/fin/` alone is 394). Treating these as edge cases would
@@ -79,7 +79,7 @@ Sierra source records.
 
 ## Why a subdirectory and not flat alongside the synthetic set?
 
-Same reason as `curated/` and the other sibling subdirectories — the M2
+Same reason as `curated/` and the other sibling subdirectories — the marc-to-bibframe
 integration test's non-recursive `glob("*.xml")` on the parent
 `sample-marcxml/` directory means files in subdirectories are invisible
 to that test. Tests that want these records import this path

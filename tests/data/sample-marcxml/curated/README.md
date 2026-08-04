@@ -5,8 +5,8 @@ cataloguers in response to **Ask 1** in `docs/external-dependencies.md`.
 Initial batch received 2026-05-09 (13 records covering 11 slots); second
 batch received 2026-06-01 closed the unfilled slots 2/10/11 with four
 more records (1354066, 1353996, 2394080, 1109760). Filenames are the
-Helmet bib IDs as supplied by cataloguers; contents are unmodified
-MARCXML from `helmet-sierra-data-tools/output/marcxml/`.
+HELMET bib IDs as supplied by cataloguers; contents are unmodified
+source MARCXML.
 
 ## Why a subdirectory and not flat alongside the synthetic set?
 
@@ -55,7 +55,7 @@ These are useful for the spec/tests even though they were not explicit asks:
 - **Pre-2000 records spanning multiple decades**: `1844820` (1955), `1850100` (1982). Counter-balance to the otherwise modern (2000s+) majority of the set; the cataloguers explicitly asked for "different years" (`eri vuosilta`) coverage. Both records exercise pre-RDA / partial-RDA cataloguing conventions.
 - **Non-Finnish translation chain (Italian → German)**: `1850100` Umberto Eco *Der Name der Rose* (1982). The other translation slots (3 / 4) are foreign-language → Finnish; `1850100` is foreign → foreign with neither end in Finland's languages. Useful for testing that BFFI's translation-graph code does not implicitly assume a Finnish endpoint.
 - **Bare `700 $i ind2=2 $a $t` analytical entries (no `$i "Sisältää teos:"` wrapper)**: `1844820` (1955 anniversary publication with four constituent-work `700`s; each is `ind1=1 ind2=2` with bare `$a + $t`, no `$i`). Complements the wrapper-form analytical entries in `2620193` / `2371438` / `2360958` with the older bare-`$t` cataloguing convention used by ~366 records in the discovery corpus.
-- **Pathological contributor count (perf stress)**: `2339093` *Mozart 225 : Theatre* (2016 box set, audio recording, `100 $a Mozart, Wolfgang Amadeus`, `f700_count = 128`). Largest contributor count in the discovery corpus's 30k pick. Useful as a perf-smoke fixture for the M3 contributor walker — confirms no O(n²) regression at the high end of real-world cataloguing.
+- **Pathological contributor count (perf stress)**: `2339093` *Mozart 225 : Theatre* (2016 box set, audio recording, `100 $a Mozart, Wolfgang Amadeus`, `f700_count = 128`). Largest contributor count in the discovery corpus's 30k pick. Useful as a perf-smoke fixture for the bibframe-to-bffi contributor walker — confirms no O(n²) regression at the high end of real-world cataloguing.
 - **3D artefact / board game (leader byte 6 = `r`)**: `2088800` *Race for the galaxy* (2007 designer-board-game, `100 $a Lehmann, Tom, $e designer`, RDA `336 tdf` = "three-dimensional form"). Adds the leader6=`r` resource type to the existing leader6 coverage in the set (`a`/`c`/`e`/`g`/`j`/`m`/`s`).
 - **Estonian-target translation (`041 $a est $h fin`)**: `2605258` *Imepoiss Leon* (2024 children's book, Estonian translation of a Finnish original by Mervi Heikkilä). Estonian is uncovered by the rest of the set; this record adds an Estonian-target case with KANTO `$0` on the main entry and one Estonian translator.
 

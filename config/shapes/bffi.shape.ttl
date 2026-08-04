@@ -1,14 +1,14 @@
 # Boundary 3 — SHACL shapes for the post-CONSTRUCT BFFI graph.
 #
-# Validates the M3 output: cardinality between Work and Expression, Helmet
+# Validates the bibframe-to-bffi output: cardinality between Work and Expression, local
 # identifier preservation, prefLabel language tagging, class disjointness,
 # and conservative property routing. Failures emit a row to
 # `<BFFI_DATA_DIR>/bffi/_validation.jsonl` and a CLI warning, but the
 # pipeline continues — at 800k records, even 0.1% failure is 800 records
-# that need triage, not a halt (see docs/BUILD_PLAN.md M3).
+# that need triage, not a halt.
 #
 # Property routing here is the *pipeline's* allocation, not BFFI's broadest
-# permissible domain (spec § 3 "conservative" note in vocab/lkd.rdf).
+# permissible domain (the "conservative" note in vocab/lkd.rdf).
 
 @prefix sh:    <http://www.w3.org/ns/shacl#> .
 @prefix bf:    <http://id.loc.gov/ontologies/bibframe/> .
@@ -35,7 +35,7 @@ bffi:WorkShape
         sh:message "bffi:Work must link to at least one bffi:Expression via bffi:hasExpression."
     ] ;
 
-    # P-45 commit 2: Helmet identifier moved from Work to Manifestation.
+    # Local identifier moved from Work to Manifestation.
     # The Work no longer asserts ``bffi:identifiedBy``; the bib_id lives
     # on Manifestation (see :bffi:ManifestationShape below). Cataloguer
     # tooling discovers the bib_id from a Work via:
@@ -43,7 +43,7 @@ bffi:WorkShape
     #        ← bffi:expressionManifested ← Manifestation
     #        → bffi:identifiedBy
     sh:property [ sh:path bffi:identifiedBy ; sh:maxCount 0 ;
-                  sh:message "bffi:identifiedBy is Manifestation-only post-P-45." ] ;
+                  sh:message "bffi:identifiedBy is Manifestation-only." ] ;
 
     # prefLabel must exist in at least one of fi/sv/en.
     sh:property [
@@ -57,7 +57,7 @@ bffi:WorkShape
         sh:message "bffi:Work must have skos:prefLabel in fi/sv/en."
     ] ;
 
-    # Properties that belong only to bffi:Expression (per spec § 3 routing)
+    # Properties that belong only to bffi:Expression (per the routing rules)
     # MUST NOT appear here.
     sh:property [ sh:path bffi:expressionOf ; sh:maxCount 0 ;
                   sh:message "bffi:expressionOf is Expression-only." ] ;
@@ -87,10 +87,10 @@ bffi:ExpressionShape
         sh:message "bffi:Expression must point at exactly one bffi:Work via bffi:expressionOf."
     ] ;
 
-    # P-45 commit 2: bffi:identifiedBy moved to Manifestation (see
+    # bffi:identifiedBy moved to Manifestation (see
     # :bffi:ManifestationShape).
     sh:property [ sh:path bffi:identifiedBy ; sh:maxCount 0 ;
-                  sh:message "bffi:identifiedBy is Manifestation-only post-P-45." ] ;
+                  sh:message "bffi:identifiedBy is Manifestation-only." ] ;
 
     # Properties that belong only to bffi:Work MUST NOT appear here.
     sh:property [ sh:path bffi:hasExpression  ; sh:maxCount 0 ;
@@ -124,10 +124,10 @@ bffi:ManifestationShape
         sh:message "bffi:Manifestation must link to exactly one Expression via bffi:expressionManifested."
     ] ;
 
-    # Helmet identifier preserved on Manifestation (P-45 commit 2 — moved
+    # Local identifier preserved on Manifestation (moved
     # here from Work + Expression because the bib_id identifies the
     # published artefact, not the abstract creative content). The
-    # predicate name became ``bffi:identifiedBy`` in P-53 Family 3
+    # predicate name became ``bffi:identifiedBy`` in the vocab cleanup
     # (``owl:equivalentProperty`` of ``bf:identifiedBy`` in lkd.rdf).
     sh:property [
         sh:path bffi:identifiedBy ;
@@ -135,10 +135,10 @@ bffi:ManifestationShape
         sh:qualifiedValueShape [
             sh:property [
                 sh:path bf:source ;
-                sh:hasValue <http://urn.fi/URN:NBN:fi:bib:source:helmet> ;
+                sh:hasValue <http://urn.fi/URN:NBN:fi:bib:source:local> ;
             ] ;
             sh:property [ sh:path rdf:value ; sh:minCount 1 ; sh:datatype xsd:string ] ;
         ] ;
         sh:qualifiedMinCount 1 ;
-        sh:message "bffi:Manifestation must carry a Helmet bffi:identifiedBy."
+        sh:message "bffi:Manifestation must carry a local bffi:identifiedBy."
     ] .

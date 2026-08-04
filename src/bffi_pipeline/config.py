@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     work_namespace: str = "http://urn.fi/URN:NBN:fi:bib:work:"
     expression_namespace: str = "http://urn.fi/URN:NBN:fi:bib:expression:"
     manifestation_namespace: str = "http://urn.fi/URN:NBN:fi:bib:manifestation:"
-    helmet_source_uri: str = "http://urn.fi/URN:NBN:fi:bib:source:helmet"
+    source_uri: str = "http://urn.fi/URN:NBN:fi:bib:source:local"
 
 
 @lru_cache(maxsize=1)

@@ -36,12 +36,12 @@ subdirectory closes that gap with one record per pattern.
 - **Title-change predecessor / successor chains.** `1599669` and
   `1904380` together exercise the canonical serial-title-change shape:
   one record points back (`780`) at an old title; another points
-  forward (`785`) at a new title. M3 must emit Work-to-Work
+  forward (`785`) at a new title. bibframe-to-bffi must emit Work-to-Work
   `bf:precededBy` / `bf:succeededBy` triples, not collapse the titles
   into a single Work.
 - **ISBN-only and ISSN-only linkage.** Both `1837972` (ISBN in `$z`)
   and the serial records (ISSN in `$x`) link the sibling record by
-  *identifier string*, not by bib-ID. M3 needs an identifier-lookup
+  *identifier string*, not by bib-ID. bibframe-to-bffi needs an identifier-lookup
   step (against `Instance.identifier`) to resolve the sibling URI.
   Skosmos publication must be tolerant of missing siblings — the
   ebook of `1837972` may not be in the corpus at all.
@@ -74,7 +74,7 @@ subdirectory closes that gap with one record per pattern.
 ## Why a subdirectory and not flat alongside the synthetic set?
 
 Same reason as `curated/` and the other sibling subdirectories — the
-M2 integration test's non-recursive `glob("*.xml")` on the parent
+marc-to-bibframe integration test's non-recursive `glob("*.xml")` on the parent
 `sample-marcxml/` directory means files in subdirectories are
 invisible to that test. Tests that want these records import this
 path explicitly.

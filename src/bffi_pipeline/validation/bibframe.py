@@ -2,7 +2,7 @@
 
 The shape lives at ``config/shapes/bibframe-conversion.shape.ttl`` and is
 loaded once per process. Failures are reported as
-``error_type: "bibframe-shape"`` per stage M2.
+``error_type: "bibframe-shape"`` per stage ``marc-to-bibframe``.
 """
 
 from __future__ import annotations

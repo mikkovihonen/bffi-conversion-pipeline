@@ -1,6 +1,6 @@
 """Boundary 1: MARCXML pre-conversion validation.
 
-The four typed-error families (see stage M2) :
+The four typed-error families (see stage ``marc-to-bibframe``) :
 
 * ``marcxml-filename`` — filename does not match ``^\\d+\\.xml$``.
 * ``marcxml-encoding`` — file is not strict UTF-8.
@@ -27,10 +27,10 @@ from lxml import etree
 from bffi_pipeline.schemas import marc21slim_xsd_path
 
 MARC_NS: Final[str] = "http://www.loc.gov/MARC21/slim"
-# Accepts both the canonical Sierra bib-ID form (``b<digits><check>.xml``,
+# Accepts both the canonical prefixed bib-ID form (``b<digits><check>.xml``,
 # e.g. ``b11007849.xml`` — check digit is ``0-9|x``) and the legacy
 # bare-digits form (``<digits>.xml``) so MARCXML exported before the
-# bib-ID format change still validates. ``helmet_bib_id_from_filename``
+# bib-ID format change still validates. ``bib_id_from_filename``
 # returns the stem verbatim — downstream stages carry whichever form
 # the file used.
 _FILENAME_PATTERN: Final[re.Pattern[str]] = re.compile(r"^(b\d+[\dx]|\d+)\.xml$")
@@ -61,15 +61,15 @@ class MarcXmlValidationError(Exception):
 class ValidatedMarcXml:
     """Successful Boundary-1 outcome — the parsed tree and the bib ID."""
 
-    helmet_bib_id: str
+    bib_id: str
     tree: etree._ElementTree
 
 
-def helmet_bib_id_from_filename(path: Path) -> str:
+def bib_id_from_filename(path: Path) -> str:
     """Return the bib ID from a filename matching :data:`_FILENAME_PATTERN`.
 
     Returns the stem verbatim — either ``b<digits><check>`` (current
-    Sierra-export form) or ``<digits>`` (legacy bare-digits form).
+    prefixed form) or ``<digits>`` (legacy bare-digits form).
     Caller has already checked the pattern via :func:`validate_filename`.
     """
     return path.stem
@@ -150,7 +150,7 @@ _RE_008: Final[re.Pattern[str]] = re.compile(r"^008$")
 _RE_336_337_338: Final[re.Pattern[str]] = re.compile(r"^33[678]$")
 
 #: MARC leader position 6 codes for which the 33X RDA content/media/
-#: carrier triplet is commonly absent in Helmet's Sierra export. The
+#: carrier triplet is commonly absent in the HELMET test corpus. The
 #: leader's record-type-code already conveys the broad type, so we
 #: don't hard-skip these records over a missing 33X.
 #: - ``c``: Notated music
@@ -216,7 +216,7 @@ def validate(path: Path) -> ValidatedMarcXml:
     tree = parse_xml(path, raw)
     validate_xsd(path, tree)
     validate_minimum_content(path, tree)
-    return ValidatedMarcXml(helmet_bib_id=helmet_bib_id_from_filename(path), tree=tree)
+    return ValidatedMarcXml(bib_id=bib_id_from_filename(path), tree=tree)
 
 
 __all__ = [
@@ -224,7 +224,7 @@ __all__ = [
     "ErrorType",
     "MarcXmlValidationError",
     "ValidatedMarcXml",
-    "helmet_bib_id_from_filename",
+    "bib_id_from_filename",
     "parse_xml",
     "validate",
     "validate_filename",

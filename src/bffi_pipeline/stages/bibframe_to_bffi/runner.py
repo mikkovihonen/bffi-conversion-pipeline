@@ -1,6 +1,6 @@
 """Pillar 3 orchestrator: BIBFRAME RDF/XML -> BFFI canonical Turtle.
 
-Step 3 of P-057 — v0 emit. Implements P-56 Phase 1 (clean rename) only:
+Step 3 — v0 emit. Implements the clean-rename phase only:
 every ``owl:equivalentClass`` / ``owl:equivalentProperty`` row from the
 mapping doc is materialised as a URI substitution; any remaining
 ``bf:*`` URI in the input falls through to the output and triggers the
@@ -129,10 +129,10 @@ def convert_one(
     Returns ``(output_path, residual_bf_count, routing_counters)``.
     Pipeline order:
 
-      1. ``rename_graph`` applies p-56 Phase 1 clean renames (including
+      1. ``rename_graph`` applies the clean renames (including
          BFLC aliases — ``bflc:marcKey`` / ``bflc:simplePlace`` / etc.
          all rename to their ``bffi:*`` counterparts here).
-      2. ``apply_all_routings`` applies p-56 Phase 4 discriminator
+      2. ``apply_all_routings`` applies the discriminator
          routings (Identifier-scheme, Title-variant, Audio, Series-link,
          Hub).
       3. Residual ``bf:*`` URIs are counted — non-zero means a term
@@ -157,7 +157,7 @@ def convert_one(
     # rdflib's RDF/XML parser is permissive and accepts URIs containing
     # spaces / control characters that the stricter Turtle serializer
     # then refuses ("does not look like a valid URI"). These appear in
-    # the Helmet corpus when a cataloguer typed free text into a field
+    # the HELMET libraries test corpus when a cataloguer typed free text into a field
     # marc2bibframe2 then concatenates onto a LoC URI base. Catch the
     # serialize-side failure per-record so one bad URI in record N
     # doesn't abort the corpus run; the closed-namespace test still

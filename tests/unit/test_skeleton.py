@@ -1,4 +1,4 @@
-"""M0 smoke test: package imports and version is exposed."""
+"""Smoke test: package imports and version is exposed."""
 
 from __future__ import annotations
 

@@ -12,10 +12,10 @@ Three legitimate paths for terms NOT in ``lkd.rdf`` (per CLAUDE.md):
 1. Reuse a standard term (RDF / RDFS / OWL / SKOS / PROV-O / BIBFRAME / DCT).
 2. Use ``bffi-prov:`` for pipeline-internal metadata. Ours; extending
    it is fine.
-3. Propose addition to BFFI via NLF (precedent: P-49 Layer 3).
+3. Propose addition to BFFI via NLF.
 
 This test is the safety net. It runs in CI and breaks on any local
-``bffi:`` mint — the regression that motivated P-50's vocab cleanup
+``bffi:`` mint — the regression that motivated the vocab cleanup
 (commit 3970699, where 5 locally-minted terms were swept off the
 ``bffi:`` namespace).
 """
@@ -131,7 +131,7 @@ def test_python_vocab_bffi_terms_all_declared_in_lkd_rdf() -> None:
     - Swap for a standard term (``rdf:`` / ``rdfs:`` / ``owl:`` /
       ``skos:`` / ``prov:`` / ``bf:`` / ``dct:``).
     - Move to ``bffi-prov:`` if pipeline-internal.
-    - Open a P-49-Layer-3-style proposal to add the term to BFFI.
+    - Open a proposal to add the term to BFFI.
 
     See CLAUDE.md § Conventions for the rule + decision tree.
     """
@@ -150,7 +150,7 @@ def test_sparql_construct_bffi_terms_all_declared_in_lkd_rdf() -> None:
     a class or property declared in ``vocab/lkd.rdf``.
 
     Failing names indicate a locally-minted ``bffi:`` term being
-    emitted by an M3 CONSTRUCT or queried by a SPARQL pass. Same fix
+    emitted by the bibframe-to-bffi conversion. Same fix
     options as the Python test above."""
     declared = _declared_bffi_terms()
     sparql_refs = _sparql_bffi_references()

@@ -111,7 +111,7 @@ def test_convert_one_residual_count_surfaces_unhandled_bf_terms(tmp_path: Path) 
         options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
         rules=load_rules(),
     )
-    # After p-56 Phase 4 routings ship in step 6, the vendored test
+    # After the discriminator routings ship in step 6, the vendored test
     # record's discriminator-routed terms (bf:Isbn, bf:Hub, bf:VariantTitle,
     # …) are rewritten to bffi:* shapes so the residual collapses to 0.
     # Records can still carry residue if they hit a term family beyond

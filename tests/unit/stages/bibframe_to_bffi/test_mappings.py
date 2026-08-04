@@ -91,7 +91,7 @@ def test_load_rules_picks_non_representative_variant_on_ambiguous_subpropertyof(
     """When a single `bf:X` has multiple `bffi:*` subproperties
     (bf:content -> bffi:content / bffi:contentOfRepresentativeExpression),
     lexicographic tie-break consistently picks the non-OfRepresentativeExpression
-    variant — Helmet's main-stream default."""
+    variant — the HELMET corpus main-stream default."""
     rules = load_rules()
     assert rules.predicates[_bf("content")] == _bffi("content")
     assert rules.predicates[_bf("date")] == _bffi("date")

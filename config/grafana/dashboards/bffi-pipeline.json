@@ -3,8 +3,7 @@
   "uid": "bffi-pipeline",
   "tags": [
     "bffi",
-    "pipeline",
-    "p-11"
+    "pipeline"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -172,9 +171,9 @@
       }
     },
     {
-      "id": 9,
+      "id": 100,
       "type": "stat",
-      "title": "M2 marc-to-bf",
+      "title": "melinda-sync",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -182,19 +181,19 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
+        "w": 4,
         "x": 0,
         "y": 3
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m2\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m2\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m2\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m2"
+          "expr": "(40 * count(bffi_stage_failed{stage=\"melinda-sync\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"melinda-sync\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
+          "legendFormat": "melinda-sync"
         },
         {
           "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m2\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m2\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
+          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"melinda-sync\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
           "legendFormat": "{{eta_prefix}}",
           "instant": true,
           "range": false
@@ -299,9 +298,9 @@
       }
     },
     {
-      "id": 10,
+      "id": 101,
       "type": "stat",
-      "title": "M3 bf-to-bffi",
+      "title": "marc-to-bibframe",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -309,19 +308,19 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
-        "x": 3,
+        "w": 4,
+        "x": 4,
         "y": 3
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m3\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m3\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m3\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m3"
+          "expr": "(40 * count(bffi_stage_failed{stage=\"marc2bibframe\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"marc2bibframe\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
+          "legendFormat": "marc2bibframe"
         },
         {
           "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m3\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m3\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
+          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"marc2bibframe\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
           "legendFormat": "{{eta_prefix}}",
           "instant": true,
           "range": false
@@ -426,9 +425,9 @@
       }
     },
     {
-      "id": 11,
+      "id": 102,
       "type": "stat",
-      "title": "M5 embeddings",
+      "title": "bibframe-to-bffi",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -436,19 +435,19 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
-        "x": 6,
+        "w": 4,
+        "x": 8,
         "y": 3
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m5\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m5\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m5\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m5"
+          "expr": "(40 * count(bffi_stage_failed{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
+          "legendFormat": "bibframe2bffi"
         },
         {
           "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m5\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m5\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
+          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"bibframe2bffi\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
           "legendFormat": "{{eta_prefix}}",
           "instant": true,
           "range": false
@@ -553,9 +552,9 @@
       }
     },
     {
-      "id": 12,
+      "id": 103,
       "type": "stat",
-      "title": "M6 judge",
+      "title": "bffi-to-marc",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -563,146 +562,19 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
-        "x": 9,
-        "y": 3
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m6\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m6\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m6\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m6"
-        },
-        {
-          "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m6\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m6\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
-          "legendFormat": "{{eta_prefix}}",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "graphMode": "none",
-        "textMode": "value_and_name",
-        "colorMode": "background",
-        "orientation": "vertical",
-        "text": {
-          "titleSize": 12,
-          "valueSize": 28
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "skipped",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "skipped",
-                  "color": "text"
-                },
-                "10": {
-                  "text": "pending",
-                  "color": "orange"
-                },
-                "20": {
-                  "text": "running",
-                  "color": "green"
-                },
-                "30": {
-                  "text": "done",
-                  "color": "blue"
-                },
-                "40": {
-                  "text": "failed",
-                  "color": "red"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "A"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": " "
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "mappings",
-                "value": []
-              },
-              {
-                "id": "noValue",
-                "value": ""
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "text"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": 13,
-      "type": "stat",
-      "title": "M8 consolidate",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
+        "w": 4,
         "x": 12,
         "y": 3
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m8\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m8\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m8\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m8"
+          "expr": "(40 * count(bffi_stage_failed{stage=\"bffi2marc\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"bffi2marc\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
+          "legendFormat": "bffi2marc"
         },
         {
           "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m8\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m8\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
+          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"bffi2marc\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
           "legendFormat": "{{eta_prefix}}",
           "instant": true,
           "range": false
@@ -807,9 +679,9 @@
       }
     },
     {
-      "id": 14,
+      "id": 104,
       "type": "stat",
-      "title": "M9 reconcile",
+      "title": "roundtrip-eval",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -817,19 +689,19 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 3,
-        "x": 15,
+        "w": 4,
+        "x": 16,
         "y": 3
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"m9\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"m9\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"m9\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "m9"
+          "expr": "(40 * count(bffi_stage_failed{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
+          "legendFormat": "roundtrip_eval"
         },
         {
           "refId": "B",
-          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"m9\",phase=\"phase2\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"m9\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
+          "expr": "label_replace(bffi_stage_eta_seconds{stage=\"roundtrip_eval\",phase=\"_\",run_uuid=\"$active_run\"} unless on(stage,run_uuid) bffi_stage_ended_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}, \"eta_prefix\", \"ETA\", \"\", \"\") or label_replace(bffi_stage_ended_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}, \"eta_prefix\", \" \", \"\", \"\")",
           "legendFormat": "{{eta_prefix}}",
           "instant": true,
           "range": false
@@ -934,235 +806,9 @@
       }
     },
     {
-      "id": 15,
-      "type": "stat",
-      "title": "Skosify",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 18,
-        "y": 3
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"skosify\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"skosify\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "skosify"
-        },
-        {
-          "refId": "B",
-          "expr": "bffi_stage_ended_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"}",
-          "legendFormat": "time"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "graphMode": "none",
-        "textMode": "value",
-        "colorMode": "background",
-        "orientation": "vertical",
-        "text": {
-          "titleSize": 12,
-          "valueSize": 28
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "skipped",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "skipped",
-                  "color": "text"
-                },
-                "10": {
-                  "text": "pending",
-                  "color": "orange"
-                },
-                "20": {
-                  "text": "running",
-                  "color": "green"
-                },
-                "30": {
-                  "text": "done",
-                  "color": "blue"
-                },
-                "40": {
-                  "text": "failed",
-                  "color": "red"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "mappings",
-                "value": []
-              },
-              {
-                "id": "noValue",
-                "value": ""
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "text"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": 16,
-      "type": "stat",
-      "title": "Load \u2192 Fuseki",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 21,
-        "y": 3
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(40 * count(bffi_stage_failed{stage=\"load\",run_uuid=\"$active_run\"})) or on() (sum(30 * (count(bffi_stage_ended_timestamp{stage=\"load\",run_uuid=\"$active_run\"}) or on() vector(0)) + 20 * ((count(bffi_stage_started_timestamp{stage=\"load\",run_uuid=\"$active_run\"}) unless count(bffi_stage_ended_timestamp{stage=\"load\",run_uuid=\"$active_run\"})) or on() vector(0)) + 10 * (count(bffi_stage_planned{stage=\"load\",run_uuid=\"$active_run\"} unless on(stage, run_uuid) bffi_stage_started_timestamp{stage=\"load\",run_uuid=\"$active_run\"}) or on() vector(0))) or on() vector(0))",
-          "legendFormat": "load"
-        },
-        {
-          "refId": "B",
-          "expr": "bffi_stage_ended_timestamp{stage=\"load\",run_uuid=\"$active_run\"} - bffi_stage_started_timestamp{stage=\"load\",run_uuid=\"$active_run\"}",
-          "legendFormat": "time"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "graphMode": "none",
-        "textMode": "value",
-        "colorMode": "background",
-        "orientation": "vertical",
-        "text": {
-          "titleSize": 12,
-          "valueSize": 28
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "skipped",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "skipped",
-                  "color": "text"
-                },
-                "10": {
-                  "text": "pending",
-                  "color": "orange"
-                },
-                "20": {
-                  "text": "running",
-                  "color": "green"
-                },
-                "30": {
-                  "text": "done",
-                  "color": "blue"
-                },
-                "40": {
-                  "text": "failed",
-                  "color": "red"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "mappings",
-                "value": []
-              },
-              {
-                "id": "noValue",
-                "value": ""
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "text"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "id": 17,
+      "id": 105,
       "type": "bargauge",
-      "title": "${m2_total} records",
+      "title": "${melinda_total} records",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1170,14 +816,14 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
+        "w": 4,
         "x": 0,
         "y": 7
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m2\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m2\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m2\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
+          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"melinda-sync\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"melinda-sync\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"melinda-sync\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
           "legendFormat": "% done"
         }
       ],
@@ -1219,9 +865,9 @@
       }
     },
     {
-      "id": 18,
+      "id": 106,
       "type": "bargauge",
-      "title": "${m3_total} records",
+      "title": "${marc2bibframe_total} records",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1229,14 +875,14 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 3,
+        "w": 4,
+        "x": 4,
         "y": 7
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m3\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m3\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m3\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
+          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"marc2bibframe\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"marc2bibframe\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
           "legendFormat": "% done"
         }
       ],
@@ -1278,9 +924,9 @@
       }
     },
     {
-      "id": 19,
+      "id": 107,
       "type": "bargauge",
-      "title": "${m5_total} embeddings",
+      "title": "${bibframe2bffi_total} records",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1288,14 +934,14 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 6,
+        "w": 4,
+        "x": 8,
         "y": 7
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m5\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m5\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m5\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
+          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"bibframe2bffi\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"bibframe2bffi\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
           "legendFormat": "% done"
         }
       ],
@@ -1337,9 +983,9 @@
       }
     },
     {
-      "id": 20,
+      "id": 108,
       "type": "bargauge",
-      "title": "${m6_total} pairs",
+      "title": "${bffi2marc_total} records",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1347,73 +993,14 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 9,
-        "y": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m6\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m6\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m6\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
-          "legendFormat": "% done"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "displayMode": "basic",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "text": {
-          "titleSize": 11,
-          "valueSize": 14
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "\u2014",
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.99
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": 21,
-      "type": "bargauge",
-      "title": "${m8_total} works",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
+        "w": 4,
         "x": 12,
         "y": 7
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m8\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m8\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m8\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
+          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"bffi2marc\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"bffi2marc\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"bffi2marc\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
           "legendFormat": "% done"
         }
       ],
@@ -1455,9 +1042,9 @@
       }
     },
     {
-      "id": 22,
+      "id": 109,
       "type": "bargauge",
-      "title": "${m9_total} entities",
+      "title": "${roundtrip_total} pairs",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1465,78 +1052,14 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 15,
+        "w": 4,
+        "x": 16,
         "y": 7
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m9\",phase=\"phase1\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m9\",phase=\"phase1\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_entities_total{stage=\"m9\",phase=\"phase2\",run_uuid=\"$active_run\"}) or vector(0))  or (bffi_stage_phase_planned{stage=\"m9\",phase=\"phase1\",run_uuid=\"$active_run\"} * 0),  100)",
-          "legendFormat": "phase 1"
-        },
-        {
-          "refId": "B",
-          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"m9\",phase=\"phase2\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"m9\",phase=\"phase2\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"m9\",run_uuid=\"$active_run\"}) or vector(0))  or (bffi_stage_phase_planned{stage=\"m9\",phase=\"phase2\",run_uuid=\"$active_run\"} * 0),  100)",
-          "legendFormat": "phase 2"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "displayMode": "basic",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "text": {
-          "titleSize": 11,
-          "valueSize": 14
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "\u2014",
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.99
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": 23,
-      "type": "bargauge",
-      "title": "${skosify_total} records",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
-        "x": 18,
-        "y": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "clamp_max(  bffi_stage_started_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"} * 0  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"skosify\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
+          "expr": "clamp_max(  bffi_stage_entities_processed_total{stage=\"roundtrip_eval\",phase=\"_\",run_uuid=\"$active_run\"}  / bffi_stage_entities_total{stage=\"roundtrip_eval\",phase=\"_\",run_uuid=\"$active_run\"}  * 100  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
           "legendFormat": "% done"
         }
       ],
@@ -1578,125 +1101,9 @@
       }
     },
     {
-      "id": 24,
+      "id": 110,
       "type": "bargauge",
-      "title": "${load_total} records",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
-        "x": 21,
-        "y": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "clamp_max(  bffi_stage_started_timestamp{stage=\"load\",run_uuid=\"$active_run\"} * 0  + 100 * scalar(count(bffi_stage_ended_timestamp{stage=\"load\",run_uuid=\"$active_run\"}) or vector(0)),  100)",
-          "legendFormat": "% done"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "displayMode": "basic",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "text": {
-          "titleSize": 11,
-          "valueSize": 14
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "\u2014",
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 99.99
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": 28,
-      "type": "text",
-      "title": "Run artifacts",
-      "description": "Browse this run's output directory via the Caddy reverse proxy at /files/.",
-      "gridPos": {
-        "h": 12,
-        "w": 6,
-        "x": 18,
-        "y": 10
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "Run `${active_run}`\n\n- <a href=\"/files/${active_run}/\" target=\"_blank\">Browse all run artifacts</a>\n- <a href=\"/files/${active_run}/cataloguer-review/cataloguer-review.html\" target=\"_blank\">Open cataloguer review</a> (if M3 contrib cascade or M6 produced an audit log)\n- <a href=\"/files/${active_run}/cataloguer-review/bundle.zip\">Download cataloguer-review bundle</a>"
-      }
-    },
-    {
-      "id": 8,
-      "type": "stat",
-      "title": "Dependency probe latency (ms)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 24,
-        "x": 0,
-        "y": 22
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (dep) (bffi_dependency_probe_latency_ms)",
-          "legendFormat": "{{dep}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms"
-        }
-      },
-      "options": {
-        "graphMode": "none",
-        "textMode": "value_and_name",
-        "colorMode": "value",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "valueSize": 24,
-          "titleSize": 12
-        }
-      }
-    },
-    {
-      "id": 29,
-      "type": "bargauge",
-      "title": "M8 + M9",
+      "title": "Errors by stage",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1704,118 +1111,35 @@
       },
       "gridPos": {
         "h": 12,
-        "w": 6,
-        "x": 12,
+        "w": 12,
+        "x": 0,
         "y": 10
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(bffi_stage_entities_processed_total{stage=\"m8\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M8 processed"
+          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"melinda-sync\",run_uuid=\"$active_run\"}))",
+          "legendFormat": "melinda-sync {{error_type}}"
         },
         {
           "refId": "B",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"local\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 local"
+          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"marc2bibframe\",run_uuid=\"$active_run\"}))",
+          "legendFormat": "marc-to-bibframe {{error_type}}"
         },
         {
           "refId": "C",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"lexical\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 lexical"
+          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"bibframe2bffi\",run_uuid=\"$active_run\"}))",
+          "legendFormat": "bibframe-to-bffi {{error_type}}"
         },
         {
           "refId": "D",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"llm_pick\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 llm-pick"
+          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"bffi2marc\",run_uuid=\"$active_run\"}))",
+          "legendFormat": "bffi-to-marc {{error_type}}"
         },
         {
           "refId": "E",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"fallback\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 fallback"
-        },
-        {
-          "refId": "F",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"no_candidate\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 no-candidate"
-        },
-        {
-          "refId": "G",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"fictional\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 fictional"
-        },
-        {
-          "refId": "H",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m9\",outcome=\"watchdog_aborted\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M9 watchdog-abort"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "displayMode": "basic",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 18
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "\u2014",
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": 30,
-      "type": "bargauge",
-      "title": "M2 + M3",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 6,
-        "x": 0,
-        "y": 10
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m2\",outcome=\"succeeded\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M2 converted"
-        },
-        {
-          "refId": "B",
-          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"m2\",run_uuid=\"$active_run\"}))",
-          "legendFormat": "M2 {{error_type}}"
-        },
-        {
-          "refId": "C",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m3\",outcome=\"converted\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M3 converted"
-        },
-        {
-          "refId": "D",
-          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"m3\",run_uuid=\"$active_run\"}))",
-          "legendFormat": "M3 {{error_type}}"
+          "expr": "topk(10, sum by (error_type)(bffi_stage_errors_total{stage=\"roundtrip_eval\",run_uuid=\"$active_run\"}))",
+          "legendFormat": "roundtrip-eval {{error_type}}"
         }
       ],
       "options": {
@@ -1875,7 +1199,7 @@
               },
               {
                 "id": "displayName",
-                "value": "M2 ${__field.labels.error_type}"
+                "value": "marc-to-bibframe ${__field.labels.error_type}"
               }
             ]
           },
@@ -1906,7 +1230,7 @@
               },
               {
                 "id": "displayName",
-                "value": "M3 ${__field.labels.error_type}"
+                "value": "bibframe-to-bffi ${__field.labels.error_type}"
               }
             ]
           }
@@ -1914,96 +1238,19 @@
       }
     },
     {
-      "id": 31,
-      "type": "bargauge",
-      "title": "M5 + M6",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bffi-prometheus"
-      },
+      "id": 28,
+      "type": "text",
+      "title": "Run artifacts",
+      "description": "Browse this run's output directory via the Caddy reverse proxy at /files/.",
       "gridPos": {
         "h": 12,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 10
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(bffi_stage_entities_processed_total{stage=\"m5\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M5 processed"
-        },
-        {
-          "refId": "B",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m6\",outcome=\"cache_hits\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 cache_hits"
-        },
-        {
-          "refId": "C",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m6\",outcome=\"fresh_calls\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 fresh_calls"
-        },
-        {
-          "refId": "D",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m6\",outcome=\"cascade_used\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 cascade_used"
-        },
-        {
-          "refId": "E",
-          "expr": "sum(bffi_stage_outcomes_total{stage=\"m6\",outcome=\"auto_merged\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 auto_merged"
-        },
-        {
-          "refId": "F",
-          "expr": "sum(bffi_watchdog_events_total{event=\"timeout\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 watchdog timeout"
-        },
-        {
-          "refId": "G",
-          "expr": "sum(bffi_watchdog_events_total{event=\"retry\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 watchdog retry"
-        },
-        {
-          "refId": "H",
-          "expr": "sum(bffi_watchdog_events_total{event=\"give_up\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 watchdog give_up"
-        },
-        {
-          "refId": "I",
-          "expr": "sum(bffi_watchdog_events_total{event=\"pair_budget_exceeded\",run_uuid=\"$active_run\"})",
-          "legendFormat": "M6 watchdog pair_budget_exceeded"
-        }
-      ],
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "displayMode": "basic",
-        "orientation": "horizontal",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "text": {
-          "titleSize": 14,
-          "valueSize": 18
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "\u2014",
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          }
-        }
+        "mode": "markdown",
+        "content": "Run `${active_run}`\n\n- <a href=\"/files/${active_run}/\" target=\"_blank\">Browse all run artifacts</a>\n- <a href=\"/files/${active_run}/cataloguer-review/cataloguer-review.html\" target=\"_blank\">Open cataloguer review</a> (if the contributor cascade produced an audit log)\n- <a href=\"/files/${active_run}/cataloguer-review/bundle.zip\">Download cataloguer-review bundle</a>"
       }
     }
   ],
@@ -2051,13 +1298,13 @@
         "multi": false
       },
       {
-        "name": "m9_total",
+        "name": "melinda_total",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "bffi-prometheus"
         },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m9\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
+        "query": "query_result(sum(bffi_stage_entities_total{stage=\"melinda-sync\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
         "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
         "refresh": 2,
         "hide": 2,
@@ -2068,13 +1315,13 @@
         }
       },
       {
-        "name": "m2_total",
+        "name": "marc2bibframe_total",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "bffi-prometheus"
         },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m2\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
+        "query": "query_result(sum(bffi_stage_entities_total{stage=\"marc2bibframe\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
         "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
         "refresh": 2,
         "hide": 2,
@@ -2085,13 +1332,13 @@
         }
       },
       {
-        "name": "m3_total",
+        "name": "bibframe2bffi_total",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "bffi-prometheus"
         },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m3\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
+        "query": "query_result(sum(bffi_stage_entities_total{stage=\"bibframe2bffi\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
         "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
         "refresh": 2,
         "hide": 2,
@@ -2102,13 +1349,13 @@
         }
       },
       {
-        "name": "m5_total",
+        "name": "bffi2marc_total",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "bffi-prometheus"
         },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m5\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
+        "query": "query_result(sum(bffi_stage_entities_total{stage=\"bffi2marc\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
         "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
         "refresh": 2,
         "hide": 2,
@@ -2119,64 +1366,13 @@
         }
       },
       {
-        "name": "m6_total",
+        "name": "roundtrip_total",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "bffi-prometheus"
         },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m6\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
-        "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
-        "refresh": 2,
-        "hide": 2,
-        "current": {
-          "selected": false,
-          "text": "0",
-          "value": "0"
-        }
-      },
-      {
-        "name": "m8_total",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "bffi-prometheus"
-        },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"m8\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
-        "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
-        "refresh": 2,
-        "hide": 2,
-        "current": {
-          "selected": false,
-          "text": "0",
-          "value": "0"
-        }
-      },
-      {
-        "name": "skosify_total",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "bffi-prometheus"
-        },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"skosify\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
-        "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
-        "refresh": 2,
-        "hide": 2,
-        "current": {
-          "selected": false,
-          "text": "0",
-          "value": "0"
-        }
-      },
-      {
-        "name": "load_total",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "bffi-prometheus"
-        },
-        "query": "query_result(sum(bffi_stage_entities_total{stage=\"load\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
+        "query": "query_result(sum(bffi_stage_entities_total{stage=\"roundtrip_eval\",phase=\"_\",run_uuid=\"$active_run\"}) or vector(0))",
         "regex": "/([0-9]+\\.?[0-9]*)\\s+[0-9]+\\s*$/",
         "refresh": 2,
         "hide": 2,

@@ -11,11 +11,10 @@
 # No triple store here. The conversion pipeline reads MARCXML from disk
 # and writes Turtle + MARCXML to the run directory — it never needs a
 # SPARQL endpoint. Fuseki and Skosmos belong to the downstream
-# vocabulary-publishing work, which lives in the legacy
-# `helmet-marcxml-bffi-skos-pipeline` repository.
+# vocabulary-publishing work, which is out of scope for this repository.
 
 services:
-  # P-11 Phase D: local observability stack. Scrapes the
+  # Local observability stack. Scrapes the
   # ``bffi-pipeline serve-metrics`` exporter running on the host
   # (Prometheus reaches it via ``host.docker.internal``) and renders
   # the bundled Grafana dashboard. All local; no outbound telemetry.
@@ -37,7 +36,7 @@ services:
     # 9090 stays for the Caddy → Prometheus hop inside the Docker
     # network; ``host.docker.internal:9100`` for the scrape target is
     # unaffected (Prometheus initiates that connection itself).
-    # P-32 Phase G: --web.enable-admin-api unlocks the
+    # --web.enable-admin-api unlocks the
     # /api/v1/admin/tsdb/delete_series endpoint that
     # ``bffi-pipeline runs prune --apply --reset-prometheus`` calls.
     # --web.route-prefix lets Prometheus serve under /prometheus/ so

@@ -14,8 +14,8 @@ These tests assert:
 1. The canonical helper binds every namespace listed as a project
    namespace in ``vocab.py``, and zero ``ns<N>`` declarations land
    in serialised output containing triples from those namespaces.
-2. Every stage that produces canonical Turtle (``m2`` / ``m3`` /
-   ``m8`` / ``provenance`` / ``m9`` / ``m10``) routes its bindings
+2. Every stage that produces canonical Turtle (``marc2bibframe`` /
+   ``bibframe2bffi`` / ``bffi2marc`` / provenance) routes its bindings
    through the canonical helper rather than maintaining a private
    list — a static-source grep guards against drift.
 """
@@ -68,10 +68,9 @@ def test_serialised_turtle_emits_zero_auto_prefixes_for_project_namespaces() -> 
     g.add((subj, V.PROV.wasGeneratedBy, URIRef("urn:activity")))
     g.add((subj, V.BF.title, Literal("test title")))
     g.add((subj, V.BFLC.marcKey, Literal("245 $a test")))
-    g.add((subj, V.MADSRDF.isIdentifiedByAuthority, URIRef("urn:auth")))
     g.add((subj, V.BFFI.contribution, URIRef("urn:contrib")))
     g.add((subj, V.fromMarcField, Literal("test:245:1")))
-    g.add((subj, V.BIB.helmetBibId, Literal("b00000001")))
+    g.add((subj, V.BIB.localBibId, Literal("b00000001")))
 
     turtle = g.serialize(format="turtle")
     auto_prefix = re.compile(r"^@prefix\s+ns\d+:", re.MULTILINE)
@@ -85,7 +84,7 @@ def test_serialised_turtle_emits_zero_auto_prefixes_for_project_namespaces() -> 
 
 def test_canonical_helper_is_idempotent() -> None:
     """Calling the helper twice is safe — second call is a no-op.
-    Stages that get re-run on an already-bound graph (M9 binds the
+    Stages that get re-run on an already-bound graph (a later stage binds the
     canonical TTL it parses, then re-serialises) must not blow up or
     double-bind."""
     g = Graph()

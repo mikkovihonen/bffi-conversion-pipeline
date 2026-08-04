@@ -1,6 +1,6 @@
 """Per-record MARCXML diff classification.
 
-Compares one source MARCXML record (the original Helmet output) against
+Compares one source MARCXML record (the original source output) against
 one reconstructed MARCXML record (the step-4 reverse converter's output)
 and yields a per-field-instance verdict.
 
@@ -20,7 +20,7 @@ Deferred to a follow-on:
     RDA-modern 264 ind2=1 form for either source). Needs cross-tag
     content similarity; for v0 the operator reads paired ``lost`` +
     ``added`` rows as a hint instead.
-  - ``marckey-bypass`` — concept lifted from P-49 on main; doesn't apply
+  - ``marckey-bypass`` — doesn't apply
     until the reverse converter starts reading ``bflc:marcKey``.
 
 The pairing algorithm for repeated tags (e.g. multiple 700s on one

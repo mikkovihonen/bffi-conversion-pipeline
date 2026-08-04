@@ -1,4 +1,4 @@
-"""P-56 Phase 4: per-instance discriminator routings.
+"""Per-instance discriminator routings.
 
 The clean-rename pass in :mod:`bffi_pipeline.stages.bibframe_to_bffi.mappings`
 handles every ``bf:*`` term with a direct ``owl:equivalentClass`` /
@@ -233,7 +233,7 @@ INVERSE_PREDICATE_ROUTINGS: Final[dict[URIRef, URIRef]] = {
     BF.baseMaterialOf: BFFI.baseMaterial,
 }
 
-#: P-56 Phase 3 axis-pick: BIBFRAME classes that BFFI splits into
+#: Axis-pick: BIBFRAME classes that BFFI splits into
 #: Work-axis and Expression-axis variants. Each entry maps a ``bf:*``
 #: class to a ``(work_axis_pick, expression_axis_pick)`` tuple.
 #:
@@ -241,11 +241,11 @@ INVERSE_PREDICATE_ROUTINGS: Final[dict[URIRef, URIRef]] = {
 #: carries any of :data:`_WORK_AXIS_SIGNALS` as another ``rdf:type``
 #: (i.e. it's the Work URI marc2bibframe2 emitted), it routes to the
 #: Work-axis variant; otherwise to the Expression-axis variant. The
-#: Helmet corpus pattern is marc2bibframe2 emitting the same axis-split
+#: HELMET libraries test corpus pattern is marc2bibframe2 emitting the same axis-split
 #: class on BOTH the Work URI (co-typed ``bf:Work``) and the Instance
 #: URI (typed ``bf:Instance`` only), so this discriminator catches the
 #: Work side cleanly while the Instance side defaults to Expression
-#: (the existing behaviour for Helmet's "one localised Expression
+#: (the existing behaviour for the corpus' "one localised Expression
 #: per record" pattern).
 #:
 #: ``bf:MusicAudio`` has asymmetric naming in lkd.rdf: the Work-axis
@@ -742,7 +742,7 @@ def route_provision_activity_statement(graph: Graph) -> dict[str, int]:
     related-Instance hub) or wrapped in a ``bffi:Note`` bnode (otherwise).
 
     BFFI has no ``bffi:provisionActivityStatement`` equivalent in
-    `lkd.rdf`. The corpus shape on Helmet (102 occurrences in the 20 k
+    `lkd.rdf`. The HELMET corpus shape (102 occurrences in the 20 k
     bench, all on related-Instance hubs from MARC 78X succession
     fields) is **date ranges** — ``"1980-1981"``, ``"1909-1993"``, etc.
     The URI-fragment discriminator confirms the succession-link

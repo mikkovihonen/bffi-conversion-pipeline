@@ -3,7 +3,7 @@
 # Parallel to vocab/loc-countries-bridge.ttl (see L-12 in
 # docs/bffi_limitations.md for the rationale). LoC publishes
 # language URIs at <http://id.loc.gov/vocabulary/languages/{code}>
-# but with English labels only; the Helmet cataloguer audience
+# but with English labels only; the cataloguer audience
 # needs fi/sv/en. YSO has the language concepts under main YSO
 # (`yso:p2573` "englannin kieli" etc.) but neither LoC nor YSO
 # publishes a cross-reference between the two URI spaces, so this
@@ -17,7 +17,7 @@
 # language URI so Skosmos shows "englannin kieli" / "engelska" /
 # "English language" instead of the bare URI.
 #
-# Coverage: every LoC MARC language code observed in the Helmet
+# Coverage: every LoC MARC language code observed in the HELMET libraries test
 # 500-sample as of 2026-06-09 (33 codes) plus a generous "common
 # languages" seed. Extend by adding more rows as missing codes
 # surface; the materialiser is data-driven.

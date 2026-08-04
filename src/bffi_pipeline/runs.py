@@ -18,7 +18,7 @@ The directory typically contains sub-paths for each stage's output:
 
 The convention is enforced by the CLI: any ``--output-dir`` / ``--html``
 path passed to a stage subcommand must resolve to a path inside a
-canonical run directory. Inputs (the original Helmet MARCXML, a Sierra
+canonical run directory. Inputs (the original source MARCXML, an ILS
 dump, etc.) come from anywhere; outputs land in canonical run dirs so
 the dashboard can pick them up consistently and so the operator can
 reason about run identity at a glance.

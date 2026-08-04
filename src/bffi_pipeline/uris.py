@@ -2,35 +2,33 @@
 
 All URI construction in this project goes through this module — never
 concatenate URI strings elsewhere (see ``CLAUDE.md`` "Conventions"). URIs
-are SHA-1 hashes of canonicalised inputs so re-runs and the merge step in
-M8 are idempotent under benign surface variations.
+are SHA-1 hashes of canonicalised inputs so re-runs are idempotent under
+benign surface variations.
 
-Two minting rules coexist (see spec § 3; the two pipeline stages
-involved are M1 — canonical mint — and M3 — raw mint inside the
-BIBFRAME→BFFI hop):
+Two minting rules coexist — canonical and raw:
 
-* **Canonical** (M1, used by M8 merge):
+* **Canonical**:
   :func:`mint_work_uri` ``(creator_uri, original_title)``,
   :func:`mint_expression_uri` ``(work_uri, language)`` — input
   canonicalisation collapses whitespace/case/Unicode form (diacritics
   preserved). Two records with the same creator and the same original
-  title hash to the same Work URI, so M8 can merge translations across
-  language editions.
+  title hash to the same Work URI, so translations across language
+  editions converge on one Work. No conversion stage calls these today;
+  they are library surface exercised by the unit tests.
 
-* **Raw** (M3, used by the BIBFRAME-to-BFFI CONSTRUCT pair):
+* **Raw**, minted inside the ``bibframe-to-bffi`` hop:
   :func:`mint_raw_work_uri` / :func:`mint_raw_expression_uri` /
   :func:`mint_raw_manifestation_uri` hash the source ``bf:Work`` /
   ``bf:Instance`` URI string. The same XSLT input always produces the
-  same raw BFFI URI on re-run; raw URIs are inputs to M8 and disappear
-  from the canonical graph after merge.
+  same raw BFFI URI on re-run.
 
-Manifestations are 1:1 with Helmet bib records (no merging — each
+Manifestations are 1:1 with source bib records (no merging — each
 record describes exactly one published embodiment), so there's no
 canonical mint variant for them; the raw URI IS the canonical URI.
 
-The SPARQL CONSTRUCTs in ``sparql/`` mint raw URIs via the Jena
-``arq:sha1`` extension function. :func:`register_sparql_functions` makes
-that function available to rdflib so the spec § 3 queries run unchanged.
+:func:`register_sparql_functions` registers an ``arq:sha1`` equivalent
+with rdflib. No SPARQL is used by the conversion today (see ``CLAUDE.md``
+"Conventions"); the helper exists for parity if a query ever needs it.
 """
 
 from __future__ import annotations
@@ -68,43 +66,40 @@ def _sha1(*parts: str) -> str:
 
 
 def mint_work_uri(creator_uri: str, original_title: str) -> str:
-    """Mint a deterministic canonical Work URI (M1 / M8)."""
+    """Mint a deterministic canonical Work URI."""
     digest = _sha1(_normalize_uri(creator_uri), _normalize_title(original_title))
     return f"{get_settings().work_namespace}{digest}"
 
 
 def mint_expression_uri(work_uri: str, language: str) -> str:
-    """Mint a deterministic canonical Expression URI (M1 / M8)."""
+    """Mint a deterministic canonical Expression URI."""
     digest = _sha1(_normalize_uri(work_uri), _normalize_language(language))
     return f"{get_settings().expression_namespace}{digest}"
 
 
 def mint_raw_work_uri(bf_work_uri: str) -> str:
-    """Mint a raw BFFI Work URI from a source ``bf:Work`` URI (M3).
+    """Mint a raw BFFI Work URI from a source ``bf:Work`` URI.
 
-    Matches the spec § 3 SPARQL: ``"http://urn.fi/URN:NBN:fi:bib:work:" +
-    sha1(STR(?bfWork))``. Use this for pre-binding in tests; the bulk
-    CONSTRUCT pair uses :data:`_ARQ_SHA1` directly.
+    Mints ``"http://urn.fi/URN:NBN:fi:bib:work:" + sha1(<bf:Work URI>)``.
     """
     digest = hashlib.sha1(_normalize_uri(bf_work_uri).encode("utf-8")).hexdigest()
     return f"{get_settings().work_namespace}{digest}"
 
 
 def mint_raw_expression_uri(bf_work_uri: str) -> str:
-    """Mint a raw BFFI Expression URI from a source ``bf:Work`` URI (M3).
+    """Mint a raw BFFI Expression URI from a source ``bf:Work`` URI.
 
-    Note: the *raw* expression URI is keyed off the source bf:Work alone,
-    matching spec § 3. Canonical Expression URIs (M1) take a Work URI plus
-    a language tag and are minted at M8 merge time.
+    Note: the *raw* expression URI is keyed off the source bf:Work alone.
+    Canonical Expression URIs take a Work URI plus a language tag.
     """
     digest = hashlib.sha1(_normalize_uri(bf_work_uri).encode("utf-8")).hexdigest()
     return f"{get_settings().expression_namespace}{digest}"
 
 
 def mint_raw_manifestation_uri(bf_instance_uri: str) -> str:
-    """Mint a raw BFFI Manifestation URI from a source ``bf:Instance`` URI (M3).
+    """Mint a raw BFFI Manifestation URI from a source ``bf:Instance`` URI.
 
-    Manifestations are 1:1 with Helmet bib records in our pipeline, so
+    Manifestations are 1:1 with source bib records in our pipeline, so
     each ``bf:Instance`` minted by marc2bibframe2 maps to exactly one
     ``bffi:Manifestation`` — no canonical / raw distinction (no merge
     step, unlike Works). The helper is named ``raw`` for naming

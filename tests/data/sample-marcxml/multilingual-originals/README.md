@@ -43,7 +43,7 @@ languages share one bound volume).
 
 ## What this set exercises
 
-- **`041` multi-`$a` parsing.** M3's language extractor must enumerate
+- **`041` multi-`$a` parsing.** bibframe-to-bffi's language extractor must enumerate
   all `$a` codes, not stop after the first. The Expression's
   `bf:language` should be a set, not a single value.
 - **No `bf:translationOf`.** Despite multiple languages, no `041 $h`
@@ -51,23 +51,23 @@ languages share one bound volume).
   self-contained.
 - **Parallel-title shape (`245 $a = $b`).** `1824159` and `1834588` both
   use the `=` separator pattern within `245`: `$a Finnish-title = $b
-  Swedish-title /` or `$a English = $b Finnish`. M3's title walker
+  Swedish-title /` or `$a English = $b Finnish`. bibframe-to-bffi's title walker
   must recognise this as two parallel titles, not a title-and-subtitle.
 - **Parallel subject access.** `1824159` carries both `allars` (Swedish
   vocab) and `yso/fin` / `ysa` (Finnish vocab) `650`s — the *same
-  subject* expressed in both vocabulary systems. M3 should NOT collapse
+  subject* expressed in both vocabulary systems. bibframe-to-bffi should NOT collapse
   these into a single subject contribution but should preserve the
   vocabulary-language pairing for Skosmos facet display.
 - **Sámi-language handling.** `1834311` is the only `smi`-coded record
   in any current fixture. The `smi` umbrella code (Sámi languages,
   collective) is distinct from the specific Sámi-language codes
   (`smn` Inari, `sme` Northern, `sms` Skolt, etc.). Cataloguer used
-  the umbrella code; M3 should preserve that distinction or
+  the umbrella code; bibframe-to-bffi should preserve that distinction or
   canonicalise it explicitly.
 - **Ambiguous original vs translation.** `1834588` has a translator
   credit (`700 $e kääntäjä`) but no `041 $h` and no `240` uniform
   title — the cataloguer modelled it as a single bilingual Work, not
-  as a Work + translated-derivation. M3 should follow that cataloguer
+  as a Work + translated-derivation. bibframe-to-bffi should follow that cataloguer
   judgement and *not* synthesise a derivation edge from the
   translator presence alone.
 
@@ -90,7 +90,7 @@ languages share one bound volume).
 ## Why a subdirectory and not flat alongside the synthetic set?
 
 Same reason as `curated/` and the other sibling subdirectories — the
-M2 integration test's non-recursive `glob("*.xml")` on the parent
+marc-to-bibframe integration test's non-recursive `glob("*.xml")` on the parent
 `sample-marcxml/` directory means files in subdirectories are
 invisible to that test. Tests that want these records import this
 path explicitly.

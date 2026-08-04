@@ -756,7 +756,7 @@ This is the same pattern as the Identifier-scheme and Title-variant collapses el
 Eight BIBFRAME classes have `bffi-meta:broadMatch` (or for `bf:MusicAudio`, `closeMatch`) mappings to *both* a Work-axis and an Expression-axis BFFI counterpart. The routing picks **per subject** based on the subject's co-typed `rdf:type` assertions:
 
 - **Work-axis pick** when the subject carries any of `bffi:BibframeWork`, `bffi:Work`, `bffi:AggregatingWork`, or `bffi:Arrangement` as another `rdf:type`. This is the Work URI marc2bibframe2 emitted (typed `bf:Work` upstream, renamed to `bffi:BibframeWork` by the clean-rename pass) or a Hub URI that the Hub routing already retyped to `bffi:Work` / `bffi:Arrangement`.
-- **Expression-axis pick** otherwise — Instance URIs (marc2bibframe2 echoes the content-type class on the Instance side but doesn't co-type it `bf:Work`) and any subject without a clear axis signal. Matches Helmet's "one localised Expression per record" pattern.
+- **Expression-axis pick** otherwise — Instance URIs (marc2bibframe2 echoes the content-type class on the Instance side but doesn't co-type it `bf:Work`) and any subject without a clear axis signal. Matches the HELMET corpus "one localised Expression per record" pattern.
 
 | `bf:*` class | Work-axis pick | Expression-axis pick |
 |---|---|---|
@@ -796,7 +796,7 @@ What this means for the per-statement signal: the object URI of `bf:issuance` (`
 
 In the corpus (200-record sample): 197 `<…/mono>` + 3 `<…/serl>`, all on Manifestation subjects (`bf:Instance`). The flat rename to `bffi:issuance` covers every observed case correctly.
 
-**Forward-looking note (not implemented).** If the converter should *also* emit a `bffi:extensionPlan` triple on the Work side for serial / integrating resources — a synthesised addition rather than a routing alternative — that's a separate, additive feature. It would mint an `ExtensionPlan` instance (URI policy TBD), attach it to the Work via `bffi:extensionPlan`, and leave the existing `bffi:issuance` Manifestation triple untouched. Surface as a plan if Helmet's downstream consumers ask for the Work-level metadata.
+**Forward-looking note (not implemented).** If the converter should *also* emit a `bffi:extensionPlan` triple on the Work side for serial / integrating resources — a synthesised addition rather than a routing alternative — that's a separate, additive feature. It would mint an `ExtensionPlan` instance (URI policy TBD), attach it to the Work via `bffi:extensionPlan`, and leave the existing `bffi:issuance` Manifestation triple untouched. Surface as a plan if downstream consumers ask for the Work-level metadata.
 
 **Observability.** The routing returns a counter dict split per predicate-and-axis: `instance_of_work`, `instance_of_expression`, `has_instance_of_work`, `has_instance_of_expression`, `issuance`. The next 20 k bench surfaces the per-axis distribution per run.
 

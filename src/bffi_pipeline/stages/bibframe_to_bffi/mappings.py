@@ -1,6 +1,6 @@
 """Clean-rename rules extracted from ``vocab/lkd.rdf``.
 
-Implements p-56 Phase 1: every ``bf:*`` term that has a ``bffi:*``
+Implements the clean rename: every ``bf:*`` term that has a ``bffi:*``
 counterpart via ``owl:equivalentClass`` / ``owl:equivalentProperty`` /
 ``rdfs:subPropertyOf`` becomes a clean rename. This module parses the
 BFFI ontology with rdflib (per CLAUDE.md's "never grep lkd.rdf" rule)
@@ -14,7 +14,7 @@ narrows the BIBFRAME range. Most are unambiguous (one ``bffi:X`` per
 (``bffi:date`` / ``bffi:dateOfRepresentativeExpression``). For the
 ambiguous cases we pick the lexicographically-first target, which
 happens to always be the non-``OfRepresentativeExpression`` variant
-— the right default for Helmet's main use case.
+— the right default for the HELMET corpus' main use case.
 
 Out of scope (revisited in step 7):
 

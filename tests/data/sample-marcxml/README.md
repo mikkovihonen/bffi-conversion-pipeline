@@ -1,10 +1,10 @@
 # Sample MARCXML — synthetic
 
-These records are **synthetic**, hand-authored to exercise the M2 pipeline
+These records are **synthetic**, hand-authored to exercise the marc-to-bibframe pipeline
 on a known mix of valid and broken inputs. They remain in place even
 after real Helmet records arrived because they cover failure modes
 (Latin-1 encoding, XSD violations, missing 245) that no real catalogue
-record reproduces. The M2 integration test asserts on this exact set.
+record reproduces. The marc-to-bibframe integration test asserts on this exact set.
 
 For the cataloguer-curated **real** Helmet records (Ask 1, received
 2026-05-09), see `curated/` in this directory.

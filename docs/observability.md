@@ -1,6 +1,8 @@
 # Pipeline observability — local Prometheus + Grafana via Caddy
 
-The rewrite branch builds observability in from the ground up. Every stage emits structured events to a JSONL sidecar from its first commit; an exporter tails the sidecars and serves Prometheus metrics; Grafana renders the operator dashboard; Caddy fronts both behind a single `http://localhost:8080` URL.
+This repository builds observability in from the ground up. Every stage emits structured events to a JSONL sidecar from its first commit; an exporter tails the sidecars and serves Prometheus metrics; Grafana renders the operator dashboard; Caddy fronts both behind a single `http://localhost:8080` URL.
+
+**Status: the exporter is not implemented yet.** `bffi-pipeline serve-metrics` is a scaffold that raises `NotImplementedError`. The stage side is live — every stage writes `stage-events.jsonl` — but nothing publishes Prometheus metrics, so the Grafana dashboard renders no data until the exporter lands. The metric vocabulary below is the contract it must satisfy, not a description of running code.
 
 **No outbound telemetry.** The whole stack runs in Docker Compose on the operator's machine; no data leaves the box.
 
@@ -29,8 +31,6 @@ Every stage writes JSON-lines to `runs/<run_uuid>/stage-events.jsonl`. Events ar
 | `progress` | every N entities (default 100) | `stage`, `run_uuid`, `ts`, `entities_processed` | Drives throughput + ETA derivations. |
 | `phase_boundary` | sub-phase transition within a stage | `stage`, `run_uuid`, `ts`, `phase`, `entities_total` | Optional; only stages with internal phases emit these. |
 | `end` | stage finish | `stage`, `run_uuid`, `ts`, `outcomes: {bucket: count}` | Outcome buckets are stage-specific (see § Metric vocabulary). |
-| `health` | dependency probe | `stage`, `run_uuid`, `ts`, `dep`, `state`, `latency_ms` | `state` ∈ {`up`, `degraded`, `down`, `not_configured`}. |
-| `watchdog` | timeout / retry / give-up | `stage`, `run_uuid`, `ts`, `event`, `extra: {...}` | Counts spikes in stuck conversion records. |
 
 Adding a new event type is a code change; the metric vocabulary table below is the spec the stage side, exporter, and dashboard must agree on.
 
@@ -47,19 +47,15 @@ The exporter publishes the canonical metric set below. Every metric maps one-to-
 | `bffi_stage_outcomes_total` | Counter | `stage`, `outcome`, `run_uuid` | `end` | Per-outcome bucket counts (e.g. for the BFFI conversion stage: `hub_routed_work`, `hub_routed_expression`, `identifier_isbn`, `identifier_issn`, `title_variant`, `series_link`, `music_medium_collapse`, `validation_failed`, …). |
 | `bffi_stage_throughput_per_minute` | Gauge | `stage`, `phase`, `run_uuid` | derived | Rolling-window throughput from the last 5 progress events. |
 | `bffi_stage_eta_seconds` | Gauge | `stage`, `phase`, `run_uuid` | derived | Linear-extrapolation ETA to phase boundary or stage end. |
-| `bffi_dependency_health` | Gauge | `stage`, `dep`, `run_uuid` | `health` | `2`=up (green), `1`=degraded (amber), `0`=down (red), `NaN`=not_configured (grey). |
-| `bffi_dependency_probe_latency_ms` | Gauge | `stage`, `dep`, `run_uuid` | `health` | Most recent probe round-trip latency in ms. |
-| `bffi_watchdog_events_total` | Counter | `stage`, `event`, `run_uuid` | `watchdog` | Cumulative watchdog events (`timeout`, `retry`, `give_up`, `field_budget_exceeded`). |
 
 ### Label cardinality
 
-- `stage` ∈ {`export`, `marc2bibframe`, `bibframe2bffi`, `bffi2marc`, `roundtrip_eval`} — the rewrite branch's bidirectional-conversion stage set. `bffi2marc` is the reverse direction (BFFI graph → reconstructed MARCXML); `roundtrip_eval` is the diff harness that compares reconstructed MARC against the source. Extend as new stages land.
+- `stage` ∈ {`melinda-sync`, `marc2bibframe`, `bibframe2bffi`, `bffi2marc`, `roundtrip_eval`} — this repository's ingestion + bidirectional-conversion stage set. `bffi2marc` is the reverse direction (BFFI graph → reconstructed MARCXML); `roundtrip_eval` is the diff harness that compares reconstructed MARC against the source. Extend as new stages land.
 - `phase` ∈ {`_`, `phase1`, …}. `_` is the sentinel for stages without internal phases.
-- `dep` — bounded set per stage. Typical entries on this branch: `xslt_runtime` (Saxon / xsltproc), `fuseki` (if used as staging store), nothing else by default. No `mlx-lm`, no `finto` — those belong to the legacy `main` line.
 - `outcome` is per-stage but bounded; the conversion stage's outcomes are the discriminator-routing buckets (one per row in the bf → bffi mapping doc's routing callouts) plus `validation_failed`.
 - `run_uuid` is one value per pipeline invocation.
 
-Cardinality cap (per `run_uuid`): ~4 stages × ~3 phases + ~3 deps + ~15 outcomes + ~5 watchdog event types ≈ 50 series. Multiplied by accumulated runs in the current exporter session — well within Prometheus's comfort zone for any realistic dev / production cadence.
+Cardinality cap (per `run_uuid`): ~5 stages × ~3 phases + ~15 outcomes ≈ 30 series. Multiplied by accumulated runs in the current exporter session — well within Prometheus's comfort zone for any realistic dev / production cadence.
 
 ## Exporter lifecycle
 
@@ -108,9 +104,7 @@ Initial panel set for the bidirectional-conversion scope:
 | Routing outcome distribution | Bar gauge | Per-outcome counts after BIBFRAME → BFFI ends (hub_routed_work, hub_routed_expression, identifier_isbn, …). |
 | Reverse-conversion progress | Stat | Processed / total for the BFFI → MARC stage. |
 | Round-trip diff residue | Stat | After `roundtrip_eval`: counts of records by diff status (`identical` / `changed` / `lost` / `tag-changed` / `marckey-bypass`); clickable through to the cataloguer-review HTML via Caddy's `/files/` mount. |
-| Dependency health | State timeline | XSLT runtime / Fuseki (if used) verdict over time. |
 | Per-stage throughput | Time series | All stages — overlay view of who's currently moving. |
-| Watchdog event rate (5m) | Time series | Per-event-type rate; spikes here precede stuck records. |
 | Validation residue | Stat | Count of records with non-zero `_validation.jsonl` rows from the forward conversion. |
 
 ## Extending
@@ -123,13 +117,7 @@ Adding a new metric is two edits:
 
 The metric vocabulary table above is the spec. Bump the table first; the code follows.
 
-## Bringing the legacy stack forward
+## Outstanding
 
-The Docker Compose definition, Grafana provisioning, Caddy config, and exporter framework on `main` (under `docker-compose.yml`, `config/grafana/`, `config/caddy/`, `src/.../metrics_exporter.py`) are the proven baseline. The rewrite branch's job is to:
-
-- Keep the architecture (sidecar → exporter → Prometheus → Grafana → Caddy at :8080).
-- Update the metric vocabulary above for the conversion-only outcomes (no LLM, no reconciliation, no Skosmos load metrics).
-- Update the dashboard JSON for the smaller stage set.
-- Discard the LLM-specific watchdog event types and dependency probes.
-
-Lift code from `main` selectively when each piece is needed; don't bulk-import.
+- Implement the exporter behind `bffi-pipeline serve-metrics` so the metric
+  vocabulary above becomes real. Until then the dashboard is a specification.

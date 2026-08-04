@@ -511,7 +511,7 @@ def bibframe_to_bffi_command(
 ) -> None:
     """BIBFRAME → BFFI canonical Turtle (BFFI-only emit).
 
-    Step 3 v0 — implements p-56 Phase 1 only (clean rename via every
+    Step 3 v0 — implements the clean rename only (via every
     `owl:equivalentClass` / `owl:equivalentProperty` row from
     `vocab/lkd.rdf`). No discriminator routings yet — Hub /
     Identifier-scheme / Title-variant / Series-link / Audio / Music
@@ -562,7 +562,7 @@ def bffi_to_marc_command(
     Reads BFFI predicates only (no `bf:*` typing as routing key; no
     `bffi-prov:` pipeline-internal provenance as a content source) and
     reconstructs MARCXML record-by-record. Step 4 v0 emit covers the bare
-    minimum (leader placeholder, 001 = Helmet bib ID, 245 $a = main title);
+    minimum (leader placeholder, 001 = source bib ID, 245 $a = main title);
     subsequent commits add field families one at a time so the diff harness
     gives a clean per-family verification signal.
     """
@@ -613,7 +613,7 @@ def roundtrip_eval_command(
 ) -> None:
     """Diff source MARCXML vs reconstructed MARCXML; emit cataloguer-review HTML.
 
-    Walks both directories, pairs records by ``controlfield 001`` (Helmet
+    Walks both directories, pairs records by ``controlfield 001`` (source
     bib ID), and produces per-record diff classification (``identical`` /
     ``changed`` / ``lost`` / ``added``), corpus aggregate counts, and an
     optional cataloguer-review HTML with the full residue.

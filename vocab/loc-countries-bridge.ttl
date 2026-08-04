@@ -8,7 +8,7 @@
 # time this file was written, so it stays useful even when Fuseki is
 # offline at Skosify time).
 #
-# Coverage: every LoC MARC country code observed in the Helmet
+# Coverage: every LoC MARC country code observed in the HELMET libraries test
 # 500-sample as of 2026-06-09 (21 codes) plus a generous "common
 # countries" set seeded from YSO. Extend by adding more rows as
 # missing codes surface in a run — the
@@ -166,7 +166,7 @@ loc:cy  skos:exactMatch yso:p106039 ;
 loc:enk skos:exactMatch yso:p107128 ;
         skos:prefLabel  "Englanti"@fi, "England"@sv, "England"@en ;
         skos:notation   "enk" ;
-        rdfs:comment    "Alias for xxk in some Helmet records."@en .
+        rdfs:comment    "Alias for xxk in some HELMET libraries test corpus records."@en .
 
 loc:ko  skos:exactMatch yso:p105182 ;
         skos:prefLabel  "Korean tasavalta"@fi, "Republiken Korea"@sv, "South Korea"@en ;

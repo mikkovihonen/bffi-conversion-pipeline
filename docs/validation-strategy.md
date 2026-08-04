@@ -56,7 +56,7 @@ This is where validation pays for itself. Required shapes:
 
 - Every `bffi:Work` has at least one `bffi:hasExpression`.
 - Every `bffi:Expression` has exactly one `bffi:expressionOf` pointing at a `bffi:Work`.
-- Every Work and Expression has `bffi:identifiedBy` with `bffi:source = <http://urn.fi/URN:NBN:fi:bib:source:helmet>` (Helmet ID preservation).
+- Every Work and Expression has `bffi:identifiedBy` with `bffi:source = <http://urn.fi/URN:NBN:fi:bib:source:local>` (local ID preservation).
 - Every Work has `skos:prefLabel` in at least one of `fi`/`sv`/`en`.
 - Class disjointness — nothing is both `bffi:Work` and `bffi:Expression`.
 - Properties BFFI assigns to Work-only don't appear on Expression and vice versa. **This is the invariant most likely to drift as the model evolves; don't skip it.**

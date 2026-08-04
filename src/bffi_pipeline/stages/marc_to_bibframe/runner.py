@@ -39,7 +39,7 @@ class ConversionOptions:
     xslt_paths: XsltPaths
     #: Stem of the BIBFRAME URI namespace; matches our committed identifiers.
     baseuri: str = "http://urn.fi/URN:NBN:fi:bib:"
-    #: Which MARC field carries the record ID. Helmet bib IDs live in 001.
+    #: Which MARC field carries the record ID. Source bib IDs live in 001.
     idfield: str = "001"
     #: Optional source URI for the Local identifier minted from ``idfield``.
     idsource: str | None = None

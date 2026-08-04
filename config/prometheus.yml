@@ -1,4 +1,4 @@
-# P-11 Phase D — Prometheus scrape config for the local observability stack.
+# Prometheus scrape config for the local observability stack.
 #
 # Scrapes the `bffi-pipeline serve-metrics` exporter running on the
 # host machine (the exporter tails stage-events.jsonl and exposes

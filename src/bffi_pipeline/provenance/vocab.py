@@ -1,9 +1,13 @@
 """Namespaces and term URIs for the PROV-O + BFFI provenance graph.
 
-The provenance graph is layered with the BFFI-native AdminMetadata view (see
-spec § 8). M2 emits the first :data:`MarcConversion` Activities; later
-stages extend the vocabulary with :data:`WorkMergeDecision` (M6) and
-:data:`HumanReview` (M7+).
+The provenance graph is layered with the BFFI-native AdminMetadata view.
+The vocabulary covers this repository's stages only — ``melinda-sync``,
+``marc-to-bibframe``, ``bibframe-to-bffi``, ``bffi-to-marc`` and
+``roundtrip-eval``: the :data:`MarcConversion` and :data:`Synthesis`
+Activity classes, the source-MARC field token, subject reification, the
+stage / decision audit pair, and the AdminMetadata description terms.
+Terms for clustering, LLM judging, human review, authority reconciliation
+and the canonical Work merge are deliberately absent.
 
 This module is intentionally pure constants — no I/O, no graph mutation —
 so it stays cheap to import from any stage.
@@ -25,16 +29,14 @@ BIB = Namespace("http://urn.fi/URN:NBN:fi:bib:")
 BF = Namespace("http://id.loc.gov/ontologies/bibframe/")
 BFLC = Namespace("http://id.loc.gov/ontologies/bflc/")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
-MADSRDF = Namespace("http://www.loc.gov/mads/rdf/v1#")
 
 
 #: Canonical short prefix → namespace mapping for every vocabulary the
 #: pipeline emits in serialised output. The union covers BIBFRAME
 #: (``bf``, ``bflc``), BFFI (``bffi``, our private ``bffi-prov``,
 #: ``bib`` for record-scoped URIs), W3C standards (``rdf``, ``rdfs``,
-#: ``skos``, ``owl``, ``xsd``, ``prov``), the Dublin Core terms set
-#: (``dct``), and MADS/RDF (``madsrdf``, surfaces on subject authority
-#: cross-links via ``madsrdf:isIdentifiedByAuthority``).
+#: ``skos``, ``owl``, ``xsd``, ``prov``), and the Dublin Core terms set
+#: (``dct``).
 #:
 #: Two reasons to keep this list one place:
 #:
@@ -49,11 +51,11 @@ MADSRDF = Namespace("http://www.loc.gov/mads/rdf/v1#")
 #:    (commit ``2103de3`` and its companion fix) was exactly this
 #:    failure mode.
 #:
-#: 2. **Per-file consistency.** A stage that binds 7 of the 13
-#:    namespaces it emits leaves the other 6 prone to auto-prefixing.
-#:    The historical per-stage bind lists drifted (m3 missed
-#:    ``bffi-prov``, m2 missed ``skos``/``dct``/``xsd``, m8 missed
-#:    ``rdfs``/``rdf``) — every fresh predicate addition reopened the
+#: 2. **Per-file consistency.** A stage that binds 7 of the 12
+#:    namespaces it emits leaves the other 5 prone to auto-prefixing.
+#:    Historical per-stage bind lists drifted — each one missed a
+#:    different subset of the namespaces its stage emitted, so every
+#:    fresh predicate addition reopened the
 #:    same audit. One central list collapses the audit to "did the
 #:    new predicate's namespace make it into this dict?"
 #:
@@ -71,7 +73,6 @@ CANONICAL_TURTLE_PREFIXES: dict[str, object] = {
     "prov": PROV,
     "bf": BF,
     "bflc": BFLC,
-    "madsrdf": MADSRDF,
     "bffi": BFFI,
     "bffi-prov": BFFI_PROV,
     "bib": BIB,
@@ -105,10 +106,7 @@ def bind_canonical_prefixes(graph: Graph) -> Graph:
 # --- Activity classes -----------------------------------------------------
 
 MarcConversion: URIRef = BFFI_PROV.MarcConversion
-WorkMergeDecision: URIRef = BFFI_PROV.WorkMergeDecision
-HumanReview: URIRef = BFFI_PROV.HumanReview
-Reconciliation: URIRef = BFFI_PROV.Reconciliation
-#: P-41 Phase A — sibling of :data:`MarcConversion`. Emitted when M2's
+#: Sibling of :data:`MarcConversion`. Emitted when the converter's
 #: salvage layer synthesises a field to make a record meet
 #: :func:`bffi_pipeline.validation.marcxml.validate_minimum_content`.
 #: Carries one ``prov:used`` link to the source MarcConversion Activity
@@ -118,16 +116,16 @@ Reconciliation: URIRef = BFFI_PROV.Reconciliation
 #: (``synthetic*`` predicates).
 Synthesis: URIRef = BFFI_PROV.Synthesis
 
-# --- bffi-prov predicates emitted by M2 -----------------------------------
+# --- bffi-prov predicates emitted by marc-to-bibframe ---------------------
 
-helmetBibId: URIRef = BFFI_PROV.helmetBibId
+localBibId: URIRef = BFFI_PROV.localBibId
 converterVersion: URIRef = BFFI_PROV.converterVersion
 
-#: P-50 Phase A — source-MARC-field provenance token. Attached to
+#: Source-MARC-field provenance token. Attached to
 #: every BFFI / BIBFRAME entity derived from a specific source MARC
-#: datafield or controlfield instance. Computed at M2-post from source
+#: datafield or controlfield instance. Computed post-conversion from source
 #: MARCXML and carried through every downstream transformation
-#: (M3 CONSTRUCT, M8 canonical mint, M9 authority binding) unchanged.
+#: unchanged by later processing.
 #:
 #: Value format: ``"<bib_id>:<tag>:<within-tag-ordinal>"``. The ordinal
 #: is 1-indexed position of this field instance within the same-tag
@@ -139,13 +137,13 @@ converterVersion: URIRef = BFFI_PROV.converterVersion
 #: across editions (one token per contributing record).
 fromMarcField: URIRef = BFFI_PROV.fromMarcField
 
-# --- P-50 Phase C — subject reification via standard rdf:Statement -------
+# --- Subject reification via standard rdf:Statement ---------------------
 #
 # Originally proposed as a triplet of locally-minted ``bffi:SubjectLink`` /
-# ``bffi:hasSubjectLink`` / ``bffi:subjectTarget`` terms (P-50 plan §
-# "Option L1"). Switched to W3C-standard ``rdf:Statement`` reification
-# at commit time so the BFFI namespace doesn't grow a private extension
-# for a problem RDF already solves.
+# ``bffi:hasSubjectLink`` / ``bffi:subjectTarget`` terms. Switched to
+# W3C-standard ``rdf:Statement`` reification at commit time so the BFFI
+# namespace doesn't grow a private extension for a problem RDF already
+# solves.
 #
 # Shape:
 #
@@ -165,61 +163,22 @@ fromMarcField: URIRef = BFFI_PROV.fromMarcField
 
 #: Property whose triples are the targets of subject reification.
 #: Stored here for parity with the older ``hasSubjectLink`` symbol —
-#: imported by M2-post and M3 SPARQL as the value of ``rdf:predicate``.
+#: used as the value of ``rdf:predicate``.
 reifiedSubjectPredicate: URIRef = BFFI.subject
 
-# --- bffi-prov predicates emitted by M6 (WorkMergeDecision) ---------------
+# --- bffi-prov decision-audit predicates ----------------------------------
+#
+# ``stage`` tags which pipeline stage wrote an Activity; ``decision``
+# records what a non-trivial routing call chose.
 
 stage: URIRef = BFFI_PROV.stage
 decision: URIRef = BFFI_PROV.decision
-confidence: URIRef = BFFI_PROV.confidence
-embeddingSimilarity: URIRef = BFFI_PROV.embeddingSimilarity
-rationale: URIRef = BFFI_PROV.rationale
-matchingField: URIRef = BFFI_PROV.matchingField
-divergingField: URIRef = BFFI_PROV.divergingField
-promptHash: URIRef = BFFI_PROV.promptHash
-promptSource: URIRef = BFFI_PROV.promptSource
-rawResponse: URIRef = BFFI_PROV.rawResponse
-modelId: URIRef = BFFI_PROV.modelId
-provider: URIRef = BFFI_PROV.provider
-temperature: URIRef = BFFI_PROV.temperature
-seed: URIRef = BFFI_PROV.seed
-cacheHit: URIRef = BFFI_PROV.cacheHit
 
-# --- bffi-prov predicates emitted by M7 (HumanReview) --------------------
-
-reviewNote: URIRef = BFFI_PROV.reviewNote
-
-# --- bffi-prov predicates emitted by M9 (Reconciliation) -----------------
-
-chosenAuthorityUri: URIRef = BFFI_PROV.chosenAuthorityUri
-candidateAuthorityUri: URIRef = BFFI_PROV.candidateAuthorityUri
-sourceVocabulary: URIRef = BFFI_PROV.sourceVocabulary
-lexicalSimilarity: URIRef = BFFI_PROV.lexicalSimilarity
-inputLiteral: URIRef = BFFI_PROV.inputLiteral
-
-# --- bffi-prov predicates emitted by M8 (canonical Work mint) ------------
-
-#: Records which input slot of the canonical-Work mint key was used.
-#: Two values today (P-34): primary-author-anchored (the standard
-#: bffi:PrimaryContribution → bffi:agent path) and first-contributor-
-#: anchored (P-34 sub-option 1 fallback, for anonymous-main-entry
-#: records that lack a MARC 1XX but carry MARC 700 contributors).
-mintAnchor: URIRef = BFFI_PROV.mintAnchor
-
-MINT_ANCHOR_PRIMARY_AUTHOR: URIRef = BIB["auth/primary-author-anchored"]
-MINT_ANCHOR_FIRST_CONTRIBUTOR: URIRef = BIB["auth/first-contributor-anchored"]
-#: P-34 Phase B: truly-anonymous records (no primary creator, no
-#: usable non-primary contribution either) mint a canonical Work
-#: anchored on (title, content-type, language). See P-34 plan's
-#: "Phase B" section for the MARC-input contract.
-MINT_ANCHOR_ANONYMOUS_WORK: URIRef = BIB["auth/anonymous-work-anchored"]
-
-# --- bffi-prov predicates emitted by M2 salvage (Synthesis) --------------
-# P-41 Phase A. Every Synthesis Activity carries the four below.
+# --- bffi-prov predicates emitted by conversion salvage (Synthesis) ------
+# Every Synthesis Activity carries the four below.
 
 #: The BFFI field synthesised, e.g. ``"bf:contribution/bf:agent"`` for
-#: a creator salvaged by P-41 Phase B. Free-text; the value is the
+#: a creator salvaged during conversion. Free-text; the value is the
 #: graph path the consumer should look at, not a URI.
 syntheticField: URIRef = BFFI_PROV.syntheticField
 #: Human-readable method tag, e.g. ``"creator-from-245c (regex)"`` or
@@ -247,13 +206,12 @@ syntheticValue: URIRef = BFFI_PROV.syntheticValue
 #: infer this from the method tag.
 syntheticMarcSource: URIRef = BFFI_PROV.syntheticMarcSource
 
-# --- bffi-prov predicates added by M2 salvage (P-41) --------------------
+# --- bffi-prov predicates added by conversion salvage -------------------
 
-#: P-41 Phase B — boolean flag marking synthetic-sentinel resources
+#: Boolean flag marking synthetic-sentinel resources
 #: (Agents, Works) that downstream stages must NOT key on. The B3
 #: sentinel agent at :data:`SENTINEL_AGENT_UNKNOWN` carries this
-#: triple. M5/M6/M8/M9 honour it via the exclude rules wired in
-#: P-41 Phase B.6.
+#: triple. Downstream consumers honour it via their exclude rules.
 #:
 #: Lives in the ``bffi-prov:`` namespace (not ``bffi:``) because the
 #: flag is pipeline-internal metadata — it identifies a synthetic
@@ -261,9 +219,9 @@ syntheticMarcSource: URIRef = BFFI_PROV.syntheticMarcSource
 #: property of the agent itself.
 syntheticSentinel: URIRef = BFFI_PROV.syntheticSentinel
 
-# --- Stable sentinel URIs (P-41 Phase A.4 — committed identifiers) -------
+# --- Stable sentinel URIs (committed identifiers) -----------------------
 
-#: P-41 Phase B — single shared sentinel agent URI for B3
+#: Single shared sentinel agent URI for B3
 #: (anonymous-by-convention) salvages. Multiple records sharing this
 #: URI is correct — they share the property "no known author", not
 #: the claim of being by the same person. Carries the
@@ -274,15 +232,15 @@ SENTINEL_AGENT_UNKNOWN: URIRef = URIRef("http://urn.fi/URN:NBN:fi:bib:agent:unkn
 
 
 def is_synthetic_sentinel(graph: Graph, resource: URIRef) -> bool:
-    """P-41 Phase B.6 — return True if ``resource`` carries
+    """Return True if ``resource`` carries
     ``bffi-prov:syntheticSentinel "true"``.
 
     Downstream stages call this to decide whether to skip a resource:
 
-    - M5 / M6 / M8 already skip via the ``bffi:PrimaryContribution``
+    - Downstream clustering already skips via the ``bffi:PrimaryContribution``
       filter (the B3 salvage emits MARC 710 → non-primary), so the
       sentinel is naturally excluded from union-find keying.
-    - **P-39's M9 walker** for non-primary contribution reconciliation
+    - **The reconciliation walker** for non-primary contributions
       is the explicit consumer — it walks every non-primary
       contribution and would otherwise submit ``Tekijä tuntematon``
       to KANTO. The walker calls this helper to short-circuit.
@@ -296,30 +254,16 @@ def is_synthetic_sentinel(graph: Graph, resource: URIRef) -> bool:
     return False
 
 
-# --- BFFI-side AdminMetadata predicates added by M9 ----------------------
-
-sourceConsulted: URIRef = BFFI.sourceConsulted
-
-# --- Stable AdminMetadata authentication-state URIs (M9) -----------------
-
-AUTH_NEEDS_REVIEW: URIRef = BIB["auth/needs-review"]
-AUTH_VERIFIED: URIRef = BIB["auth/verified"]
-
-# --- Compaction sentinel (provenance-meta graph) -------------------------
-
-lastCompactedAt: URIRef = BFFI_PROV.lastCompactedAt
-
-# --- Stable agent / process URIs (defined in config/bffi-admin-vocabulary.ttl)
+# --- Stable agent / process URIs ------------------------------------------
 
 AGENT_MARC2BIBFRAME2: URIRef = BIB["agent/marc2bibframe2"]
 GEN_PROCESS_PIPELINE_V0_1_0: URIRef = BIB["gen-process/bffi-pipeline/v0.1.0"]
 DESC_CONV_BFFI_1_0_0: URIRef = BIB["desc-conv/bffi-1.0.0"]
 DESC_LEVEL_MINIMUM: URIRef = BIB["desc-level/minimum"]
 ENC_LEVEL_AUTO: URIRef = BIB["enc-level/auto"]
-AUTH_AUTO_MERGED: URIRef = BIB["auth/auto-merged"]
-RECORDING_SOURCE_HELMET: URIRef = BIB["recording-source/helmet"]
+RECORDING_SOURCE_LOCAL: URIRef = BIB["recording-source/local"]
 METADATA_LICENSOR_CC0: URIRef = BIB["metadata-licensor/cc0"]
-HELMET_SOURCE_URI: URIRef = URIRef("http://urn.fi/URN:NBN:fi:bib:source:helmet")
+SOURCE_URI: URIRef = URIRef("http://urn.fi/URN:NBN:fi:bib:source:local")
 
 # --- AdminMetadata predicates --------------------------------------------
 
@@ -327,7 +271,7 @@ adminMetadata: URIRef = BFFI.adminMetadata
 adminMetadataFor: URIRef = BFFI.adminMetadataFor
 #: AdminMetadata creation/change dates rebound to the canonical
 #: ``lkd.rdf`` terms. ``descriptionCreationDate`` and ``dateGenerated``
-#: both meant "when M2 generated this admin block" — collapsed onto
+#: both meant "when the converter generated this admin block" — collapsed onto
 #: ``bffi:generationDate`` (lkd.rdf, domain AdminMetadata). The
 #: Python attribute names are retained so call sites don't churn,
 #: per the ``sourceMetadata`` precedent.
@@ -338,7 +282,7 @@ dateGenerated: URIRef = BFFI.generationDate
 #: from ``bffi:changeDate`` which now carries the SOURCE description's
 #: change date (MARC 005). ``dct:modified`` is the standard term for
 #: "the resource was changed at this time" without binding it to a
-#: specific actor — fits the M8/M9 update semantic exactly.
+#: specific actor — fits the downstream update semantic exactly.
 descriptionChangeDate: URIRef = DCTERMS.modified
 descriptionModifier: URIRef = BFFI.descriptionModifier
 descriptionConventions: URIRef = BFFI.descriptionConventions
@@ -360,9 +304,6 @@ AdminMetadata: URIRef = BFFI.AdminMetadata
 
 __all__ = [
     "AGENT_MARC2BIBFRAME2",
-    "AUTH_AUTO_MERGED",
-    "AUTH_NEEDS_REVIEW",
-    "AUTH_VERIFIED",
     "BF",
     "BFFI",
     "BFFI_PROV",
@@ -373,32 +314,21 @@ __all__ = [
     "DESC_LEVEL_MINIMUM",
     "ENC_LEVEL_AUTO",
     "GEN_PROCESS_PIPELINE_V0_1_0",
-    "HELMET_SOURCE_URI",
-    "MADSRDF",
     "METADATA_LICENSOR_CC0",
-    "MINT_ANCHOR_ANONYMOUS_WORK",
-    "MINT_ANCHOR_FIRST_CONTRIBUTOR",
-    "MINT_ANCHOR_PRIMARY_AUTHOR",
     "PROV",
     "RDF",
     "RDFS",
-    "RECORDING_SOURCE_HELMET",
+    "RECORDING_SOURCE_LOCAL",
     "SENTINEL_AGENT_UNKNOWN",
     "SKOS",
+    "SOURCE_URI",
     "XSD",
     "AdminMetadata",
-    "HumanReview",
     "MarcConversion",
-    "Reconciliation",
     "Synthesis",
-    "WorkMergeDecision",
     "adminMetadata",
     "adminMetadataFor",
     "bind_canonical_prefixes",
-    "cacheHit",
-    "candidateAuthorityUri",
-    "chosenAuthorityUri",
-    "confidence",
     "converterVersion",
     "dateGenerated",
     "decision",
@@ -408,32 +338,15 @@ __all__ = [
     "descriptionCreationDate",
     "descriptionLevel",
     "descriptionModifier",
-    "divergingField",
-    "embeddingSimilarity",
     "encodingLevel",
     "fromMarcField",
     "generationProcess",
-    "helmetBibId",
-    "inputLiteral",
     "is_synthetic_sentinel",
-    "lastCompactedAt",
-    "lexicalSimilarity",
-    "matchingField",
+    "localBibId",
     "metadataLicensor",
-    "mintAnchor",
-    "modelId",
-    "promptHash",
-    "promptSource",
-    "provider",
-    "rationale",
-    "rawResponse",
     "recordingSource",
     "reifiedSubjectPredicate",
-    "reviewNote",
-    "seed",
-    "sourceConsulted",
     "sourceMetadata",
-    "sourceVocabulary",
     "stage",
     "syntheticConfidence",
     "syntheticField",
@@ -442,5 +355,4 @@ __all__ = [
     "syntheticSentinel",
     "syntheticTier",
     "syntheticValue",
-    "temperature",
 ]

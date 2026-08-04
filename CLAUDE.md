@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Conversion-first BFFI pipeline: MARCXML ↔ BIBFRAME (LoC marc2bibframe2) ↔ BFFI canonical Turtle — both directions. Pro bono; will be contributed to the National Library of Finland. Target corpus: ~800,000 Helmet bibliographic records.
+Conversion-first BFFI pipeline: MARCXML ↔ BIBFRAME (LoC marc2bibframe2) ↔ BFFI canonical Turtle — both directions. Pro bono; will be contributed to the National Library of Finland. Target corpus: ~800,000 bibliographic records.
 
 **This repository's scope is bidirectional conversion + evaluation only.** Three pillars:
 
@@ -10,15 +10,15 @@ Conversion-first BFFI pipeline: MARCXML ↔ BIBFRAME (LoC marc2bibframe2) ↔ BF
 
 Plus an evaluation harness wrapping the three — round-trip diff, cataloguer-review HTML, mapping-discipline tests.
 
-**MARCXML is an input, not a product of this repository.** The corpus is produced upstream by `helmet-sierra-data-tools` (Sierra Postgres replica → per-bib MARCXML). `melinda-sync` is the one ingestion stage kept here, harvesting MARCXML over OAI-PMH. Nothing in this repo touches the ILS.
+**MARCXML is an input, not a product of this repository.** The corpus is produced upstream, outside this repository. `melinda-sync` is the one ingestion stage kept here, harvesting MARCXML over OAI-PMH. Nothing in this repo touches the ILS.
 
-No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages live in the legacy `helmet-marcxml-bffi-skos-pipeline` repository, which this one was extracted from — see `docs/plans/p-058-extract-conversion-repo.md` for the split, and `docs/plans/p-057-rewrite-conversion-first-branch.md` for the conversion-first framing that preceded it.
+No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages are out of scope here.
 
 ## Project docs
 
 - `vocab/lkd.rdf` — full BFFI 1.0.0 ontology (RDF/XML, ~4600 lines), vendored because `https://schema.finto.fi/bffi/` returns HTTP 403 outside the Finto network. **The canonical reference for class and property definitions, AND the closed set of terms we may emit under the `bffi:` namespace.** See the BFFI namespace discipline rule in Conventions.
 - `docs/bf_to_bffi_mapping.md` — generated reference (rdflib parse of `lkd.rdf`) for every `bf:*` class and predicate encountered in the conversion, with its `bffi:*` counterpart and routing notes. Source of truth for every forward-direction decision; "Gap clusters" subsections carry the ontology-shortfall caveats (PMO music, inverse predicates, `bf:noteType` drop, country labels). Sent to NLF for review.
-- `docs/bffi_to_marc_mapping.md` — generated reference for every MARC field the reverse converter emits. Its "Known limitations" section enumerates the cases where the round-trip can't reconstruct source MARC byte-identical (placeholder leader, first-extent-wins for 300, Helmet-local 09X loss, etc.).
+- `docs/bffi_to_marc_mapping.md` — generated reference for every MARC field the reverse converter emits. Its "Known limitations" section enumerates the cases where the round-trip can't reconstruct source MARC byte-identical (placeholder leader, first-extent-wins for 300, HELMET-local 09X loss, etc.).
 - `docs/marc_to_bibframe_mapping.md` — generated reference for what the LoC XSLT does with each MARC field, derived by parsing the vendored stylesheets (`diagnostic/xslt_coverage/`). Establishes what the forward direction has to work with before any BFFI routing runs.
 - `docs/validation-strategy.md` — three validation boundaries on the conversion side (MARCXML input → BIBFRAME post-conversion → BFFI post-emit). Shapes in `config/shapes/`.
 - `docs/observability.md` — local Prometheus + Grafana stack wrapped by Caddy. Stage events → JSONL sidecar → tail-and-export → Prometheus scrape → Grafana panels, all reachable at `http://localhost:8080`. **Built in from the ground up — every stage emits structured events from its first commit.** See the observability constraint in Operating constraints.
@@ -36,8 +36,8 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages li
 
 - Work URI namespace: `http://urn.fi/URN:NBN:fi:bib:work:`
 - Expression URI namespace: `http://urn.fi/URN:NBN:fi:bib:expression:`
-- Manifestation URI namespace: `http://urn.fi/URN:NBN:fi:bib:manifestation:` (1:1 with Helmet bib records).
-- Helmet source URI: `http://urn.fi/URN:NBN:fi:bib:source:helmet`
+- Manifestation URI namespace: `http://urn.fi/URN:NBN:fi:bib:manifestation:` (1:1 with source bib records).
+- Source URI: `http://urn.fi/URN:NBN:fi:bib:source:local`
 - `bffi-prov` namespace: `http://urn.fi/URN:NBN:fi:schema:bffi-prov#` (provenance vocabulary — Activity classes, stage tags).
 - `bffi:adminMetadata` linking property: `http://urn.fi/URN:NBN:fi:schema:bffi:adminMetadata` (`owl:equivalentProperty` of `bf:adminMetadata`).
 - Display language priority for `skos:prefLabel`: `fi`, `sv`, `en`.
@@ -52,8 +52,8 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages li
     3. **Propose adding the term to BFFI through NLF.** Open a plan in `docs/plans/`. Until ratified, do not emit it under `bffi:`.
 - **Hard-cut closed-namespace emit**: **zero `bf:*` URIs in the BFFI emit graph.** BIBFRAME (`bf:*`) stays inside the conversion's INPUT (the marc2bibframe2 output); it must never appear in the BFFI output. The BIBFRAME view is recoverable by OWL inference through the re-anchor pattern (`bffi:Sub rdfs:subClassOf bffi:Anchor owl:equivalentClass bf:X`). See `docs/bf_to_bffi_mapping.md` for the routing decisions.
 - **Turtle prefix bindings**: Every Turtle-serialising path MUST bind its namespaces through a single shared helper. Never write a private `graph.bind("foo", FOO)` list — even for one or two prefixes. rdflib invents non-deterministic `@prefix ns1: …` declarations otherwise, and concatenating Turtle from different records then silently reinterprets the local-name half of `ns1:…` triples in whichever record's prefix block loses the redeclaration race.
-- **SPARQL**: there is currently **none** — the BIBFRAME → BFFI conversion is implemented as Python routings over an rdflib graph, not as CONSTRUCT queries, and no `sparql/` directory exists. (`Settings.sparql_dir` and the SHACL shapes' sibling `.rq` slot are vestigial from the legacy repo.) If a query is ever genuinely the right tool, it goes in `sparql/` as a versioned file, read at startup and parametrized with Jinja2 if needed (autoescape off) — but prefer extending `routings.py`, where the routing registry gives every decision a provenance hook and a discipline test.
-- **Idempotency**: Conversion outputs are deterministic — same input, same bytes. **The atomic-write and skip-when-newer half of this rule is aspirational, not shipped**: the three conversion stages overwrite unconditionally and have no `--force` flag. Only `melinda-sync` does it properly (`.tmp` → rename, resumption-token state, `--force-restart`). Don't cite this rule as if the conversion stages already satisfied it; closing the gap is tracked in `docs/plans/p-058-extract-conversion-repo.md`.
+- **SPARQL**: there is currently **none** — the BIBFRAME → BFFI conversion is implemented as Python routings over an rdflib graph, not as CONSTRUCT queries, and no `sparql/` directory exists. (`Settings.sparql_dir` and the SHACL shapes' sibling `.rq` slot are vestigial.) If a query is ever genuinely the right tool, it goes in `sparql/` as a versioned file, read at startup and parametrized with Jinja2 if needed (autoescape off) — but prefer extending `routings.py`, where the routing registry gives every decision a provenance hook and a discipline test.
+- **Idempotency**: Conversion outputs are deterministic — same input, same bytes. **The atomic-write and skip-when-newer half of this rule is aspirational, not shipped**: the three conversion stages overwrite unconditionally and have no `--force` flag. Only `melinda-sync` does it properly (`.tmp` → rename, resumption-token state, `--force-restart`). Don't cite this rule as if the conversion stages already satisfied it.
 - **Stage isolation**: Stages don't import each other. Orchestration lives in `cli.py`.
 - **Errors over silent fallbacks**: Conversion failures raise. The only retry logic is for transient external errors (e.g. a vocab fetch).
 - **Provenance is mandatory**: Every conversion decision that does anything non-trivial (e.g. discriminator-routing a `bf:Hub` to `bffi:Work` vs `bffi:Expression`) writes to the provenance graph before returning. No "optional logging" flag.
@@ -65,7 +65,7 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages li
 - Before starting work on a plan, read it through. If you're not working off a plan, check `docs/plans/README.md` first to see whether a plan or proposal already covers the work.
 - `make lint && make test` must pass before any commit.
 - **Canonical run-directory convention**: every pipeline invocation writes into a `runs/<yyyymmdd-hhmm-<6hex>>/` directory (UTC timestamp + 6 random hex chars). Mint one with `bffi-pipeline new-run` and pass it (or sub-paths under it) to each stage's `--output-dir` / `--html` option. The CLI validates this on every output-side argument; non-canonical paths exit with `error: --output-dir: …` before the stage starts. See `src/bffi_pipeline/runs.py`.
-- Commit messages tag the relevant stage or plan phase, e.g. `convert: BIBFRAME → BFFI routing for bf:Hub` or `P-058 Phase A: restore stage idempotency`.
+- Commit messages tag the relevant stage or plan phase, e.g. `convert: BIBFRAME → BFFI routing for bf:Hub` or `ci: install xsltproc on the runner`.
 - Solo pro-bono project: commit directly to `main`. No feature branches, no PRs.
 
 ## What not to do
@@ -79,5 +79,5 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages li
 - Don't write private `graph.bind("foo", FOO)` lists when emitting Turtle. Every binding goes through the shared helper.
 - Don't merge silent failures into provenance. Log `uncertain` with the actual error.
 - Don't add features that aren't covered by a plan in `docs/plans/`. Surface new directions as a plan with status `proposed` first; only flip to `active` after the trade-off is on the record.
-- Don't add downstream-stage code (clustering, judge, reconciliation, Skosmos load) to this repository. Those belong to the legacy `helmet-marcxml-bffi-skos-pipeline` repo. The same goes upstream: no ILS/database access, no Sierra export — that's `helmet-sierra-data-tools`.
+- Don't add downstream-stage code (clustering, judge, reconciliation, Skosmos load) to this repository. The same goes upstream: no ILS/database access, no ILS export — this repository takes MARCXML as given.
 - Don't read `bffi-prov:` (pipeline-internal provenance) when reconstructing MARC in the BFFI → MARC direction. The whole point of the round-trip is to verify that the `bffi:` namespace alone can reconstruct the source. Pipeline-internal data is fair for UI / pairing machinery (e.g. lineage tokens used by the diff comparator), never for deciding what content emits.

@@ -8,12 +8,10 @@ BIBFRAME application profile), by way of BIBFRAME:
 MARCXML  →  BIBFRAME  →  BFFI canonical Turtle  →  MARCXML
 ```
 
-Both directions are first-class. The forward path converts Helmet
+Both directions are first-class. The forward path converts source
 bibliographic records into BFFI; the reverse path reconstructs MARCXML
 from the BFFI graph alone, which is what makes the round-trip a
 falsifiable test of the mapping rather than a one-way assertion about it.
-
-Target corpus: ~800 000 Helmet bibliographic records.
 
 This is **pro bono** work for the [National Library of Finland](https://www.kansalliskirjasto.fi/),
 intended for upstream contribution alongside the existing NLF tooling.
@@ -76,10 +74,9 @@ Stage code lives in [`src/bffi_pipeline/stages/`](src/bffi_pipeline/stages/);
 orchestration in [`src/bffi_pipeline/cli.py`](src/bffi_pipeline/cli.py).
 Stages don't import each other.
 
-The MARCXML at the head of the diagram is produced upstream, by
-`helmet-sierra-data-tools`, which streams Helmet's Sierra Postgres
-replica and writes per-bib MARCXML files. This repository takes MARCXML
-as given and never touches the ILS.
+The MARCXML at the head of the diagram is produced upstream, outside
+this repository. This repository takes MARCXML as given and never
+touches the ILS.
 
 ## Prerequisites
 
@@ -130,8 +127,7 @@ yet implement the atomic-write and skip-when-newer behaviour that
 `CLAUDE.md` sets as the convention, and there is no `--force` flag to
 override. `melinda-sync` is the one stage that does (atomic `.tmp` →
 rename, resumption-token idempotency, `--force-restart`). Closing that
-gap is tracked in
-[`docs/plans/p-058-extract-conversion-repo.md`](docs/plans/p-058-extract-conversion-repo.md).
+gap for the conversion stages is outstanding.
 
 `bffi-pipeline --help` lists every command, including the diagnostics
 (`diagnose-mappings`, `diagnose-marc-coverage`) and the mapping-doc
@@ -219,19 +215,8 @@ reverse converter reads pipeline-internal provenance.
 | Work | `http://urn.fi/URN:NBN:fi:bib:work:` |
 | Expression | `http://urn.fi/URN:NBN:fi:bib:expression:` |
 | Manifestation | `http://urn.fi/URN:NBN:fi:bib:manifestation:` |
-| Helmet source | `http://urn.fi/URN:NBN:fi:bib:source:helmet` |
+| Source | `http://urn.fi/URN:NBN:fi:bib:source:local` |
 | `bffi-prov` | `http://urn.fi/URN:NBN:fi:schema:bffi-prov#` |
-
-## Relationship to the legacy repository
-
-This repository was extracted from `helmet-marcxml-bffi-skos-pipeline`,
-which carries the earlier full-stack pipeline: clustering, embedding
-candidate generation, a local-LLM judge cascade, authority reconciliation
-against KANTO / VIAF / YSO / KAUNO / MUSO, and Skosmos publication. Those
-stages remain there as the legacy reference and are deliberately **not**
-part of this repository — the conversion layer is the foundation they all
-build on, and it is worth getting right on its own terms. See
-[`docs/plans/p-058-extract-conversion-repo.md`](docs/plans/p-058-extract-conversion-repo.md).
 
 ## License
 

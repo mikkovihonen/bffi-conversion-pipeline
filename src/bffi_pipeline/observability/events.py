@@ -1,14 +1,12 @@
-"""Structured stage-event emission for P-11.
+"""Structured stage-event emission.
 
 One canonical event stream that every stage writes to during its run.
-Operators tail the sidecar (via ``bffi-pipeline status`` once Phase B
-ships, or by hand with ``tail -F``) to answer "is the pipeline making
-forward progress?" without composing ``ps`` / ``curl`` /
+Operators tail the sidecar (by hand with ``tail -F``) to answer "is the
+pipeline making forward progress?" without composing ``ps`` / ``curl`` /
 ``docker logs`` / log-grep against three different files.
 
-The shape mirrors :mod:`bffi_pipeline.observability.watchdog` — a stderr line
-with a ``STAGE_EVENT `` prefix the existing log-tail tooling can pick
-up on, plus an append to a JSONL sidecar at
+The shape is a stderr line with a ``STAGE_EVENT `` prefix the existing
+log-tail tooling can pick up on, plus an append to a JSONL sidecar at
 ``<BFFI_DATA_DIR>/stage-events.jsonl`` for post-run analysis. The
 canonical payload shape:
 
@@ -17,7 +15,7 @@ canonical payload shape:
     {
       "ts": "2026-05-13T05:13:36Z",
       "run_uuid": "01HXXX...",
-      "stage": "m9",
+      "stage": "bibframe2bffi",
       "event": "progress",
       "phase": "phase1",
       "counters": {"processed": 9876, "total": 12666},
@@ -32,7 +30,7 @@ emitter through their function signatures, which would have rippled
 through every ``run()`` and every test fixture.
 
 Thread safety: ``StageEventEmitter.emit`` is guarded by an internal
-``threading.Lock`` so M9's ``c=4`` picker pool + ``phase1=8`` Phase 1
+``threading.Lock`` so a concurrent picker pool and Phase 1
 pool can call it concurrently without interleaving stderr lines or
 JSONL appends. ``set_active_emitter`` is *not* thread-safe and is
 expected to be called once at CLI entry before any worker dispatch.
@@ -55,17 +53,12 @@ StageEvent = Literal[
     "progress",
     "phase_boundary",
     "end",
-    "health",
-    "watchdog",
     "plan",
     "skipped",
     "failed",
 ]
 
-#: stderr prefix; mirror of :data:`bffi_pipeline.observability.watchdog.WATCHDOG_STDERR_PREFIX`.
-#: ``scripts/run-full-pipeline.sh``'s log-tail filter can grow its regex to
-#: ``^(STAGE_|PIPELINE_|WATCHDOG_EVENT|STAGE_EVENT)`` to surface these
-#: alongside the existing markers.
+#: stderr prefix for every stage event.
 STAGE_EVENT_STDERR_PREFIX: Final[str] = "STAGE_EVENT "
 
 #: Max length for the truncated ``message`` field on ``failed`` events.
@@ -74,23 +67,6 @@ STAGE_EVENT_STDERR_PREFIX: Final[str] = "STAGE_EVENT "
 #: original exception via the captured run log when the truncation
 #: matters.
 _FAILED_MESSAGE_MAX_LEN: Final[int] = 240
-
-#: Default progress-emission cadence per stage. Picked to balance
-#: ``stage-events.jsonl`` density against ``bffi-pipeline status`` tail
-#: responsiveness — too sparse and the dashboard looks frozen; too dense
-#: and the sidecar bloats. Tunable per-stage via the call site; this
-#: dict is the canonical source of defaults so new stages get a sensible
-#: starting value without re-deriving.
-DEFAULT_PROGRESS_CADENCE: Final[dict[str, int]] = {
-    "m2": 100,
-    "m3": 100,
-    "m5": 500,
-    "m6": 25,
-    "m8": 200,
-    "m9": 200,
-    "skosify": 0,  # 0 = no in-stage progress events, only start/end
-    "load": 0,
-}
 
 
 @dataclass
@@ -109,7 +85,7 @@ class StageEventEmitter:
 
     sidecar_path: Path | None
     run_uuid: str
-    #: P-32 Phase A: path to the run's ``bffi-run.json`` manifest. When
+    #: Path to the run's ``bffi-run.json`` manifest. When
     #: set, each ``start`` / ``end`` event also appends the stage to the
     #: manifest's ``stages_observed`` / ``stages_completed`` list. None
     #: in tests that construct emitters directly + don't want manifest
@@ -128,7 +104,7 @@ class StageEventEmitter:
     ) -> None:
         """Emit one event to stderr and (if configured) to the JSONL sidecar.
 
-        Concurrent calls are serialised by an internal lock — M9's
+        Concurrent calls are serialised by an internal lock — a
         c=4 picker pool + phase1=8 Phase 1 pool can call this from
         multiple threads without interleaving lines.
 
@@ -159,7 +135,7 @@ class StageEventEmitter:
                 with self.sidecar_path.open("a", encoding="utf-8") as fh:
                     fh.write(line + "\n")
 
-        # P-32 Phase A: update the run's manifest with the stage's
+        # Update the run's manifest with the stage's
         # lifecycle markers. Idempotent on retries — same stage
         # emitting ``start`` twice writes one entry. Done outside the
         # emitter lock because the manifest helpers carry their own
@@ -203,7 +179,7 @@ def get_active_emitter() -> StageEventEmitter | None:
 
         emitter = get_active_emitter()
         if emitter is not None:
-            emitter.emit(stage="m9", event="progress", ...)
+            emitter.emit(stage="bibframe2bffi", event="progress", ...)
     """
     return _active_emitter
 
@@ -254,7 +230,7 @@ def emit_plan(
     gauge so Grafana's templating layer can interpolate it.
 
     Optional ``stage_phases`` maps each planned stage to its phase
-    sequence (e.g. ``{"m9": ["phase1", "phase2", "phase3"]}``). The
+    sequence (e.g. ``{"bibframe2bffi": ["rename", "route"]}``). The
     metrics exporter pre-creates ``bffi_stage_phase_planned{stage,
     phase}=1`` gauges from this so the dashboard can render 0%-valued
     pending bars for not-yet-started phases instead of "—" no-data
@@ -289,8 +265,8 @@ def emit_failed(
 
     The runner calls this when a dispatched stage raises an exception
     before re-raising; stages themselves can call it from a
-    try/finally if they want phase-level failure granularity (e.g.
-    M9 phase 2 watchdog-abort). ``error_type`` is the exception class
+    try/finally if they want phase-level failure granularity.
+    ``error_type`` is the exception class
     name; ``message`` is the truncated str(exc) — the dashboard reads
     both as labels on ``bffi_stage_failed`` so the operator can
     tell apart a ``TimeoutError`` from a ``RuntimeError`` without
@@ -344,7 +320,6 @@ def emit_skipped(stage: str, reason: str = "") -> None:
 
 
 __all__ = [
-    "DEFAULT_PROGRESS_CADENCE",
     "STAGE_EVENT_STDERR_PREFIX",
     "StageEvent",
     "StageEventEmitter",

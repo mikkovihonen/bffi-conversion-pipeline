@@ -1,4 +1,4 @@
-"""URI-minting tests (M1).
+"""URI-minting tests.
 
 Properties verified:
 - stable across runs (deterministic hashing)
@@ -66,7 +66,7 @@ def test_work_uri_is_insensitive_to_unicode_normalization_form() -> None:
 
 
 def test_work_uri_preserves_diacritics() -> None:
-    # Helmet is multilingual; ä/a must be distinct.
+    # The corpus is multilingual; ä/a must be distinct.
     a = mint_work_uri(CREATOR, "Pää")
     b = mint_work_uri(CREATOR, "Paa")
     assert a != b
