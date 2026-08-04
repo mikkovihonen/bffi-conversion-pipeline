@@ -156,6 +156,7 @@ telemetry or error reporting** — no Datadog, Sentry, or similar. See
 | [`docs/marc_to_bibframe_mapping.md`](docs/marc_to_bibframe_mapping.md) | Generated: what the LoC XSLT does with each MARC field. |
 | [`docs/bf_to_bffi_mapping.md`](docs/bf_to_bffi_mapping.md) | Generated: every `bf:*` class/predicate → its `bffi:*` counterpart. Source of truth for forward-direction decisions; "Gap clusters" carry the ontology-shortfall caveats. |
 | [`docs/bffi_to_marc_mapping.md`](docs/bffi_to_marc_mapping.md) | Generated: every MARC field the reverse converter emits, plus "Known limitations". |
+| [`docs/roundtrip-debugging.md`](docs/roundtrip-debugging.md) | How to debug a field that is lost, retagged or fabricated in the round-trip: the measurement discipline, how to localise the failing hop, and the catalogue of failure patterns behind every fix so far. |
 | [`docs/validation-strategy.md`](docs/validation-strategy.md) | The three validation boundaries: MARCXML in, BIBFRAME post-conversion, BFFI post-emit. |
 | [`docs/observability.md`](docs/observability.md) | The local metrics stack, end to end. |
 | [`docs/plans/`](docs/plans/) | Plans of record, one per file, indexed by [`docs/plans/README.md`](docs/plans/README.md). |
