@@ -1743,3 +1743,56 @@ def test_emit_marcxml_emits_336_from_an_expression_reached_by_inverse() -> None:
     assert df is not None
     got = {sf.get("code"): sf.text for sf in df}
     assert got == {"a": "teksti", "b": "txt", "2": "rdacontent"}
+
+
+def test_emit_marcxml_emits_041_from_a_work_side_language() -> None:
+    """Regression: the language extractor walked the Manifestation while
+    marc2bibframe2 puts ``bf:language`` on the Work for 041 — this rule's own
+    note said so. All 265 source 041s on the reference corpus were lost.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "fin"  # type: ignore[union-attr]
+
+
+def test_emit_marcxml_emits_022_from_a_work_side_identifier() -> None:
+    """Regression: a serial's ISSN lands on the Work, not the Manifestation.
+    The scheme URI and the dispatch entry were both already correct; the walk
+    never reached the identifier."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    ident = URIRef("http://example.org/b1#Issn")
+    g.add((ident, RDF.type, BFFI.Identifier))
+    g.add((ident, BFFI.source, URIRef("http://id.loc.gov/vocabulary/identifiers/issn")))
+    g.add((ident, RDF.value, Literal("1234-5678")))
+    g.add((work, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='022']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "1234-5678"  # type: ignore[union-attr]
+
+
+def test_identifier_reachable_from_both_axes_emits_once() -> None:
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    ident = URIRef("http://example.org/b1#Isbn")
+    g.add((ident, RDF.type, BFFI.Identifier))
+    g.add((ident, BFFI.source, URIRef("http://id.loc.gov/vocabulary/identifiers/isbn")))
+    g.add((ident, RDF.value, Literal("9789511234567")))
+    g.add((work, BFFI.identifiedBy, ident))
+    g.add((manifestation, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert len(root.findall(f"{{{MARC21_NS}}}datafield[@tag='020']")) == 1

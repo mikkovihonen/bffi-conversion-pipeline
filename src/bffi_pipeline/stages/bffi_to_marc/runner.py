@@ -2892,7 +2892,8 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
         indicators=(" ", " "),
         subfields=(("a", "3-letter language code (one per language)"),),
         source=(
-            "?m bffi:language <http://id.loc.gov/vocabulary/languages/{code}> "
+            "?m or ?work or ?expression bffi:language "
+            "<http://id.loc.gov/vocabulary/languages/{code}> "
             "— the last URI segment is the MARC code"
         ),
         notes=(
@@ -2905,6 +2906,12 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
             "converter has no signal to recover which language URI was "
             "originally \\$h vs \\$a. Corpus impact: small (~54 sub-code "
             "occurrences across the 500-record bench)."
+            "Emitted whenever the graph carries a language statement, so a "
+            "record whose language came only from 008 (no source 041) gains "
+            "one — visible as `added` in the round-trip diff. Suppressing "
+            "single-language 041s would remove ~31 such additions on the "
+            "reference corpus but lose the 95 source 041s that are "
+            "legitimately a single \\$a matching 008/35-37."
         ),
     )
 )
@@ -2913,13 +2920,24 @@ def _extract_language_codes(graph: Graph, manifestation: URIRef) -> list[str]:
     vocabulary URI like ``<http://id.loc.gov/vocabulary/languages/eng>``.
     Returns the 3-letter MARC language codes (the URI's local name).
 
-    Deduped, deterministic ordering (sorted). Languages live on the
-    Manifestation per marc2bibframe2's MARC 008 / 041 emit pattern.
-    Maps to MARC 041 \\$a (one per language).
+    Deduped, deterministic ordering (sorted). Maps to MARC 041 \\$a (one per
+    language).
+
+    Walks the Manifestation, the Work and any Expression. marc2bibframe2 puts
+    ``bf:language`` on the **Work** for 041 (this rule's own note has said so
+    all along) and language is an Expression attribute in the FRBR sense, so
+    a Manifestation-only walk emitted nothing for a record whose only
+    language statement came from 041.
     """
+    work = _find_work_for_manifestation(graph, manifestation)
+    owners: list[URIRef | BNode] = [manifestation]
+    if work is not None:
+        owners.append(work)
+    owners.extend(_expressions_for(graph, manifestation, work))
     codes = {
         local_name(obj)
-        for obj in graph.objects(manifestation, BFFI.language)
+        for owner in owners
+        for obj in graph.objects(owner, BFFI.language)
         if isinstance(obj, URIRef)
     }
     return sorted(codes)
@@ -3442,7 +3460,21 @@ def _extract_identifier_datafields(graph: Graph, manifestation: URIRef) -> list[
     lands by extending :data:`_IDENTIFIER_SCHEME_TO_MARC`.
     """
     emits: list[_IdentifierEmit] = []
-    for ident in graph.objects(manifestation, BFFI.identifiedBy):
+    # marc2bibframe2 attaches an identifier to whichever FRBR axis the field
+    # describes: an ISBN lands on the Manifestation, but a serial's ISSN
+    # (MARC 022) lands on the **Work**. A Manifestation-only walk lost every
+    # Work-side identifier: 022 emitted nothing at all on the reference
+    # corpus, despite the scheme URI and the dispatch entry both being
+    # correct.
+    work = _find_work_for_manifestation(graph, manifestation)
+    owners: list[URIRef | BNode] = [manifestation]
+    if work is not None:
+        owners.append(work)
+    seen: set[URIRef | BNode] = set()
+    for ident in (i for o in owners for i in graph.objects(o, BFFI.identifiedBy)):
+        if not isinstance(ident, URIRef | BNode) or ident in seen:
+            continue
+        seen.add(ident)
         value = next(graph.objects(ident, RDF.value), None)
         if not isinstance(value, Literal):
             continue
