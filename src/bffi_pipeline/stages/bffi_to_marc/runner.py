@@ -1564,6 +1564,62 @@ def _extract_origin_place_datafields(graph: Graph, manifestation: URIRef) -> lis
         ),
     ),
 )
+@marc_emit(
+    MarcEmitMeta(
+        tag="040",
+        indicators=(" ", " "),
+        subfields=(
+            ("b", "language of cataloguing (bffi:descriptionLanguage)"),
+            ("e", "description conventions (bffi:descriptionConventions)"),
+        ),
+        source=(
+            "?am a bffi:AdminMetadata ; bffi:descriptionLanguage ?lang . "
+            "$b = local name of ?lang ; "
+            "$e = local name of each ?am bffi:descriptionConventions."
+        ),
+        notes=(
+            "**\\$a and \\$d are not recoverable.** The vendored "
+            "marc2bibframe2 v3.1.0 comments out both the \\$a → bf:assigner "
+            "and \\$d → bf:descriptionModifier blocks in its 040 template "
+            "(``ConvSpec-010-048.xsl``), so the cataloguing-agency codes never "
+            "reach BIBFRAME and cannot be reconstructed from BFFI. Emitting an "
+            "agency guessed from some other assigner in the graph produced the "
+            "wrong one for 185 of 190 records on the reference corpus — a "
+            "false provenance claim — so only \\$b and \\$e are emitted.\n\n"
+            "``bffi:descriptionLanguage`` gates the emit: it is the one "
+            "property that comes only from 040 \\$b. Keying on "
+            "``descriptionConventions`` instead fabricated a 040 for 46 "
+            "records that never had one, because marc2bibframe2 also derives "
+            "``aacr`` from leader/18.\n\n"
+            "\\$e can gain a value the source lacked: ``isbd`` is asserted "
+            "alongside the record's own conventions."
+        ),
+    ),
+)
+def _extract_cataloging_source(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
+    """Rebuild the recoverable half of MARC 040 from AdminMetadata.
+
+    A record carries several ``bffi:AdminMetadata`` blocks — one per
+    conversion Activity plus one for the source description. Only the
+    source-description block has ``bffi:descriptionLanguage``, so that
+    property both selects the block and gates the emit; the pipeline's own
+    blocks must not produce a cataloguing-source claim.
+    """
+    del manifestation  # 040 describes the record, not a particular FRBR axis.
+    for am in graph.subjects(RDF.type, BFFI.AdminMetadata):
+        language = next(graph.objects(am, BFFI.descriptionLanguage), None)
+        if not isinstance(language, URIRef):
+            continue
+        subs: list[tuple[str, str]] = [("b", local_name(language))]
+        subs.extend(
+            ("e", local_name(conv))
+            for conv in sorted(graph.objects(am, BFFI.descriptionConventions), key=str)
+            if isinstance(conv, URIRef)
+        )
+        return [_NoteEmit(tag="040", text="", subfield_code="b", extra_subfields=tuple(subs))]
+    return []
+
+
 def _extract_specialised_5xx_notes(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
     """Walk the seven BFFI properties that produce a non-bf:Note 5XX
     field in MARC. Each :class:`_SpecialisedNoteRule` names the
@@ -4097,6 +4153,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         _extract_notes(graph, manifestation)
         + _extract_specialised_5xx_notes(graph, manifestation)
         + _extract_origin_place_datafields(graph, manifestation)
+        + _extract_cataloging_source(graph, manifestation)
     )
     table_of_contents = _extract_table_of_contents(graph, manifestation)
     policies = _extract_policies(graph, manifestation)

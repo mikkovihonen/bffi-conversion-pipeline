@@ -330,6 +330,7 @@ Verdict legend:
 | `030` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `032` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `035` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
+| `040` | ≠ asymmetric | `adminmetadata` | ✓ | `$6` | — | `$b` `$e` | — | — |
 | `041` | ≠ asymmetric | `work` | ✓ | `$2` `$3` `$6` | `$a` | — | forward only: ind2=`7`<br>reverse only: ind1=`#` | — |
 | `050` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
 | `060` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
@@ -440,7 +441,6 @@ Verdict legend:
 | `036` | → forward only | `instance` | — | `$0` `$2` `$6` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | — | — | — | — |
 | `037` | → forward only | `instance` | — | `$3` `$5` `$6` `$a` `$b` `$c` `$f` `$g` `$n` | — | — | — | — |
 | `038` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
-| `040` | → forward only | `adminmetadata` | — | `$6` `$b` `$e` | — | — | — | — |
 | `042` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
 | `043` | → forward only | `work` | — | `$0` `$6` `$a` `$b` `$c` | — | — | — | — |
 | `045` | → forward only | `work` | — | `$6` `$a` `$b` | — | — | — | — |
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 114 asymmetric, 52 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 115 asymmetric, 51 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 

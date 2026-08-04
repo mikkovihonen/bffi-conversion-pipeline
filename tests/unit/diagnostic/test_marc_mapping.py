@@ -44,6 +44,7 @@ def test_marc_emit_registry_includes_expected_tags() -> None:
         "030",
         "032",
         "035",
+        "040",
         "041",
         "050",
         "060",

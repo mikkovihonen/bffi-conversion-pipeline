@@ -68,8 +68,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `037` | `037` | minimal | datafield | `2#` | `$a` | forward_only |
 | `1037` | `037` | maximal | datafield | `2#` | `$3` `$5` `$a` `$b` `$c` `$f` `$g` `$n` | forward_only |
 | `038` | `038` | minimal | datafield | `##` | `$a` | forward_only |
-| `040` | `040` | minimal | datafield | `##` | `$b` | forward_only |
-| `1040` | `040` | maximal | datafield | `##` | `$b` `$e` | forward_only |
+| `040` | `040` | minimal | datafield | `##` | `$b` | asymmetric |
+| `1040` | `040` | maximal | datafield | `##` | `$b` `$e` | asymmetric |
 | `041` | `041` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1041` | `041` | maximal | datafield | `##` | `$2` `$3` `$a` | asymmetric |
 | `042` | `042` | minimal | datafield | `##` | `$a` | forward_only |

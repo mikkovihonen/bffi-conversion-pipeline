@@ -1875,3 +1875,79 @@ def test_unknown_agency_code_falls_back_to_uppercase() -> None:
     df = root.find(f"{{{MARC21_NS}}}datafield[@tag='035']")
     assert df is not None
     assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "(ZZUNKNOWN)42"  # type: ignore[union-attr]
+
+
+def _admin_metadata_block(g: Graph, manifestation: URIRef) -> URIRef:
+    am = URIRef("http://example.org/b1#AdminMetadata")
+    g.add((am, RDF.type, BFFI.AdminMetadata))
+    g.add((manifestation, BFFI.adminMetadata, am))
+    return am
+
+
+def test_emit_marcxml_emits_040_b_and_e_from_admin_metadata() -> None:
+    """MARC 040's recoverable half: ``$b`` from ``bffi:descriptionLanguage``
+    and ``$e`` from ``bffi:descriptionConventions``."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    am = _admin_metadata_block(g, manifestation)
+    g.add((am, BFFI.descriptionLanguage, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    g.add(
+        (
+            am,
+            BFFI.descriptionConventions,
+            URIRef("http://id.loc.gov/vocabulary/descriptionConventions/rda"),
+        )
+    )
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='040']")
+    assert df is not None
+    got = [(sf.get("code"), sf.text) for sf in df]
+    assert got == [("b", "fin"), ("e", "rda")]
+
+
+def test_emit_marcxml_never_emits_040_a_even_when_an_assigner_exists() -> None:
+    """``$a`` is unrecoverable: marc2bibframe2 v3.1.0 comments out the
+    ``$a`` → ``bf:assigner`` block, so any agency in the graph came from
+    somewhere else. Guessing one produced the wrong agency for 185 of 190
+    records — a false provenance claim.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    am = _admin_metadata_block(g, manifestation)
+    g.add((am, BFFI.descriptionLanguage, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    ident = URIRef("http://example.org/b1#AmId")
+    assigner = URIRef("http://example.org/b1#Agency")
+    g.add((assigner, BFFI.code, Literal("DLC")))
+    g.add((ident, BFFI.assigner, assigner))
+    g.add((am, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='040']")
+    assert df is not None
+    assert [sf.get("code") for sf in df] == ["b"]
+
+
+def test_no_040_without_a_description_language() -> None:
+    """``descriptionLanguage`` gates the emit. Keying on
+    ``descriptionConventions`` instead fabricated a 040 for 46 records that
+    never had one, because it is also derived from leader/18."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    am = _admin_metadata_block(g, manifestation)
+    g.add(
+        (
+            am,
+            BFFI.descriptionConventions,
+            URIRef("http://id.loc.gov/vocabulary/descriptionConventions/aacr"),
+        )
+    )
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='040']") is None
