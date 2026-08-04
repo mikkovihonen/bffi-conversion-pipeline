@@ -171,10 +171,22 @@ def _pick_indicators(
     Prefers a value the XSLT actually tests for (so the conversion takes a
     real branch rather than a fallthrough), then whatever the reverse
     converter emits, then blanks.
+
+    Candidates longer than one character are dropped from both sources.
+    ``MARC_EMIT_REGISTRY`` documents an indicator *range* where the emit
+    picks by scheme (MARC 028 carries ``("0-6", "0-3")``), which reads
+    correctly in the generated mapping table but is not a MARC indicator:
+    MARC21slim's XSD constrains an indicator to one character, so copying
+    the range verbatim produced two probes (``028.xml``, ``1028.xml``) that
+    failed their own Boundary-1 XSD check. Found by wiring validation — see
+    p-062.
     """
-    ind1 = sorted(v for slot, v in forward_tests if slot == "ind1" and v != "#")
-    ind2 = sorted(v for slot, v in forward_tests if slot == "ind2" and v != "#")
-    fallback = tuple(reverse) if reverse else ()
+    ind1 = sorted(v for slot, v in forward_tests if slot == "ind1" and v != "#" and len(v) == 1)
+    ind2 = sorted(v for slot, v in forward_tests if slot == "ind2" and v != "#" and len(v) == 1)
+    # Blank out the unusable entries in place rather than filtering them:
+    # dropping ``("0-3", "1")[0]`` would shift the ind2 value into the ind1
+    # slot.
+    fallback = tuple(v if len(v) == 1 else " " for v in (reverse or ()))
     first = ind1[0] if ind1 else (fallback[0] if len(fallback) > 0 else " ")
     second = ind2[0] if ind2 else (fallback[1] if len(fallback) > 1 else " ")
     return (first or " ", second or " ")

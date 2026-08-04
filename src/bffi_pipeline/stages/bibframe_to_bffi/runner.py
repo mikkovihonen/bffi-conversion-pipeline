@@ -28,6 +28,8 @@ from bffi_pipeline.stages.bibframe_to_bffi.mappings import (
     load_rules,
 )
 from bffi_pipeline.stages.bibframe_to_bffi.routings import apply_all_routings
+from bffi_pipeline.validation.bffi import validate_graph as validate_bffi_graph
+from bffi_pipeline.validation.sidecar import ValidationRow, ValidationSidecars
 
 STAGE: Final[str] = "bibframe2bffi"
 
@@ -43,6 +45,10 @@ class ConversionOptions:
     output_dir: Path
     #: Path to ``vocab/lkd.rdf``. None means look up via ``get_settings``.
     lkd_rdf_path: Path | None = None
+    #: Run Boundary 3 (SHACL over the emitted Turtle). Non-blocking by
+    #: specification: findings are reported in ``_validation.jsonl`` and
+    #: counted, the record is kept either way. See p-062.
+    validate: bool = True
 
 
 @dataclass
@@ -56,6 +62,9 @@ class ConversionSummary:
     #: Phase 4 routings. A non-zero value indicates a closed-namespace
     #: discipline gap on a term family not yet covered.
     closed_namespace_residue: int = 0
+    #: Records the Boundary-3 BFFI shape reported on. Non-blocking: these
+    #: are also counted in ``converted``.
+    shape_flagged: int = 0
     #: Corpus-wide totals of how many times each Phase 4 routing fired.
     #: Surfaces in the observability ``end`` event so the operator can
     #: see, e.g. "this run rewrote 9 525 bf:Isbn instances".
@@ -188,6 +197,44 @@ def convert_one(
     return output_path, residual, routing_counters
 
 
+def _boundary3_row(output_path: Path) -> ValidationRow | None:
+    """Run Boundary 3 over the emitted Turtle on disk; row if it fails.
+
+    Re-reading the file rather than reusing the in-memory graph is
+    deliberate: the file is the artifact, and a Turtle round-trip is the
+    only thing that proves what we wrote can be read back. Costs one parse
+    plus ~10 ms of pyshacl per record.
+
+    A file rdflib cannot parse back yields a ``bffi-parse`` row. That is a
+    stronger signal than a shape violation — it means the emit produced
+    Turtle we can't read — but Boundary 3 is non-blocking by
+    specification, so it is still only reported.
+    """
+    graph = Graph()
+    try:
+        graph.parse(output_path, format="turtle")
+    except Exception as exc:
+        return ValidationRow(
+            boundary=3,
+            error_type="bffi-parse",
+            bib_id=output_path.name.split(".", 1)[0],
+            path=output_path,
+            message=f"rdflib could not parse the emitted Turtle back: {exc}",
+        )
+
+    report = validate_bffi_graph(graph)
+    if report.conforms:
+        return None
+    return ValidationRow(
+        boundary=3,
+        error_type="bffi-shape",
+        bib_id=output_path.name.split(".", 1)[0],
+        path=output_path,
+        message=report.text,
+        violations=report.text.count("Constraint Violation"),
+    )
+
+
 def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
     """Walk ``options.input_dir`` and convert every ``*.bibframe.xml`` to BFFI Turtle.
 
@@ -196,8 +243,16 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
       - ``start``    once at entry, with ``entities_total``
       - ``progress`` every ``PROGRESS_CADENCE`` records
       - ``failed``   per record that raised :exc:`BibframeToBffiError`
-      - ``end``      once at exit, with success / failed bucket counts and
-                     the corpus-wide closed-namespace residue total
+      - ``end``      once at exit, with success / failed bucket counts, the
+                     corpus-wide closed-namespace residue total, and the
+                     Boundary-3 flagged count
+
+    With ``options.validate`` on (the default) each emitted record is run
+    through **Boundary 3** — the BFFI SHACL shape — over the Turtle on
+    disk. The boundary is non-blocking by specification: a non-conforming
+    record is still kept and still counted as converted; the finding goes
+    to ``_validation.jsonl`` with its violation count. See
+    `docs/validation-strategy.md` and p-062.
 
     Returns the aggregate :class:`ConversionSummary`.
     """
@@ -212,19 +267,37 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
     )
 
     summary = ConversionSummary(total=total)
+    sidecars = ValidationSidecars(options.output_dir)
 
     for idx, path in enumerate(bibframe_files, start=1):
         try:
-            _, residual, routings = convert_one(path, options=options, rules=rules)
+            output_path, residual, routings = convert_one(path, options=options, rules=rules)
             summary.converted += 1
             if residual > 0:
                 summary.closed_namespace_residue += 1
             for name, count in routings.items():
                 summary.routing_counters[name] = summary.routing_counters.get(name, 0) + count
+            if options.validate:
+                row = _boundary3_row(output_path)
+                if row is not None:
+                    summary.shape_flagged += 1
+                    sidecars.flag(row)
         except BibframeToBffiError as exc:
             summary.failed += 1
             message = str(exc)
             summary.failures.append((path, message))
+            # boundary=0: a conversion failure, not a validation finding.
+            # Shares the rejection sidecar so one file answers "what is
+            # missing from this stage's output, and why".
+            sidecars.reject(
+                ValidationRow(
+                    boundary=0,
+                    error_type=type(exc).__name__,
+                    bib_id=path.name.split(".", 1)[0],
+                    path=path,
+                    message=message,
+                )
+            )
             emit_if_active(
                 stage=STAGE,
                 event="failed",
@@ -249,6 +322,7 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
             "success": summary.converted,
             "failed": summary.failed,
             "closed_namespace_residue": summary.closed_namespace_residue,
+            "shape_flagged": summary.shape_flagged,
             **{f"routing_{name}": count for name, count in summary.routing_counters.items()},
         },
     )

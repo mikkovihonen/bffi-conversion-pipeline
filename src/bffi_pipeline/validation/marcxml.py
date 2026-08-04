@@ -219,12 +219,82 @@ def validate(path: Path) -> ValidatedMarcXml:
     return ValidatedMarcXml(bib_id=bib_id_from_filename(path), tree=tree)
 
 
+#: Boundary-1 families that make a record **unconvertible**: the filename
+#: carries no usable bib ID, or ``xsltproc`` cannot read the file at all.
+#: These reject the record — see p-062.
+STRUCTURAL_ERROR_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "marcxml-filename",
+        "marcxml-encoding",
+        "marcxml-xml-syntax",
+        "marcxml-xsd-validation",
+    }
+)
+
+#: Boundary-1 families that are **advisory**: the record converts, it is
+#: just thinner than the mapping would like. 7 of the 53 real fixture
+#: records and LoC's own test record fail content-minimum for a missing
+#: 33X, so rejecting on it would drop data the pipeline handles.
+ADVISORY_ERROR_TYPES: Final[frozenset[str]] = frozenset({"marcxml-content-minimum"})
+
+
+@dataclass(frozen=True)
+class Boundary1Outcome:
+    """Boundary-1 result split by severity.
+
+    At most one of ``rejection`` / ``advisory`` is set: the checks run in
+    order and the first structural failure short-circuits, so a record
+    that cannot be parsed is never also reported as content-thin.
+    """
+
+    bib_id: str
+    #: Structural failure. Non-None means the stage must skip this record.
+    rejection: MarcXmlValidationError | None = None
+    #: Non-blocking finding. The record still converts.
+    advisory: MarcXmlValidationError | None = None
+    #: Parsed tree, present whenever ``rejection`` is None.
+    tree: etree._ElementTree | None = None
+
+    @property
+    def accepted(self) -> bool:
+        """True when the record may proceed to conversion."""
+        return self.rejection is None
+
+
+def inspect(path: Path) -> Boundary1Outcome:
+    """Run Boundary 1 and classify the outcome by severity.
+
+    Unlike :func:`validate`, this never raises: the caller gets a value
+    telling it whether to skip the record (``rejection``), to convert it
+    while flagging it (``advisory``), or to convert it clean.
+    """
+    bib_id = path.stem
+    try:
+        validate_filename(path)
+        raw = validate_utf8(path)
+        tree = parse_xml(path, raw)
+        validate_xsd(path, tree)
+    except MarcXmlValidationError as exc:
+        return Boundary1Outcome(bib_id=bib_id, rejection=exc)
+
+    try:
+        validate_minimum_content(path, tree)
+    except MarcXmlValidationError as exc:
+        return Boundary1Outcome(bib_id=bib_id, advisory=exc, tree=tree)
+
+    return Boundary1Outcome(bib_id=bib_id, tree=tree)
+
+
 __all__ = [
+    "ADVISORY_ERROR_TYPES",
     "MARC_NS",
+    "STRUCTURAL_ERROR_TYPES",
+    "Boundary1Outcome",
     "ErrorType",
     "MarcXmlValidationError",
     "ValidatedMarcXml",
     "bib_id_from_filename",
+    "inspect",
     "parse_xml",
     "validate",
     "validate_filename",

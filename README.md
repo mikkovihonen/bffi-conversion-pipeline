@@ -120,6 +120,17 @@ uv run bffi-pipeline roundtrip-eval \
     --html $RUN/review.html
 ```
 
+Both forward stages validate as they go, on by default. Rejected records —
+structurally invalid MARCXML (unreadable filename, non-UTF-8, bad XML, XSD
+failure), or a conversion that fails the BIBFRAME shape (no title, severed
+Work↔Instance link, no administrative layer) — are listed in
+`<output_dir>/_errors.jsonl` and are absent from the output. Content-thin
+records and BFFI shape findings are flagged in
+`<output_dir>/_validation.jsonl` and still converted. `--no-validate` turns
+a stage's checks off; `marc-to-bibframe --no-strict-shapes` downgrades the
+BIBFRAME shape check to a flag. See
+[`docs/validation-strategy.md`](docs/validation-strategy.md).
+
 Conversions are deterministic: the same input produces the same output,
 so a re-run into a fresh run directory is safe. Note that the three
 conversion stages currently **overwrite unconditionally** — they do not

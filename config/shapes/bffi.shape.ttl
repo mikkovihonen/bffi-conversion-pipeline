@@ -1,144 +1,251 @@
-# Boundary 3 — SHACL shapes for the post-CONSTRUCT BFFI graph.
+# Boundary 3 — SHACL shapes for the emitted BFFI graph.
 #
-# Validates the bibframe-to-bffi output: cardinality between Work and Expression, local
-# identifier preservation, prefLabel language tagging, class disjointness,
-# and conservative property routing. Failures emit a row to
-# `<BFFI_DATA_DIR>/bffi/_validation.jsonl` and a CLI warning, but the
-# pipeline continues — at 800k records, even 0.1% failure is 800 records
-# that need triage, not a halt.
+# Non-blocking by specification: findings land in `<output_dir>/_validation.jsonl`
+# with a violation count and the record is kept. At 800k records even a 0.1%
+# rate is 800 records to triage, not a reason to halt. See
+# `docs/validation-strategy.md`.
 #
-# Property routing here is the *pipeline's* allocation, not BFFI's broadest
-# permissible domain (the "conservative" note in vocab/lkd.rdf).
+# ## Every constraint here is derived from `vocab/lkd.rdf`
+#
+# The `bffi:` namespace is closed (CLAUDE.md § Conventions), and that applies
+# to what a shape may *assert* as much as to what the converter may emit. So
+# each constraint below restates something the vendored ontology already
+# declares — an `rdfs:domain`, an `rdfs:range`, or the one `owl:disjointWith`
+# that touches the FRBR axes — and nothing else. Where lkd.rdf is permissive,
+# this file is permissive.
+#
+# Shape node names live in `bffi-prov:`, the namespace this repository owns.
+# They are pipeline-internal identifiers, not BFFI terms; minting them under
+# `bffi:` (as this file used to) put four local terms in a closed namespace.
+#
+# ## What was removed, and why
+#
+# * **`skos:prefLabel` in fi/sv/en on every Work.** A Skosmos-publishing
+#   requirement from the original implementation, which this repository does
+#   not do — no stage emits `skos:prefLabel` at all (0 triples across 343
+#   emitted records), so the constraint fired 450 times on 24 records while
+#   describing a product that no longer exists.
+# * **`bffi:hasExpression` ≥ 1 on every Work, `bffi:expressionManifested`
+#   exactly 1 on every Manifestation.** lkd.rdf declares these predicates and
+#   their domain/range; it does not mandate their presence. Asserting the
+#   cardinality was this pipeline's own FRBR-spine expectation, and it fired
+#   on 225 of 225 Works — 187 of which are MARC 700/730/76X-derived hub Works
+#   that legitimately have no expression of their own. Whether the emit should
+#   mint a full Work→Expression→Manifestation spine is a live mapping question
+#   for NLF; it is not something a validation shape can decide by failing
+#   every record.
+# * **`bffi:language`, `bffi:note`, `bffi:identifiedBy` restricted to one
+#   axis.** lkd.rdf gives all three `rdfs:domain rdfs:Resource`. The
+#   single-axis rule was the pipeline's own allocation, contradicted by its
+#   own emit (25 Works carry `bffi:language`) and by the reverse converter,
+#   which reads language off Manifestation, Work *and* Expression to
+#   reconstruct MARC 041.
+# * **`bf:source` inside the identifier check.** A `bf:*` predicate cannot
+#   appear in the BFFI emit — the namespace boundary is hard-cut — so the
+#   constraint could never match. The emit uses `bffi:source`.
 
-@prefix sh:    <http://www.w3.org/ns/shacl#> .
-@prefix bf:    <http://id.loc.gov/ontologies/bibframe/> .
-@prefix bffi:  <http://urn.fi/URN:NBN:fi:schema:bffi:> .
-@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
-@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix sh:        <http://www.w3.org/ns/shacl#> .
+@prefix bffi:      <http://urn.fi/URN:NBN:fi:schema:bffi:> .
+@prefix bffi-prov: <http://urn.fi/URN:NBN:fi:schema:bffi-prov#> .
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
 
-# --- bffi:Work shape ------------------------------------------------------
-bffi:WorkShape
+# --- Class disjointness ---------------------------------------------------
+#
+# lkd.rdf: `bffi:Work owl:disjointWith bffi:Expression`. The only
+# disjointness declared between the FRBR axes — Manifestation is not declared
+# disjoint from either, so this file doesn't claim it is.
+#
+# Catches a node that took two axis routings, which is how a discriminator
+# bug shows up: the record then reconstructs its MARC twice, once per axis.
+bffi-prov:AxisDisjointnessShape
     a sh:NodeShape ;
     sh:targetClass bffi:Work ;
-    rdfs:label "BFFI Work" ;
-
-    # Class disjointness: a node is not both Work and Expression.
-    sh:not [ sh:property [ sh:path rdf:type ; sh:hasValue bffi:Expression ] ] ;
-
-    # Cardinality: every Work has at least one Expression.
-    sh:property [
-        sh:path bffi:hasExpression ;
-        sh:minCount 1 ;
-        sh:nodeKind sh:IRI ;
-        sh:message "bffi:Work must link to at least one bffi:Expression via bffi:hasExpression."
+    rdfs:label "Work and Expression are disjoint (lkd.rdf owl:disjointWith)" ;
+    sh:not [
+        sh:property [ sh:path rdf:type ; sh:hasValue bffi:Expression ]
     ] ;
+    sh:message "A node is typed both bffi:Work and bffi:Expression (lkd.rdf declares them disjoint)." .
 
-    # Local identifier moved from Work to Manifestation.
-    # The Work no longer asserts ``bffi:identifiedBy``; the bib_id lives
-    # on Manifestation (see :bffi:ManifestationShape below). Cataloguer
-    # tooling discovers the bib_id from a Work via:
-    #   Work → bffi:hasExpression → Expression
-    #        ← bffi:expressionManifested ← Manifestation
-    #        → bffi:identifiedBy
-    sh:property [ sh:path bffi:identifiedBy ; sh:maxCount 0 ;
-                  sh:message "bffi:identifiedBy is Manifestation-only." ] ;
+# --- rdfs:domain — predicates lkd.rdf restricts to one axis ---------------
+#
+# Only these four. `bffi:content` and `bffi:summary` are Expression-domain;
+# `bffi:subject`, `bffi:classification`, `bffi:originDate` and
+# `bffi:genreForm` are Work-domain. Everything else the emit uses has
+# `rdfs:domain rdfs:Resource` in lkd.rdf and is therefore unconstrained here.
+#
+# Catches the wrong-FRBR-axis family from `docs/roundtrip-debugging.md`: data
+# attached to the axis that doesn't describe it, which the reverse direction
+# then fails to find.
 
-    # prefLabel must exist in at least one of fi/sv/en.
-    sh:property [
-        sh:path skos:prefLabel ;
-        sh:minCount 1 ;
-        sh:qualifiedValueShape [
-            sh:datatype rdf:langString ;
-            sh:languageIn ( "fi" "sv" "en" ) ;
-        ] ;
-        sh:qualifiedMinCount 1 ;
-        sh:message "bffi:Work must have skos:prefLabel in fi/sv/en."
-    ] ;
-
-    # Properties that belong only to bffi:Expression (per the routing rules)
-    # MUST NOT appear here.
-    sh:property [ sh:path bffi:expressionOf ; sh:maxCount 0 ;
-                  sh:message "bffi:expressionOf is Expression-only." ] ;
-    sh:property [ sh:path bffi:language    ; sh:maxCount 0 ;
-                  sh:message "bffi:language is Expression-only." ] ;
-    sh:property [ sh:path bffi:content     ; sh:maxCount 0 ;
-                  sh:message "bffi:content is Expression-only." ] ;
-    sh:property [ sh:path bffi:summary     ; sh:maxCount 0 ;
-                  sh:message "bffi:summary is Expression-only." ] ;
-    sh:property [ sh:path bffi:note        ; sh:maxCount 0 ;
-                  sh:message "bffi:note is Expression-only." ] .
-
-# --- bffi:Expression shape -----------------------------------------------
-bffi:ExpressionShape
+bffi-prov:ExpressionDomainShape
     a sh:NodeShape ;
-    sh:targetClass bffi:Expression ;
-    rdfs:label "BFFI Expression" ;
+    rdfs:label "bffi:content / bffi:summary have domain bffi:Expression" ;
+    sh:targetSubjectsOf bffi:content, bffi:summary ;
+    sh:class bffi:Expression ;
+    sh:message "bffi:content / bffi:summary on a node that is not a bffi:Expression (lkd.rdf rdfs:domain)." .
 
-    sh:not [ sh:property [ sh:path rdf:type ; sh:hasValue bffi:Work ] ] ;
-
-    # Exactly one Work via bffi:expressionOf.
-    sh:property [
-        sh:path bffi:expressionOf ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:nodeKind sh:IRI ;
-        sh:message "bffi:Expression must point at exactly one bffi:Work via bffi:expressionOf."
-    ] ;
-
-    # bffi:identifiedBy moved to Manifestation (see
-    # :bffi:ManifestationShape).
-    sh:property [ sh:path bffi:identifiedBy ; sh:maxCount 0 ;
-                  sh:message "bffi:identifiedBy is Manifestation-only." ] ;
-
-    # Properties that belong only to bffi:Work MUST NOT appear here.
-    sh:property [ sh:path bffi:hasExpression  ; sh:maxCount 0 ;
-                  sh:message "bffi:hasExpression is Work-only." ] ;
-    sh:property [ sh:path bffi:subject        ; sh:maxCount 0 ;
-                  sh:message "bffi:subject is Work-only." ] ;
-    sh:property [ sh:path bffi:classification ; sh:maxCount 0 ;
-                  sh:message "bffi:classification is Work-only." ] ;
-    sh:property [ sh:path bffi:originDate     ; sh:maxCount 0 ;
-                  sh:message "bffi:originDate is Work-only." ] ;
-    sh:property [ sh:path bffi:genreForm      ; sh:maxCount 0 ;
-                  sh:message "bffi:genreForm is Work-only." ] .
-
-# --- bffi:Manifestation shape --------------------------------------------
-bffi:ManifestationShape
+bffi-prov:WorkDomainShape
     a sh:NodeShape ;
-    sh:targetClass bffi:Manifestation ;
-    rdfs:label "BFFI Manifestation" ;
+    rdfs:label "bffi:subject / classification / originDate / genreForm have domain bffi:Work" ;
+    sh:targetSubjectsOf bffi:subject, bffi:classification, bffi:originDate, bffi:genreForm ;
+    sh:class bffi:Work ;
+    sh:message "A Work-domain predicate (subject / classification / originDate / genreForm) on a node that is not a bffi:Work (lkd.rdf rdfs:domain)." .
 
-    sh:not [ sh:property [ sh:path rdf:type ; sh:hasValue bffi:Work ] ] ;
-    sh:not [ sh:property [ sh:path rdf:type ; sh:hasValue bffi:Expression ] ] ;
+# --- rdfs:domain — the axis-link predicates -------------------------------
+#
+# Presence is not required (see the removal note above); when a link *is*
+# emitted, lkd.rdf says which axis may carry it.
 
-    # Exactly one Expression via bffi:expressionManifested. Manifestations
-    # are 1:1 with bib records; each describes the published embodiment
-    # of one Expression.
+bffi-prov:HasExpressionDomainShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:hasExpression has domain bffi:Work" ;
+    sh:targetSubjectsOf bffi:hasExpression ;
+    sh:class bffi:Work ;
+    sh:message "bffi:hasExpression asserted by a node that is not a bffi:Work (lkd.rdf rdfs:domain)." .
+
+bffi-prov:ExpressionOfDomainShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:expressionOf has domain bffi:Expression" ;
+    sh:targetSubjectsOf bffi:expressionOf ;
+    sh:class bffi:Expression ;
+    sh:message "bffi:expressionOf asserted by a node that is not a bffi:Expression (lkd.rdf rdfs:domain)." .
+
+bffi-prov:ExpressionManifestedDomainShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:expressionManifested has domain bffi:Manifestation" ;
+    sh:targetSubjectsOf bffi:expressionManifested ;
+    sh:class bffi:Manifestation ;
+    sh:message "bffi:expressionManifested asserted by a node that is not a bffi:Manifestation (lkd.rdf rdfs:domain)." .
+
+# --- rdfs:range — the value of each predicate the emit uses ---------------
+#
+# `sh:class` follows `rdfs:subClassOf`, so a `bffi:Local` value satisfies a
+# `bffi:Identifier` range (lkd.rdf declares `bffi:Local rdfs:subClassOf
+# bffi:Identifier`): these check the value's *kind*, not its exact type. That
+# only works because `validation.bffi` passes lkd.rdf to pyshacl as the
+# ontology graph — the subclass axioms are not in a converted record, and
+# without them every `bffi:Local` identifier reads as a violation.
+#
+# Each check accepts a value that carries **no** `rdf:type`, because
+# `rdfs:range` is an inference rule, not a constraint: an untyped external
+# authority URI doesn't contradict the range, it just doesn't state its type
+# (90 of the emit's `bffi:source` values are exactly that). A value typed as
+# something *else* does contradict it, and that is what fires here.
+#
+# The untyped alternative is guarded by `sh:BlankNodeOrIRI`: a literal is
+# untyped too, and a literal where a node belongs is the very defect these
+# checks exist for — `bffi:title "Some title"` instead of a `bffi:Title`
+# node loses the title on the way back to MARC.
+#
+# Catches a routing that attached a literal where a node belongs, or pointed
+# a predicate at the wrong node — the failure that makes a field vanish from
+# the round-trip with no error anywhere.
+
+bffi-prov:TitleRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:title has range bffi:Title" ;
+    sh:targetObjectsOf bffi:title ;
+    sh:or (
+        [ sh:class bffi:Title ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:title value is not a bffi:Title (lkd.rdf rdfs:range)." .
+
+bffi-prov:IdentifierRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:identifiedBy has range bffi:Identifier" ;
+    sh:targetObjectsOf bffi:identifiedBy ;
+    sh:or (
+        [ sh:class bffi:Identifier ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:identifiedBy value is not a bffi:Identifier (lkd.rdf rdfs:range)." .
+
+bffi-prov:SourceRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:source has range bffi:Source" ;
+    sh:targetObjectsOf bffi:source ;
+    sh:or (
+        [ sh:class bffi:Source ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:source value is not a bffi:Source (lkd.rdf rdfs:range)." .
+
+bffi-prov:NoteRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:note has range bffi:Note" ;
+    sh:targetObjectsOf bffi:note ;
+    sh:or (
+        [ sh:class bffi:Note ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:note value is not a bffi:Note (lkd.rdf rdfs:range)." .
+
+bffi-prov:AdminMetadataRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:adminMetadata has range bffi:AdminMetadata" ;
+    sh:targetObjectsOf bffi:adminMetadata ;
+    sh:or (
+        [ sh:class bffi:AdminMetadata ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:adminMetadata value is not a bffi:AdminMetadata (lkd.rdf rdfs:range)." .
+
+bffi-prov:AxisLinkRangeShape
+    a sh:NodeShape ;
+    rdfs:label "axis links point at the axis lkd.rdf declares" ;
+    sh:targetObjectsOf bffi:expressionOf ;
+    sh:or (
+        [ sh:class bffi:Work ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:expressionOf points at a node that is not a bffi:Work (lkd.rdf rdfs:range)." .
+
+bffi-prov:HasExpressionRangeShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:hasExpression has range bffi:Expression" ;
+    sh:targetObjectsOf bffi:hasExpression, bffi:expressionManifested ;
+    sh:or (
+        [ sh:class bffi:Expression ]
+        [
+            sh:nodeKind sh:BlankNodeOrIRI ;
+            sh:not [ sh:property [ sh:path rdf:type ; sh:minCount 1 ] ] ;
+        ]
+    ) ;
+    sh:message "bffi:hasExpression / bffi:expressionManifested points at a node that is not a bffi:Expression (lkd.rdf rdfs:range)." .
+
+# --- bffi:mainTitle — domain bffi:Title, range rdfs:Literal --------------
+#
+# The one place the round-trip's most-used value lives. A `bffi:mainTitle`
+# hanging off something that isn't a Title node is how a 245 goes missing
+# while every count still looks right.
+bffi-prov:MainTitleShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:mainTitle has domain bffi:Title and a literal range" ;
+    sh:targetSubjectsOf bffi:mainTitle ;
+    sh:class bffi:Title ;
     sh:property [
-        sh:path bffi:expressionManifested ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:nodeKind sh:IRI ;
-        sh:message "bffi:Manifestation must link to exactly one Expression via bffi:expressionManifested."
+        sh:path bffi:mainTitle ;
+        sh:nodeKind sh:Literal ;
+        sh:message "bffi:mainTitle value is not a literal (lkd.rdf rdfs:range rdfs:Literal)." ;
     ] ;
-
-    # Local identifier preserved on Manifestation (moved
-    # here from Work + Expression because the bib_id identifies the
-    # published artefact, not the abstract creative content). The
-    # predicate name became ``bffi:identifiedBy`` in the vocab cleanup
-    # (``owl:equivalentProperty`` of ``bf:identifiedBy`` in lkd.rdf).
-    sh:property [
-        sh:path bffi:identifiedBy ;
-        sh:minCount 1 ;
-        sh:qualifiedValueShape [
-            sh:property [
-                sh:path bf:source ;
-                sh:hasValue <http://urn.fi/URN:NBN:fi:bib:source:local> ;
-            ] ;
-            sh:property [ sh:path rdf:value ; sh:minCount 1 ; sh:datatype xsd:string ] ;
-        ] ;
-        sh:qualifiedMinCount 1 ;
-        sh:message "bffi:Manifestation must carry a local bffi:identifiedBy."
-    ] .
+    sh:message "bffi:mainTitle asserted by a node that is not a bffi:Title (lkd.rdf rdfs:domain)." .

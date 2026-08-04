@@ -1,6 +1,14 @@
 # p-061 — Synthetic field-coverage corpus
 
-**Status: active.** Phase A (this plan) ships the generator and the corpus.
+**Status: completed.** The generator, the 319 probes, the generated README
+with its predicted verdict per tag, and the `--check` guard in CI all
+shipped.
+
+The corpus is the instrument, not the reading. Committing a *measured*
+verdict beside the predicted one — the first full run scored 2470 source
+fields down to 1891 reconstructed with 0 fabricated — would be a separate
+generated artifact and needs its own plan; see "Out of scope" below for
+why the measurement deliberately isn't pinned in the test suite.
 
 ## Problem
 

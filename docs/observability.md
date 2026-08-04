@@ -46,7 +46,7 @@ All metrics are **Gauges**, including the `_total`-suffixed ones: the sidecar ca
 | `bffi_stage_ended_timestamp` | Gauge | `stage`, `run_uuid` | `end` | Unix ts the stage finished. |
 | `bffi_stage_entities_total` | Gauge | `stage`, `phase`, `run_uuid` | `start` / `phase_boundary` | Total entities the stage/phase will process. |
 | `bffi_stage_entities_processed_total` | Gauge | `stage`, `phase`, `run_uuid` | `progress` | Cumulative entities processed so far. |
-| `bffi_stage_outcomes_total` | Gauge | `stage`, `outcome`, `run_uuid` | `end` | One series per key in the stage's `end` counters — `success`, `failed`, and for `bibframe2bffi` also `closed_namespace_residue` plus one `routing_<name>` per discriminator routing. |
+| `bffi_stage_outcomes_total` | Gauge | `stage`, `outcome`, `run_uuid` | `end` | One series per key in the stage's `end` counters — `success`, `failed`, `shape_flagged`, `skipped_invalid` (records a validation boundary rejected — see `docs/validation-strategy.md`), and for `bibframe2bffi` also `closed_namespace_residue` plus one `routing_<name>` per discriminator routing. |
 | `bffi_stage_throughput_per_minute` | Gauge | `stage`, `phase`, `run_uuid` | derived | Rolling-window throughput from the last 5 progress events. |
 | `bffi_stage_eta_seconds` | Gauge | `stage`, `phase`, `run_uuid` | derived | Linear-extrapolation ETA to phase boundary or stage end. |
 | `bffi_stage_failed` | Gauge | `stage`, `phase`, `error_type`, `run_uuid` | `failed` | 1 when the stage or phase failed terminally. Deliberately **not** labelled with the failure message — that embeds the record path, which would make cardinality scale with failed-record count. The message stays in the sidecar. |

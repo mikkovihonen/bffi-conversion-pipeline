@@ -23,6 +23,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.runner import (
     convert_corpus,
     convert_one,
 )
+from bffi_pipeline.validation.sidecar import ERRORS_FILENAME, VALIDATION_FILENAME
 
 
 def _parse_turtle(path: Path) -> Graph:
@@ -261,3 +262,112 @@ def test_emitted_turtle_has_no_auto_generated_prefixes(tmp_path: Path) -> None:
     turtle = output_path.read_text(encoding="utf-8")
     auto = re.findall(r"^@prefix\s+(ns\d+):\s+<([^>]*)>", turtle, re.MULTILINE)
     assert not auto, f"unbound namespaces leaked as auto-prefixes: {auto}"
+
+
+# --- Boundary 3 (p-062) ---------------------------------------------------
+
+
+#: BIBFRAME carrying a `bf:AbbreviatedTitle` — a class `vocab/lkd.rdf` declares
+#: no counterpart for, so the rename leaves it in the `bf:` namespace and the
+#: emitted `bffi:title` ends up pointing at something that is not a
+#: `bffi:Title`. The residual-`bf:` shape of MARC 210 in the real corpus.
+_UNMAPPED_TITLE_CLASS = """<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:bf="http://id.loc.gov/ontologies/bibframe/">
+  <bf:Work rdf:about="http://urn.fi/URN:NBN:fi:bib:1#Work">
+    <bf:title>
+      <bf:AbbreviatedTitle>
+        <bf:mainTitle>Abbrev title</bf:mainTitle>
+      </bf:AbbreviatedTitle>
+    </bf:title>
+  </bf:Work>
+</rdf:RDF>
+"""
+
+
+def test_boundary3_flags_non_conforming_records_without_blocking(tmp_path: Path) -> None:
+    """Boundary 3 reports and keeps — never blocks.
+
+    The finding here is real and appears in the corpus: a class with no
+    `lkd.rdf` counterpart survives the rename as `bf:*`, which the shape sees
+    as a `bffi:title` value that isn't a `bffi:Title`. What this test pins is
+    the contract — the record is still emitted and still counted as converted.
+    """
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    (in_dir / "1.bibframe.xml").write_text(_UNMAPPED_TITLE_CLASS, encoding="utf-8")
+
+    summary = convert_corpus(options=ConversionOptions(input_dir=in_dir, output_dir=out_dir))
+
+    assert summary.converted == 1
+    assert summary.failed == 0
+    assert (out_dir / "1.bffi.ttl").exists()
+    assert summary.shape_flagged == 1
+
+    rows = [
+        json.loads(line)
+        for line in (out_dir / VALIDATION_FILENAME).read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["boundary"] == 3
+    assert rows[0]["error_type"] == "bffi-shape"
+    assert rows[0]["bib_id"] == "1"
+    assert rows[0]["violations"] > 0
+
+
+def test_boundary3_leaves_a_conforming_record_unflagged(tmp_path: Path) -> None:
+    """A real conversion of the vendored sample now conforms.
+
+    Before p-062 Phase C rescoped the shape to `vocab/lkd.rdf`'s own axioms,
+    this record was flagged — as were 342 of 343 emitted records — because the
+    shape demanded `skos:prefLabel` (a Skosmos-era requirement nothing emits)
+    and a full FRBR spine (a cardinality lkd.rdf never states).
+    """
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    _produce_bibframe_fixture(in_dir, stem="1")
+
+    summary = convert_corpus(options=ConversionOptions(input_dir=in_dir, output_dir=out_dir))
+
+    assert summary.converted == 1
+    assert summary.shape_flagged == 0
+    assert not (out_dir / VALIDATION_FILENAME).exists()
+
+
+def test_no_validate_skips_boundary3(tmp_path: Path) -> None:
+    """Uses the record Boundary 3 *does* flag, so the assertion means
+    "the check didn't run" rather than "there was nothing to find"."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    (in_dir / "1.bibframe.xml").write_text(_UNMAPPED_TITLE_CLASS, encoding="utf-8")
+
+    summary = convert_corpus(
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir, validate=False)
+    )
+
+    assert summary.converted == 1
+    assert summary.shape_flagged == 0
+    assert not (out_dir / VALIDATION_FILENAME).exists()
+
+
+def test_a_conversion_failure_lands_in_the_errors_sidecar(tmp_path: Path) -> None:
+    """``_errors.jsonl`` answers "what is missing from this output, and why",
+    so a conversion failure belongs there alongside boundary rejections —
+    tagged ``boundary: 0`` to keep the two apart."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    (in_dir / "1.bibframe.xml").write_text("<rdf:RDF><not-closed-tag", encoding="utf-8")
+
+    summary = convert_corpus(options=ConversionOptions(input_dir=in_dir, output_dir=out_dir))
+
+    assert summary.failed == 1
+    rows = [
+        json.loads(line)
+        for line in (out_dir / ERRORS_FILENAME).read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 1
+    assert rows[0]["boundary"] == 0
+    assert rows[0]["error_type"] == "BibframeToBffiError"

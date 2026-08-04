@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from bffi_pipeline.validation.marcxml import (
+    ADVISORY_ERROR_TYPES,
     MARC_NS,
+    STRUCTURAL_ERROR_TYPES,
+    ErrorType,
     MarcXmlValidationError,
     bib_id_from_filename,
+    inspect,
     validate,
     validate_filename,
 )
@@ -166,3 +171,55 @@ def test_validate_accepts_music_records_with_33x_too(tmp_path: Path) -> None:
     record_path = tmp_path / "12345678.xml"
     _write_minimal_record(record_path, leader="00000ncm  22000007a 4500", include_33x=True)
     validate(record_path)  # should not raise
+
+
+# --- severity split (p-062) ----------------------------------------------
+
+
+def test_inspect_reports_a_structural_failure_as_a_rejection(tmp_path: Path) -> None:
+    bad = tmp_path / "1.xml"
+    bad.write_text("not actually xml", encoding="utf-8")
+
+    outcome = inspect(bad)
+
+    assert not outcome.accepted
+    assert outcome.rejection is not None
+    assert outcome.rejection.error_type == "marcxml-xml-syntax"
+    assert outcome.advisory is None
+    assert outcome.tree is None
+
+
+def test_inspect_reports_content_minimum_as_an_advisory(tmp_path: Path) -> None:
+    """A content-thin record still converts, so it is kept and flagged.
+
+    Measured over the fixture corpus before this was wired: 7 of 53 real
+    records fail content-minimum for a missing 33X, as does LoC's own test
+    record. Rejecting on it would drop convertible data.
+    """
+    thin = tmp_path / "1.xml"
+    thin.write_text(
+        """<record xmlns="http://www.loc.gov/MARC21/slim">
+             <leader>00000nam a2200000 a 4500</leader>
+             <controlfield tag="001">1</controlfield>
+             <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+             <datafield tag="245" ind1="0" ind2="0">
+               <subfield code="a">Title only</subfield>
+             </datafield>
+           </record>""",
+        encoding="utf-8",
+    )
+
+    outcome = inspect(thin)
+
+    assert outcome.accepted
+    assert outcome.rejection is None
+    assert outcome.advisory is not None
+    assert outcome.advisory.error_type == "marcxml-content-minimum"
+    assert outcome.tree is not None
+
+
+def test_every_error_type_is_classified(tmp_path: Path) -> None:
+    """No Boundary-1 family may fall between the two severities: an
+    unclassified one would silently become an advisory at the call site."""
+    assert set(get_args(ErrorType)) == STRUCTURAL_ERROR_TYPES | ADVISORY_ERROR_TYPES
+    assert not STRUCTURAL_ERROR_TYPES & ADVISORY_ERROR_TYPES

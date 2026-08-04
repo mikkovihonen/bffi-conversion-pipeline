@@ -1,39 +1,74 @@
 # Boundary 2 — SHACL shapes for the post-XSLT BIBFRAME graph.
 #
-# Validates the marc2bibframe2 output *after* the post-processor has added
-# local identifiers, the MarcConversion provenance Activity, and the initial
-# AdminMetadata block. Failures emit `error_type: "bibframe-shape"` per
-# the marc-to-bibframe stage.
+# Validates the marc2bibframe2 output as this repository produces it: the
+# `marc-to-bibframe` stage is a thin xsltproc wrapper, so what arrives here is
+# the stylesheet's output and nothing else. Failures emit
+# `error_type: "bibframe-shape"` per the marc-to-bibframe stage; see
+# `docs/validation-strategy.md`.
 #
-# Intentionally narrow: we want to catch egregious conversion errors (no Work,
-# no Instance, missing local identifier, missing AdminMetadata) without
-# pre-empting downstream property-routing decisions that are bibframe-to-bffi's job.
+# ## Scope: egregious conversion failure only
+#
+# Every constraint below was verified to hold on 515 converted records — 25
+# curated real fixtures, 319 synthetic field-coverage probes, and 171 mixed
+# fixtures — before being written down (p-062 Phase B). That matters because
+# Boundary 2 *rejects*: a record failing this shape has its output removed and
+# never reaches `bibframe-to-bffi`. A constraint that holds on 99% of records
+# is not a shape, it is a way to lose 8 000 records out of 800 000.
+#
+# So this file asserts only what the conversion cannot be useful without: a
+# titled Work, a titled Instance, the Work↔Instance link, and the
+# administrative-metadata block. Everything else — how many subjects, which
+# identifiers, whether contributions exist — is legitimately record-dependent
+# and belongs in the round-trip diff, not here.
+#
+# ## What this shape deliberately no longer asserts
+#
+# It used to require a local `bf:identifiedBy` and a `bffi:adminMetadata`
+# block on every main Work *and* Instance, both stamped by a post-processing
+# step that does not exist in this repository. The result was 100%
+# non-conformance for a reason unrelated to conversion quality. Measured
+# against real output: a local `bf:identifiedBy` is present on 1 of 25
+# curated Works and `bffi:adminMetadata` on none — those triples were the
+# post-processor's, not the stylesheet's. Removed rather than weakened,
+# because a shape nobody can pass teaches nobody anything.
+#
+# Also measured and deliberately *not* asserted:
+#   - `bf:contribution` on the Work — 24/25 curated but only 10/319 probes.
+#     A record with no 1XX/7XX correctly produces no contribution.
+#   - anything inside the AdminMetadata node (`bf:generationProcess` &c.) —
+#     records carry more than one such block and only some blocks carry it.
+#   - `bf:identifiedBy` anywhere — 22/25 curated Instances, 31/319 probes.
+#
+# ## Targeting
+#
+# Shapes target IRI-typed resources through a SPARQL target rather than
+# `sh:targetClass`, to exclude marc2bibframe2's internal blank-node
+# sub-component resources (present in 1 of the 515 records, and never
+# titled). Related and contained Works — the extra `bf:Work` / `bf:Instance`
+# resources a MARC 700 ind2=2 / 740 / 776 produces — are *included*: they
+# carry titles too, 515/515, and a related work with no title is a real
+# conversion defect.
+#
+# Shape node names live in `bffi-prov:`, the namespace this repository owns —
+# they are pipeline-internal identifiers, not BFFI terms, and the `bffi:`
+# namespace is closed to what lkd.rdf declares.
+#
+# "The graph contains at least one Work and one Instance" cannot be expressed
+# as a SHACL shape (absence has no focus node), so it lives in
+# `validation.bibframe.missing_root_resources` and runs alongside this file.
 
 @prefix sh:        <http://www.w3.org/ns/shacl#> .
 @prefix bf:        <http://id.loc.gov/ontologies/bibframe/> .
-@prefix bffi:      <http://urn.fi/URN:NBN:fi:schema:bffi:> .
-@prefix prov:      <http://www.w3.org/ns/prov#> .
-@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix bffi-prov: <http://urn.fi/URN:NBN:fi:schema:bffi-prov#> .
 @prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
 
-# Note: "graph contains at least one bf:Work / bf:Instance" is enforced in
-# stages.marc_to_bf._find_root_resources before the shape runs — SHACL's
-# targetClass-based shapes can't express that absence directly.
+# --- Every Work carries a non-empty main title ----------------------------
 #
-# Targeting note: aggregate records (MARC 700 ind2=2,
-# 740, 776) produce additional bf:Work / bf:Instance resources for the
-# *contained* / *related* works. Those don't carry our pipeline's
-# local identifier or AdminMetadata — they're external references the
-# main Work points at via bf:associatedResource. The local-id and
-# AdminMetadata shapes therefore use SPARQL targeting to filter out
-# resources that appear as the object of bf:associatedResource.
-# Blank-node Works (marc2bibframe2's internal sub-component nodes) are
-# also excluded because they're never the object of our local-id or
-# AdminMetadata triples.
-
-# --- Every (main) Work and Instance must carry a local bf:identifiedBy ---
-bffi:LocalIdShape
+# Catches: MARC 245 did not convert. Without a main title the Work has no
+# display label, the BFFI emit has nothing to hang `skos:prefLabel` on, and
+# the reverse direction cannot reconstruct a 245 at all — the most damaging
+# silent failure the forward hop can have.
+bffi-prov:WorkTitleShape
     a sh:NodeShape ;
     sh:target [
         a sh:SPARQLTarget ;
@@ -45,51 +80,24 @@ bffi:LocalIdShape
         ] ;
         sh:select """
             SELECT ?this WHERE {
-                { ?this a bf:Work } UNION { ?this a bf:Instance }
+                ?this a bf:Work .
                 FILTER(isIRI(?this))
-                FILTER NOT EXISTS { ?ref bf:associatedResource ?this }
-                FILTER NOT EXISTS {
-                    ?contained bf:hasInstance ?this .
-                    ?ref       bf:associatedResource ?contained .
-                }
-                # marc2bibframe2 also mints secondary Work / Instance
-                # IRIs attached directly to the main Work (no
-                # bf:associatedResource chain to walk) — most commonly
-                # an `#Instance856-NN` from a MARC 856 electronic-
-                # location field. Their URI shape is the marc2bibframe2
-                # convention "<base>#<Type><tag>-<idx>" where <tag> is
-                # the MARC field number and <idx> is a per-record
-                # counter; the main Work / Instance are just
-                # "<base>#Work" / "<base>#Instance" with no suffix.
-                # Exclude the suffixed form so the shape stays focused
-                # on the main resources `post_process` actually stamps
-                # with local identifier + AdminMetadata.  See
-                # docs/proposals/prop-07-bibframe-856-as-item.md for the
-                # deeper semantic question this exclusion sidesteps.
-                FILTER(!REGEX(STR(?this), "#(Work|Instance)[0-9]+-[0-9]+$"))
             }
         """ ;
     ] ;
     sh:property [
-        sh:path bf:identifiedBy ;
+        sh:path ( bf:title bf:mainTitle ) ;
         sh:minCount 1 ;
-        sh:message "bf:Work / bf:Instance lacks bf:identifiedBy." ;
-        sh:qualifiedValueShape [
-            sh:property [
-                sh:path bf:source ;
-                sh:hasValue <http://urn.fi/URN:NBN:fi:bib:source:local> ;
-            ] ;
-            sh:property [
-                sh:path rdf:value ;
-                sh:minCount 1 ;
-                sh:datatype xsd:string ;
-            ] ;
-        ] ;
-        sh:qualifiedMinCount 1 ;
+        sh:minLength 1 ;
+        sh:message "bf:Work has no non-empty bf:title / bf:mainTitle (MARC 245 lost?)." ;
     ] .
 
-# --- Every (main) Work and Instance must carry an AdminMetadata block -----
-bffi:AdminMetadataLinkShape
+# --- Every Instance carries a non-empty main title ------------------------
+#
+# Same failure, Instance side. marc2bibframe2 titles the Instance from the
+# same 245, so a titled Work beside an untitled Instance means the Instance
+# branch of the transform broke.
+bffi-prov:InstanceTitleShape
     a sh:NodeShape ;
     sh:target [
         a sh:SPARQLTarget ;
@@ -101,62 +109,78 @@ bffi:AdminMetadataLinkShape
         ] ;
         sh:select """
             SELECT ?this WHERE {
-                { ?this a bf:Work } UNION { ?this a bf:Instance }
+                ?this a bf:Instance .
                 FILTER(isIRI(?this))
-                FILTER NOT EXISTS { ?ref bf:associatedResource ?this }
-                FILTER NOT EXISTS {
-                    ?contained bf:hasInstance ?this .
-                    ?ref       bf:associatedResource ?contained .
-                }
-                # marc2bibframe2 also mints secondary Work / Instance
-                # IRIs attached directly to the main Work (no
-                # bf:associatedResource chain to walk) — most commonly
-                # an `#Instance856-NN` from a MARC 856 electronic-
-                # location field. Their URI shape is the marc2bibframe2
-                # convention "<base>#<Type><tag>-<idx>" where <tag> is
-                # the MARC field number and <idx> is a per-record
-                # counter; the main Work / Instance are just
-                # "<base>#Work" / "<base>#Instance" with no suffix.
-                # Exclude the suffixed form so the shape stays focused
-                # on the main resources `post_process` actually stamps
-                # with local identifier + AdminMetadata.  See
-                # docs/proposals/prop-07-bibframe-856-as-item.md for the
-                # deeper semantic question this exclusion sidesteps.
-                FILTER(!REGEX(STR(?this), "#(Work|Instance)[0-9]+-[0-9]+$"))
             }
         """ ;
     ] ;
     sh:property [
-        sh:path bffi:adminMetadata ;
+        sh:path ( bf:title bf:mainTitle ) ;
         sh:minCount 1 ;
-        sh:message "bf:Work / bf:Instance lacks bffi:adminMetadata link." ;
+        sh:minLength 1 ;
+        sh:message "bf:Instance has no non-empty bf:title / bf:mainTitle (MARC 245 lost?)." ;
     ] .
 
-# --- AdminMetadata blocks must carry the mandatory fields -----------------
-bffi:AdminMetadataM2Shape
+# --- Every Instance points at the Work it manifests -----------------------
+#
+# Catches a severed FRBR spine. `bibframe-to-bffi` decides which axis a
+# statement belongs on by walking this link; an Instance with no
+# `bf:instanceOf` silently loses every Work-axis routing that depends on it,
+# and the round-trip then reports the damage field by field instead of once,
+# here.
+bffi-prov:InstanceOfWorkShape
     a sh:NodeShape ;
-    sh:targetClass bffi:AdminMetadata ;
-    sh:property [
-        sh:path bffi:adminMetadataFor ;
-        sh:minCount 1 ;
-        sh:message "AdminMetadata missing back-link bffi:adminMetadataFor." ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [
+                sh:prefix "bf" ;
+                sh:namespace "http://id.loc.gov/ontologies/bibframe/"^^xsd:anyURI ;
+            ]
+        ] ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this a bf:Instance .
+                FILTER(isIRI(?this))
+            }
+        """ ;
     ] ;
     sh:property [
-        sh:path bffi:generationDate ;
+        sh:path bf:instanceOf ;
         sh:minCount 1 ;
-        sh:datatype xsd:dateTime ;
+        sh:nodeKind sh:IRI ;
+        sh:message "bf:Instance lacks bf:instanceOf — the Work↔Instance link is severed." ;
+    ] .
+
+# --- The record's main Work carries an administrative-metadata block ------
+#
+# Catches loss of the whole 005 / 008 / 040 administrative layer, which
+# `bibframe-to-bffi` maps onto `bffi:adminMetadata` and the reverse direction
+# reads back for MARC 040. Targeted at the main Work only — the
+# `<base>#Work` resource, exactly one per record, 515/515 — because related
+# and contained Works legitimately carry no admin block (which drops the
+# figure to 467/515 when every IRI Work is targeted). Narrowing the target is
+# the honest fix; weakening the constraint would have hidden the real case.
+bffi-prov:MainWorkAdminMetadataShape
+    a sh:NodeShape ;
+    sh:target [
+        a sh:SPARQLTarget ;
+        sh:prefixes [
+            sh:declare [
+                sh:prefix "bf" ;
+                sh:namespace "http://id.loc.gov/ontologies/bibframe/"^^xsd:anyURI ;
+            ]
+        ] ;
+        sh:select """
+            SELECT ?this WHERE {
+                ?this a bf:Work .
+                FILTER(isIRI(?this))
+                FILTER(STRENDS(STR(?this), "#Work"))
+            }
+        """ ;
     ] ;
-    sh:property [ sh:path bffi:descriptionModifier ;       sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:descriptionConventions ;    sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:descriptionLevel ;          sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:encodingLevel ;             sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:descriptionAuthentication ; sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:generationProcess ;         sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:metadataLicensor ;          sh:minCount 1 ] ;
-    sh:property [ sh:path bffi:recordingSource ;           sh:minCount 1 ] ;
-    sh:property [ sh:path prov:hadPrimarySource ;          sh:minCount 1 ] ;
     sh:property [
-        sh:path prov:wasGeneratedBy ;
+        sh:path bf:adminMetadata ;
         sh:minCount 1 ;
-        sh:message "AdminMetadata missing spine link prov:wasGeneratedBy." ;
+        sh:message "The main bf:Work carries no bf:adminMetadata (005 / 008 / 040 layer lost?)." ;
     ] .

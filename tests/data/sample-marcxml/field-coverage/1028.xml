@@ -3,7 +3,7 @@
   <leader>00000njm a2200000 a 4500</leader>
   <controlfield tag="001">1028</controlfield>
   <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
-  <datafield tag="028" ind1=" " ind2="0-3">
+  <datafield tag="028" ind1=" " ind2=" ">
     <subfield code="0">http://www.yso.fi/onto/yso/p1234</subfield>
     <subfield code="2">yso/fin</subfield>
     <subfield code="a">Z028a</subfield>

@@ -1,6 +1,14 @@
 # p-060 — Emit conversion provenance per record
 
-**Status: active.** Phase A (this plan) wires the forward direction.
+**Status: completed.** Both forward converters write a per-record
+`<stem>.prov.ttl`, carrying the conversion Activity plus one
+`bffi-prov:decision` per routing that fired.
+
+The two questions parked under "Out of scope" below are still open and
+still out of scope: whether the reverse direction should *write* its own
+Activity, and whether anything should consume the sidecars (today nothing
+reads them — the operator concatenates or loads them by hand). Either
+needs its own plan.
 
 ## Problem
 

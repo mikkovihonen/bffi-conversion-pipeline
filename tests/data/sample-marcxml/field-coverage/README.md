@@ -51,8 +51,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1026` | `026` | maximal | datafield | `##` | `$2` `$5` `$a` `$b` `$c` `$d` `$e` | forward_only |
 | `027` | `027` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1027` | `027` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
-| `028` | `028` | minimal | datafield | `#0-3` | `$a` | asymmetric |
-| `1028` | `028` | maximal | datafield | `#0-3` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
+| `028` | `028` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1028` | `028` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `030` | `030` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1030` | `030` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `032` | `032` | minimal | datafield | `##` | `$a` | asymmetric |

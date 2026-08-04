@@ -32,6 +32,7 @@ _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 _LKD_RDF: Final[Path] = _REPO_ROOT / "vocab" / "lkd.rdf"
 _VOCAB_PY: Final[Path] = _REPO_ROOT / "src" / "bffi_pipeline" / "provenance" / "vocab.py"
 _SPARQL_DIR: Final[Path] = _REPO_ROOT / "sparql"
+_SHAPES_DIR: Final[Path] = _REPO_ROOT / "config" / "shapes"
 
 _BFFI_URI_PREFIX: Final[str] = "http://urn.fi/URN:NBN:fi:schema:bffi:"
 
@@ -48,6 +49,11 @@ _PYTHON_BFFI_REF_RE: Final[re.Pattern[str]] = re.compile(
     r"\bBFFI(?:\.([A-Za-z][A-Za-z0-9]*)"
     r'|\["([A-Za-z][A-Za-z0-9]*)"\])'
 )
+
+#: Matches ``bffi:<name>`` in Turtle. The negative lookbehind excludes
+#: ``bffi-prov:<name>``, which would otherwise match from the ``bffi``
+#: onwards and report every shape-node name as a minted term.
+_TURTLE_BFFI_REF_RE: Final[re.Pattern[str]] = re.compile(r"(?<![-\w])bffi:([A-Za-z][A-Za-z0-9]*)\b")
 
 #: Matches references in SPARQL that pin a name into the ``bffi:``
 #: namespace — the ``bffi:<name>`` shorthand. Excludes the prefix
@@ -164,6 +170,65 @@ def test_sparql_construct_bffi_terms_all_declared_in_lkd_rdf() -> None:
         f"vocab/lkd.rdf): {violations}. See CLAUDE.md § Conventions § "
         f"BFFI namespace discipline."
     )
+
+
+def _shape_bffi_references() -> dict[str, set[str]]:
+    """Scan every SHACL shape under ``config/shapes/`` for ``bffi:<name>``.
+
+    Shapes were the blind spot: this scan used to cover ``vocab.py`` and
+    ``sparql/`` only, so `bffi.shape.ttl` carried three locally-minted
+    shape-node names (`bffi:WorkShape` &c.) for as long as it existed, and
+    the Boundary-2 shape added four more. Both files now name their shapes
+    in ``bffi-prov:`` — see p-062 Phase C.
+
+    Turtle comments (``# …``) are stripped so the header prose, which
+    legitimately discusses terms lkd.rdf may not declare, doesn't
+    false-positive. The negative lookbehind on the reference regex keeps
+    ``bffi-prov:Foo`` from matching as ``bffi:Foo``.
+    """
+    refs: dict[str, set[str]] = {}
+    for path in sorted(_SHAPES_DIR.glob("*.ttl")):
+        lines = [
+            line.split(" #", 1)[0]
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith("#") and not line.lstrip().startswith("@prefix")
+        ]
+        refs[path.name] = set(_TURTLE_BFFI_REF_RE.findall("\n".join(lines)))
+    return refs
+
+
+def test_shacl_shape_bffi_terms_all_declared_in_lkd_rdf() -> None:
+    """Every ``bffi:<name>`` a SHACL shape names must exist in lkd.rdf.
+
+    The closed-namespace rule governs what we may *assert* as much as what
+    we may emit: a shape that constrains ``bffi:prefLabel`` is claiming the
+    ontology has a term it doesn't. Shape-node names are pipeline-internal
+    and belong in ``bffi-prov:``.
+    """
+    declared = _declared_bffi_terms()
+    violations = {
+        filename: sorted(names - declared)
+        for filename, names in _shape_bffi_references().items()
+        if names - declared
+    }
+    assert not violations, (
+        f"Locally-minted bffi: terms in config/shapes (not in vocab/lkd.rdf): "
+        f"{violations}. Shape-node names belong in bffi-prov:; data terms must "
+        f"be declared in lkd.rdf. See CLAUDE.md § Conventions § BFFI "
+        f"namespace discipline."
+    )
+
+
+def test_shape_scan_actually_sees_the_shape_files() -> None:
+    """Guard against the scan silently covering nothing — the state that let
+    the minted shape names survive unnoticed in the first place."""
+    refs = _shape_bffi_references()
+    assert set(refs) == {"bffi.shape.ttl", "bibframe-conversion.shape.ttl"}
+    # Boundary 3 constrains BFFI, so its shape is full of bffi: terms. Boundary
+    # 2 constrains the BIBFRAME intermediate, so its data terms are all bf: —
+    # an empty set there is correct, not a broken scan.
+    assert refs["bffi.shape.ttl"], "no bffi: terms found in the Boundary-3 shape"
+    assert refs["bibframe-conversion.shape.ttl"] == set()
 
 
 def test_lkd_rdf_declaration_extractor_finds_known_terms() -> None:

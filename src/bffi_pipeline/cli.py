@@ -80,6 +80,7 @@ from bffi_pipeline.stages.melinda.runner import (
 )
 from bffi_pipeline.stages.melinda.runner import sync_corpus as melinda_sync_corpus
 from bffi_pipeline.stages.roundtrip_eval.runner import EvalOptions, run_eval
+from bffi_pipeline.validation.sidecar import ERRORS_FILENAME, VALIDATION_FILENAME
 
 #: Set ``BFFI_OBSERVABILITY_SIDECAR=none`` to suppress sidecar writes for
 #: one invocation. The Makefile sets it for the exporter's own process so
@@ -528,6 +529,20 @@ def marc_to_bibframe_command(
         float,
         typer.Option("--timeout", help="Per-record xsltproc timeout in seconds."),
     ] = 60.0,
+    no_validate: Annotated[
+        bool,
+        typer.Option(
+            "--no-validate",
+            help="Skip Boundary 1 (MARCXML input) and Boundary 2 (post-XSLT SHACL).",
+        ),
+    ] = False,
+    no_strict_shapes: Annotated[
+        bool,
+        typer.Option(
+            "--no-strict-shapes",
+            help="Flag records failing the Boundary-2 shape instead of rejecting them.",
+        ),
+    ] = False,
 ) -> None:
     """MARCXML → BIBFRAME via the LoC marc2bibframe2 XSLT.
 
@@ -536,6 +551,14 @@ def marc_to_bibframe_command(
     and writes ``output_dir/<stem>.bibframe.xml`` per record. Failures
     are logged via the observability sidecar and counted in the summary;
     the run continues past per-record failures.
+
+    Validation is on unless `--no-validate` is passed. Rejected records
+    (structurally invalid input, or a converted graph that fails the
+    BIBFRAME shape) are listed in `<output_dir>/_errors.jsonl` and are
+    absent from the output; content-thin input is flagged in
+    `<output_dir>/_validation.jsonl` and still converted.
+    `--no-strict-shapes` downgrades shape failures to flags. See
+    `docs/validation-strategy.md`.
     """
     _require_run_dir(output_dir, option_label="--output-dir")
     settings = get_settings()
@@ -547,13 +570,26 @@ def marc_to_bibframe_command(
         idsource=idsource,
         preprocess=not no_preprocess,
         timeout_per_record=timeout,
+        validate=not no_validate,
+        strict_shapes=not no_strict_shapes,
     )
     summary = convert_corpus(options=options)
     typer.echo(
         f"marc-to-bibframe: total={summary.total} "
-        f"converted={summary.converted} failed={summary.failed}",
+        f"converted={summary.converted} failed={summary.failed} "
+        f"skipped_invalid={summary.skipped_invalid} flagged={summary.shape_flagged}",
         err=True,
     )
+    if summary.skipped_invalid:
+        typer.echo(
+            f"  rejected records listed in {output_dir / ERRORS_FILENAME}",
+            err=True,
+        )
+    if summary.shape_flagged:
+        typer.echo(
+            f"  flagged records listed in {output_dir / VALIDATION_FILENAME}",
+            err=True,
+        )
     if summary.failed > 0:
         raise typer.Exit(code=1)
 
@@ -578,6 +614,13 @@ def bibframe_to_bffi_command(
             help="Where to write per-record BFFI Turtle (`<stem>.bffi.ttl`).",
         ),
     ],
+    no_validate: Annotated[
+        bool,
+        typer.Option(
+            "--no-validate",
+            help="Skip Boundary 3 (SHACL over the emitted BFFI Turtle).",
+        ),
+    ] = False,
 ) -> None:
     """BIBFRAME → BFFI canonical Turtle (BFFI-only emit).
 
@@ -590,7 +633,11 @@ def bibframe_to_bffi_command(
     surviving terms.
     """
     _require_run_dir(output_dir, option_label="--output-dir")
-    options = BibframeToBffiOptions(input_dir=input_dir, output_dir=output_dir)
+    options = BibframeToBffiOptions(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        validate=not no_validate,
+    )
     summary = bibframe_to_bffi_convert_corpus(options=options)
     routings = " ".join(
         f"{name}={count}" for name, count in sorted(summary.routing_counters.items())
@@ -598,10 +645,16 @@ def bibframe_to_bffi_command(
     typer.echo(
         f"bibframe-to-bffi: total={summary.total} "
         f"converted={summary.converted} failed={summary.failed} "
-        f"closed_namespace_residue={summary.closed_namespace_residue} | "
+        f"closed_namespace_residue={summary.closed_namespace_residue} "
+        f"flagged={summary.shape_flagged} | "
         f"routings: {routings}",
         err=True,
     )
+    if summary.shape_flagged:
+        typer.echo(
+            f"  Boundary-3 findings listed in {output_dir / VALIDATION_FILENAME}",
+            err=True,
+        )
     if summary.failed > 0:
         raise typer.Exit(code=1)
 

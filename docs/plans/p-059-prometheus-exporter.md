@@ -1,6 +1,17 @@
 # p-059 — Implement the Prometheus exporter behind `serve-metrics`
 
-**Status: active.** Phase A (this plan) ships the exporter.
+**Status: completed.** The exporter, the tailer and the `serve-metrics`
+wiring all shipped; the 13 gauges match the metric vocabulary table in
+`docs/observability.md` one for one.
+
+Two things this plan did **not** cover, noted here so they aren't mistaken
+for unfinished plan work: the bundled Grafana dashboard queries only 9 of
+the 13 metrics (`bffi_stage_outcomes_total`,
+`bffi_stage_throughput_per_minute`, `bffi_stage_skipped` and
+`bffi_stage_phase_planned` are exported but unqueried), and the panel set
+in `docs/observability.md` lists panels the dashboard JSON doesn't ship.
+The exporter side is the plan's scope and it is done; closing the
+dashboard gap needs its own plan.
 
 ## Problem
 

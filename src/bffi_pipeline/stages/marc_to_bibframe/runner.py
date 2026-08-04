@@ -16,14 +16,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from rdflib import Graph
+
 from bffi_pipeline import __version__
 from bffi_pipeline.observability.events import emit_if_active
-from bffi_pipeline.provenance.activities import now, write_record_provenance
+from bffi_pipeline.provenance.activities import (
+    now,
+    sidecar_path_for,
+    write_record_provenance,
+)
 from bffi_pipeline.stages.marc_to_bibframe.xslt import (
     XsltPaths,
     XsltprocError,
     run_xsltproc,
 )
+from bffi_pipeline.validation.bibframe import (
+    missing_root_resources,
+)
+from bffi_pipeline.validation.bibframe import (
+    validate_graph as validate_bibframe_graph,
+)
+from bffi_pipeline.validation.marcxml import inspect as inspect_marcxml
+from bffi_pipeline.validation.sidecar import ValidationRow, ValidationSidecars
 
 STAGE: Final[str] = "marc2bibframe"
 
@@ -51,6 +65,17 @@ class ConversionOptions:
     #: Per-record timeout in seconds. xsltproc has been seen to hang on
     #: malformed input; the timeout is the fallback when that happens.
     timeout_per_record: float = 60.0
+    #: Run Boundary 1 (MARCXML input) and Boundary 2 (post-XSLT SHACL).
+    #: On by default — the two checks cost ~18 ms/record against
+    #: ~200 ms+/record for the two xsltproc spawns. See p-062.
+    validate: bool = True
+    #: Treat a Boundary-2 shape failure as a rejection, removing the
+    #: record's output so the next stage never reads it. On by default since
+    #: p-062 Phase B rescoped the shape to what marc2bibframe2 actually
+    #: emits: every constraint in it was verified against 515 converted
+    #: records, and a record that fails one has lost its title, its
+    #: Work↔Instance link, or its whole administrative layer.
+    strict_shapes: bool = True
 
 
 @dataclass
@@ -60,7 +85,15 @@ class ConversionSummary:
     total: int = 0
     converted: int = 0
     failed: int = 0
+    #: Records rejected at a validation boundary and never converted.
+    #: Distinct from ``failed``: nothing broke, the input was unusable.
+    skipped_invalid: int = 0
+    #: Records converted but flagged by a non-blocking boundary
+    #: (content-minimum, or a Boundary-2 shape report).
+    shape_flagged: int = 0
     failures: list[tuple[Path, str]] = field(default_factory=list)
+    #: ``(path, reason)`` per rejected record, for the CLI's summary line.
+    skips: list[tuple[Path, str]] = field(default_factory=list)
 
 
 def _xslt_params(options: ConversionOptions) -> dict[str, str]:
@@ -142,15 +175,83 @@ def convert_one(marcxml_path: Path, *, options: ConversionOptions) -> Path:
     return output_path
 
 
+def _boundary2_row(output_path: Path, bib_id: str) -> ValidationRow | None:
+    """Run Boundary 2 over the RDF/XML **on disk**; return a row if it fails.
+
+    Validating the written file rather than an in-memory graph is
+    deliberate: that file is what ``bibframe-to-bffi`` will read, so a
+    serialisation-level defect is in scope. Costs one extra parse
+    (~10 ms/record).
+
+    A file rdflib cannot parse at all yields a ``bibframe-parse`` row
+    rather than an exception — the next stage would count it as a failure
+    anyway, and this makes it visible one hop earlier.
+    """
+    graph = Graph()
+    try:
+        graph.parse(output_path, format="xml")
+    except Exception as exc:
+        return ValidationRow(
+            boundary=2,
+            error_type="bibframe-parse",
+            bib_id=bib_id,
+            path=output_path,
+            message=f"rdflib could not parse the converted RDF/XML: {exc}",
+        )
+
+    # Absence first: a Work-less graph has no focus node for any shape to
+    # fail on, so SHACL calls it conforming. See
+    # ``validation.bibframe.missing_root_resources``.
+    absent = missing_root_resources(graph)
+    if absent is not None:
+        return ValidationRow(
+            boundary=2,
+            error_type="bibframe-empty",
+            bib_id=bib_id,
+            path=output_path,
+            message=absent,
+        )
+
+    report = validate_bibframe_graph(graph, source_path=output_path)
+    if report.conforms:
+        return None
+    return ValidationRow(
+        boundary=2,
+        error_type="bibframe-shape",
+        bib_id=bib_id,
+        path=output_path,
+        message=report.text,
+        violations=report.text.count("Constraint Violation"),
+    )
+
+
 def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
     """Walk ``options.input_dir`` and convert every ``*.xml`` to BIBFRAME RDF/XML.
+
+    With ``options.validate`` on (the default) each record passes two
+    validation boundaries — see `docs/validation-strategy.md` and p-062:
+
+      - **Boundary 1**, before conversion. A structural failure (filename,
+        encoding, XML syntax, XSD) rejects the record: it is skipped, a row
+        lands in ``_errors.jsonl``, and conversion is never attempted. A
+        content-minimum failure is advisory — the record converts and a row
+        lands in ``_validation.jsonl``.
+      - **Boundary 2**, after conversion, over the written RDF/XML. Advisory
+        by default; ``options.strict_shapes`` promotes it to a rejection,
+        which also removes the output and its provenance sidecar so the
+        next stage cannot read a non-conforming record.
 
     Emits observability events through the active emitter (if any):
 
       - ``start``    once at entry, with ``entities_total``
       - ``progress`` every ``PROGRESS_CADENCE`` records
       - ``failed``   per record that raised :exc:`XsltprocError`
-      - ``end``      once at exit, with success / failed bucket counts
+      - ``end``      once at exit, with success / failed / skipped /
+                     flagged bucket counts
+
+    Rejections deliberately do *not* emit a per-record event — that would
+    put the record path in a metric label. The sidecars are the
+    record-level sink.
 
     Returns the aggregate :class:`ConversionSummary`.
     """
@@ -164,11 +265,67 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
     )
 
     summary = ConversionSummary(total=total)
+    sidecars = ValidationSidecars(options.output_dir)
 
     for idx, path in enumerate(marcxml_files, start=1):
+        flagged = False
+        bib_id = path.name.split(".", 1)[0]
+
+        if options.validate:
+            outcome = inspect_marcxml(path)
+            bib_id = outcome.bib_id
+            if outcome.rejection is not None:
+                rejection = outcome.rejection
+                summary.skipped_invalid += 1
+                summary.skips.append((path, str(rejection)))
+                sidecars.reject(
+                    ValidationRow(
+                        boundary=1,
+                        error_type=rejection.error_type,
+                        bib_id=bib_id,
+                        path=path,
+                        message=rejection.message,
+                    )
+                )
+                if idx % PROGRESS_CADENCE == 0 or idx == total:
+                    emit_if_active(
+                        stage=STAGE,
+                        event="progress",
+                        counters={"entities_processed": idx},
+                    )
+                continue
+            if outcome.advisory is not None:
+                flagged = True
+                sidecars.flag(
+                    ValidationRow(
+                        boundary=1,
+                        error_type=outcome.advisory.error_type,
+                        bib_id=bib_id,
+                        path=path,
+                        message=outcome.advisory.message,
+                    )
+                )
+
         try:
-            convert_one(path, options=options)
+            output_path = convert_one(path, options=options)
+            if options.validate:
+                row = _boundary2_row(output_path, bib_id)
+                if row is not None:
+                    if options.strict_shapes:
+                        # Rejected after the fact: drop the output and its
+                        # provenance sidecar so bibframe-to-bffi never sees
+                        # a record this boundary refused.
+                        output_path.unlink(missing_ok=True)
+                        sidecar_path_for(output_path).unlink(missing_ok=True)
+                        summary.skipped_invalid += 1
+                        summary.skips.append((path, f"[{row.error_type}] {path.name}"))
+                        sidecars.reject(row)
+                        continue
+                    flagged = True
+                    sidecars.flag(row)
             summary.converted += 1
+            if flagged:
+                summary.shape_flagged += 1
         # One malformed record must never abort the corpus run. XsltprocError
         # is the expected shape, but the XSLT hop shells out, so an
         # unexpected type (a decode error on a non-UTF-8 record, a transient
@@ -179,6 +336,18 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
             summary.failed += 1
             message = str(exc)
             summary.failures.append((path, message))
+            # boundary=0: not a validation finding but a conversion failure.
+            # Same sink, because "which records are missing from the output
+            # and why" is one question for the operator.
+            sidecars.reject(
+                ValidationRow(
+                    boundary=0,
+                    error_type=type(exc).__name__,
+                    bib_id=bib_id,
+                    path=path,
+                    message=message,
+                )
+            )
             emit_if_active(
                 stage=STAGE,
                 event="failed",
@@ -202,6 +371,8 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
         counters={
             "success": summary.converted,
             "failed": summary.failed,
+            "skipped_invalid": summary.skipped_invalid,
+            "shape_flagged": summary.shape_flagged,
         },
     )
 
