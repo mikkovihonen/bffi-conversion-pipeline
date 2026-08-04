@@ -46,3 +46,7 @@ dist/
 .claude/
 .pi-container/exports
 .pi-container/agent/sessions
+
+# serve-metrics bookkeeping, written under its --root on launch.
+.exporter.pid
+.exporter.argv

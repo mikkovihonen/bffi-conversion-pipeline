@@ -139,10 +139,16 @@ class MetricStore:
             ["stage", "error_type", *run],
             registry=r,
         )
+        # No per-record label here. An earlier cut carried the failure
+        # ``message``, which embeds the record path — that made cardinality
+        # scale with the *number of failed records* rather than with stages,
+        # so a run with 8k failures created 8k series. The message stays in
+        # the sidecar, where the operator can grep it; the metric answers
+        # "did this stage fail, and with what exception class".
         self.failed = Gauge(
             "bffi_stage_failed",
             "1 when the stage (or phase) failed terminally.",
-            ["stage", "phase", "error_type", "message", *run],
+            ["stage", "phase", "error_type", *run],
             registry=r,
         )
         self.skipped = Gauge(
@@ -285,12 +291,10 @@ class MetricStore:
 
     def _on_failed(self, stage: str, phase: str, run_uuid: str, extra: dict[str, Any]) -> None:
         error_type = str(extra.get("error_type", ""))
-        message = str(extra.get("message", extra.get("error", "")))
         self.failed.labels(
             stage=stage,
             phase=phase,
             error_type=error_type,
-            message=message,
             run_uuid=run_uuid,
         ).set(1)
         # One sidecar row per failed record, so accumulate rather than set.

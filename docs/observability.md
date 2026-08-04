@@ -49,7 +49,7 @@ All metrics are **Gauges**, including the `_total`-suffixed ones: the sidecar ca
 | `bffi_stage_outcomes_total` | Gauge | `stage`, `outcome`, `run_uuid` | `end` | One series per key in the stage's `end` counters — `success`, `failed`, and for `bibframe2bffi` also `closed_namespace_residue` plus one `routing_<name>` per discriminator routing. |
 | `bffi_stage_throughput_per_minute` | Gauge | `stage`, `phase`, `run_uuid` | derived | Rolling-window throughput from the last 5 progress events. |
 | `bffi_stage_eta_seconds` | Gauge | `stage`, `phase`, `run_uuid` | derived | Linear-extrapolation ETA to phase boundary or stage end. |
-| `bffi_stage_failed` | Gauge | `stage`, `phase`, `error_type`, `message`, `run_uuid` | `failed` | 1 when the stage or phase failed terminally. |
+| `bffi_stage_failed` | Gauge | `stage`, `phase`, `error_type`, `run_uuid` | `failed` | 1 when the stage or phase failed terminally. Deliberately **not** labelled with the failure message — that embeds the record path, which would make cardinality scale with failed-record count. The message stays in the sidecar. |
 | `bffi_stage_errors_total` | Gauge | `stage`, `error_type`, `run_uuid` | `failed` | Accumulated failed-record count per exception class. |
 | `bffi_stage_skipped` | Gauge | `stage`, `reason`, `run_uuid` | `skipped` | 1 when the runner explicitly skipped the stage. |
 | `bffi_stage_planned` | Gauge | `stage`, `run_uuid` | `plan` | 1 for every stage the run intends to execute. |
@@ -61,9 +61,10 @@ All metrics are **Gauges**, including the `_total`-suffixed ones: the sidecar ca
 - `stage` ∈ {`melinda-sync`, `marc2bibframe`, `bibframe2bffi`, `bffi2marc`, `roundtrip_eval`} — this repository's ingestion + bidirectional-conversion stage set. `bffi2marc` is the reverse direction (BFFI graph → reconstructed MARCXML); `roundtrip_eval` is the diff harness that compares reconstructed MARC against the source. Extend as new stages land.
 - `phase` ∈ {`_`, `phase1`, …}. `_` is the sentinel for stages without internal phases.
 - `outcome` is per-stage but bounded: `success` / `failed` for every stage, plus `closed_namespace_residue` and one `routing_<name>` per discriminator routing for `bibframe2bffi`.
+- `error_type` is the exception class name the stage caught (`XsltprocError`, `BibframeToBffiError`, …) — bounded by the number of failure modes, not by records.
 - `run_uuid` is one value per pipeline invocation.
 
-Cardinality cap (per `run_uuid`): ~5 stages × ~3 phases + ~15 outcomes ≈ 30 series. Multiplied by accumulated runs in the current exporter session — well within Prometheus's comfort zone for any realistic dev / production cadence.
+Cardinality cap (per `run_uuid`): ~5 stages × ~3 phases + ~30 outcomes + a handful of error types ≈ 60 series. No label carries per-record data, so the cap holds at 800k records as it does at 300. Multiplied by accumulated runs in the current exporter session — well within Prometheus's comfort zone for any realistic dev / production cadence.
 
 ## Exporter lifecycle
 

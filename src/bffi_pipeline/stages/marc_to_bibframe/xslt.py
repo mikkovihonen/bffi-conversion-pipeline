@@ -92,6 +92,14 @@ def run_xsltproc(
             cmd,
             capture_output=True,
             text=True,
+            # xsltproc echoes the offending bytes back when it rejects a
+            # record, so a Latin-1 source makes its *stderr* non-UTF-8. With
+            # strict decoding (subprocess's default under `text=True`) that
+            # raised UnicodeDecodeError from inside the wrapper — an error
+            # type no caller expected, which aborted whole corpus runs on
+            # one bad record. Replace undecodable bytes instead: the record
+            # still fails, but as a normal non-ok result.
+            errors="replace",
             timeout=timeout,
             check=False,
         )

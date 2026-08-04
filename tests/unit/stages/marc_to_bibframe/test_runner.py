@@ -147,3 +147,55 @@ def test_convert_one_writes_provenance_sidecar(tmp_path: Path) -> None:
     assert (activity, V.stage, Literal("marc2bibframe")) in g
     assert str(next(g.objects(activity, V.converterVersion))).startswith("bffi-pipeline/")
     assert not list(g.objects(activity, V.decision))
+
+
+def test_convert_corpus_counts_bad_encoding_record_instead_of_aborting(
+    tmp_path: Path,
+) -> None:
+    """A Latin-1 record must be counted as one failure, not kill the run.
+
+    Regression: xsltproc echoes the offending bytes into its stderr, which
+    ``subprocess.run(text=True)`` used to decode strictly — raising
+    ``UnicodeDecodeError`` from inside the wrapper. That escaped the
+    ``except XsltprocError`` handler and aborted the whole corpus run on
+    the first bad record. ``99999900.xml`` exists for exactly this case.
+    """
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    bad = _REPO_ROOT / "tests" / "data" / "sample-marcxml" / "99999900.xml"
+    shutil.copy(bad, in_dir / "99999900.xml")
+    # A valid record after the bad one: it must still be converted, proving
+    # the run continued rather than dying on record 1.
+    shutil.copy(_SAMPLE_MARC, in_dir / "b0000001.xml")
+
+    summary = convert_corpus(options=_options(in_dir, out_dir))
+
+    assert summary.total == 2
+    assert summary.failed == 1
+    assert summary.converted == 1
+    failed_path, message = summary.failures[0]
+    assert failed_path.name == "99999900.xml"
+    assert message
+
+
+def test_failed_event_carries_the_exception_class(tmp_path: Path) -> None:
+    """``error_type`` is what the dashboard groups errors by; without it
+    every failure lands in one unlabelled bucket."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    bad = _REPO_ROOT / "tests" / "data" / "sample-marcxml" / "99999900.xml"
+    shutil.copy(bad, in_dir / "99999900.xml")
+
+    sidecar = tmp_path / "stage-events.jsonl"
+    set_active_emitter(StageEventEmitter(sidecar_path=sidecar, run_uuid="test-run"))
+    try:
+        convert_corpus(options=_options(in_dir, out_dir))
+    finally:
+        set_active_emitter(None)
+
+    rows = [json.loads(line) for line in sidecar.read_text(encoding="utf-8").splitlines()]
+    failed = [r for r in rows if r["event"] == "failed"]
+    assert failed
+    assert failed[0]["extra"]["error_type"]

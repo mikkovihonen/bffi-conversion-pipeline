@@ -169,14 +169,24 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
         try:
             convert_one(path, options=options)
             summary.converted += 1
-        except XsltprocError as exc:
+        # One malformed record must never abort the corpus run. XsltprocError
+        # is the expected shape, but the XSLT hop shells out, so an
+        # unexpected type (a decode error on a non-UTF-8 record, a transient
+        # OSError) would otherwise escape and kill a multi-hour run.
+        # Never swallowed: counted, emitted as a ``failed`` event, and
+        # re-surfaced in ``summary.failures`` for the CLI's exit code.
+        except Exception as exc:
             summary.failed += 1
             message = str(exc)
             summary.failures.append((path, message))
             emit_if_active(
                 stage=STAGE,
                 event="failed",
-                extra={"path": str(path), "error": message[:240]},
+                extra={
+                    "path": str(path),
+                    "error": message[:240],
+                    "error_type": type(exc).__name__,
+                },
             )
 
         if idx % PROGRESS_CADENCE == 0 or idx == total:

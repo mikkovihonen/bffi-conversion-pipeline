@@ -3905,7 +3905,11 @@ def convert_corpus(*, options: ConversionOptions) -> ConversionSummary:
             emit_if_active(
                 stage=STAGE,
                 event="failed",
-                extra={"path": str(path), "error": message[:240]},
+                extra={
+                    "path": str(path),
+                    "error": message[:240],
+                    "error_type": type(exc).__name__,
+                },
             )
 
         if idx % PROGRESS_CADENCE == 0 or idx == total:

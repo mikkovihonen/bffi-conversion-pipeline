@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -157,3 +158,29 @@ def test_run_eval_reports_source_only_and_reconstructed_only_counts(tmp_path: Pa
 def _clear_active_emitter() -> None:
     yield
     set_active_emitter(None)
+
+
+def test_run_eval_counts_unreadable_source_instead_of_aborting(tmp_path: Path) -> None:
+    """A Latin-1 source record must be one counted failure, not a dead eval.
+
+    Regression: lxml raises ``OSError("Invalid bytes")`` rather than
+    ``XMLSyntaxError`` for an undecodable file, so it escaped the
+    ``except MarcxmlParseError`` handler and aborted the whole eval run.
+    """
+    source_dir = tmp_path / "src"
+    recon_dir = tmp_path / "recon"
+    source_dir.mkdir()
+    recon_dir.mkdir()
+
+    bad = _REPO_ROOT / "tests" / "data" / "sample-marcxml" / "99999900.xml"
+    shutil.copy(bad, source_dir / "99999900.xml")
+
+    summary = run_eval(options=EvalOptions(source_dir=source_dir, reconstructed_dir=recon_dir))
+
+    # An unreadable record has no 001, so it can never be paired — it has to
+    # be reported at indexing time or it vanishes from the eval entirely.
+    assert summary.failed == 1
+    assert summary.total_pairs == 0
+    failed_path, message = summary.failures[0]
+    assert failed_path.name == "99999900.xml"
+    assert "xml parse failed" in message

@@ -114,7 +114,10 @@ def parse_record(marcxml_path: Path) -> tuple[str, tuple[FieldRow, ...]]:
     """
     try:
         tree = etree.parse(str(marcxml_path))
-    except etree.XMLSyntaxError as exc:
+    except (etree.XMLSyntaxError, OSError) as exc:
+        # lxml raises OSError("Invalid bytes"), not XMLSyntaxError, when the
+        # file isn't decodable at all — e.g. a Latin-1 record. Both are the
+        # same thing to the caller: this record can't be read.
         raise MarcxmlParseError(f"xml parse failed for {marcxml_path}: {exc}") from exc
 
     root = tree.getroot()

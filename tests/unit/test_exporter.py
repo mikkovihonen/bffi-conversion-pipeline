@@ -104,12 +104,15 @@ def test_failed_sets_the_failed_gauge_and_accumulates_errors() -> None:
     assert expected in text
 
 
-def test_failed_falls_back_to_the_error_key_the_stages_actually_emit() -> None:
-    """The runners emit ``extra={"path": ..., "error": ...}`` rather than
-    ``message``; the store must surface that as the message label."""
+def test_failed_without_an_error_type_still_records_the_failure() -> None:
+    """A ``failed`` row missing ``error_type`` (an older sidecar, or a stage
+    that hasn't been updated) must still mark the stage failed rather than
+    being dropped."""
     store = MetricStore()
     store.ingest(_row("failed", extra={"error": "xsltproc not found"}))
-    assert 'message="xsltproc not found"' in store.render()
+    text = store.render()
+    assert 'bffi_stage_failed{error_type=""' in text
+    assert 'bffi_stage_errors_total{error_type=""' in text
 
 
 def test_plan_marks_planned_stages_phases_and_description() -> None:
@@ -301,3 +304,40 @@ def test_bookkeeping_files_are_written_and_cleared(tmp_path: Path) -> None:
 def test_clear_bookkeeping_is_safe_when_files_are_already_gone(tmp_path: Path) -> None:
     """Crash recovery path: the operator may have removed them by hand."""
     Exporter(globs=[], root=tmp_path).clear_bookkeeping()
+
+
+def test_failed_series_do_not_multiply_per_record() -> None:
+    """Cardinality regression: the failure ``message`` embeds the record
+    path, so carrying it as a label made series count scale with the number
+    of failed *records* — 8k failures meant 8k series. Many failures of the
+    same class must collapse onto one series."""
+    store = MetricStore()
+    for n in range(50):
+        store.ingest(
+            _row(
+                "failed",
+                extra={
+                    "error_type": "BibframeToBffiError",
+                    "error": f"serialize failed for record-{n}.xml",
+                },
+            )
+        )
+    failed_series = [
+        line for line in store.render().splitlines() if line.startswith("bffi_stage_failed{")
+    ]
+    assert len(failed_series) == 1
+    assert "message=" not in failed_series[0]
+    # The count still survives, on the errors metric.
+    assert 'bffi_stage_errors_total{error_type="BibframeToBffiError"' in store.render()
+    assert "} 50.0" in store.render()
+
+
+def test_distinct_error_types_stay_distinct() -> None:
+    """Collapsing on message must not collapse different exception classes."""
+    store = MetricStore()
+    store.ingest(_row("failed", extra={"error_type": "XsltprocError"}))
+    store.ingest(_row("failed", extra={"error_type": "UnicodeDecodeError"}))
+    failed_series = [
+        line for line in store.render().splitlines() if line.startswith("bffi_stage_failed{")
+    ]
+    assert len(failed_series) == 2

@@ -62,18 +62,26 @@ class RoundtripEvalError(RuntimeError):
     """Eval-side failure (typically a malformed input MARCXML)."""
 
 
-def _index_by_bib_id(directory: Path, pattern: str) -> dict[str, Path]:
-    """Walk ``directory/<pattern>``, parse each, index by 001."""
+def _index_by_bib_id(
+    directory: Path, pattern: str
+) -> tuple[dict[str, Path], list[tuple[Path, str]]]:
+    """Walk ``directory/<pattern>``, parse each, index by 001.
+
+    Returns ``(index, unreadable)``. A record that can't be parsed has no
+    bib ID, so it can never be paired and can never surface later in the
+    diff loop — the caller must report it here or it vanishes. Returning it
+    keeps the "errors over silent fallbacks" rule intact.
+    """
     out: dict[str, Path] = {}
+    unreadable: list[tuple[Path, str]] = []
     for path in sorted(directory.glob(pattern)):
         try:
             bib_id, _ = parse_record(path)
-        except MarcxmlParseError:
-            # Skip silently here — `run_eval` surfaces these via the
-            # failed-event path when the *paired* side hits them.
+        except MarcxmlParseError as exc:
+            unreadable.append((path, str(exc)))
             continue
         out[bib_id] = path
-    return out
+    return out, unreadable
 
 
 def run_eval(*, options: EvalOptions) -> EvalSummary:
@@ -83,11 +91,13 @@ def run_eval(*, options: EvalOptions) -> EvalSummary:
 
       - ``start``    with ``entities_total`` = number of pairs to diff
       - ``progress`` every ``PROGRESS_CADENCE`` pairs + on the final pair
-      - ``failed``   per pair that raises :exc:`MarcxmlParseError`
+      - ``failed``   per unreadable record and per pair that raises
       - ``end``      with the corpus diff distribution + orphan counts
     """
-    source_index = _index_by_bib_id(options.source_dir, "*.xml")
-    reconstructed_index = _index_by_bib_id(options.reconstructed_dir, "*.marcxml")
+    source_index, source_unreadable = _index_by_bib_id(options.source_dir, "*.xml")
+    reconstructed_index, reconstructed_unreadable = _index_by_bib_id(
+        options.reconstructed_dir, "*.marcxml"
+    )
 
     paired_ids = sorted(set(source_index) & set(reconstructed_index))
     summary = EvalSummary(
@@ -102,6 +112,22 @@ def run_eval(*, options: EvalOptions) -> EvalSummary:
         counters={"entities_total": summary.total_pairs},
     )
 
+    # Records that couldn't be parsed at all never make it into either
+    # index, so report them before the diff loop — otherwise an unreadable
+    # record disappears from the eval entirely.
+    for path, message in (*source_unreadable, *reconstructed_unreadable):
+        summary.failed += 1
+        summary.failures.append((path, message))
+        emit_if_active(
+            stage=STAGE,
+            event="failed",
+            extra={
+                "path": str(path),
+                "error": message[:240],
+                "error_type": MarcxmlParseError.__name__,
+            },
+        )
+
     diffs: list[RecordDiff] = []
     for idx, bib_id in enumerate(paired_ids, start=1):
         source_path = source_index[bib_id]
@@ -111,14 +137,20 @@ def run_eval(*, options: EvalOptions) -> EvalSummary:
                 source_path=source_path,
                 reconstructed_path=reconstructed_path,
             )
-        except MarcxmlParseError as exc:
+        # One unreadable record must never abort the eval; counted, emitted
+        # and re-surfaced in ``summary.failures`` like the conversion stages.
+        except Exception as exc:
             summary.failed += 1
             message = str(exc)
             summary.failures.append((source_path, message))
             emit_if_active(
                 stage=STAGE,
                 event="failed",
-                extra={"bib_id": bib_id, "error": message[:240]},
+                extra={
+                    "bib_id": bib_id,
+                    "error": message[:240],
+                    "error_type": type(exc).__name__,
+                },
             )
         else:
             summary.diffed += 1
