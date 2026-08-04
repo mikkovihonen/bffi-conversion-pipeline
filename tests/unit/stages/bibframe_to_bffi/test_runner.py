@@ -8,9 +8,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from rdflib import RDF, Graph, URIRef
+from rdflib import RDF, Graph, Literal, URIRef
 
 from bffi_pipeline.observability.events import StageEventEmitter, set_active_emitter
+from bffi_pipeline.provenance import vocab as V
 from bffi_pipeline.stages.bibframe_to_bffi.mappings import (
     BF_NAMESPACE,
     BFFI_NAMESPACE,
@@ -191,3 +192,31 @@ def _clear_active_emitter() -> None:
     """Defensive cleanup in case a test leaves a stale emitter set."""
     yield
     set_active_emitter(None)
+
+
+def test_convert_one_writes_provenance_sidecar_with_routing_decisions(
+    tmp_path: Path,
+) -> None:
+    """Provenance is mandatory (``CLAUDE.md``): the record's routing
+    decisions must land in a ``.prov.ttl`` beside its output, and only the
+    routings that actually fired get a decision triple."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    _produce_bibframe_fixture(in_dir, stem="test")
+    options = ConversionOptions(input_dir=in_dir, output_dir=out_dir)
+
+    output_path, _residual, routings = convert_one(
+        in_dir / "test.bibframe.xml", options=options, rules=load_rules()
+    )
+
+    sidecar = out_dir / "test.prov.ttl"
+    assert sidecar.is_file()
+    g = _parse_turtle(sidecar)
+    activity = URIRef("http://urn.fi/URN:NBN:fi:bib:activity/bibframe2bffi/test")
+    assert (activity, V.stage, Literal("bibframe2bffi")) in g
+    assert (activity, V.localBibId, Literal("test")) in g
+
+    recorded = {str(o) for o in g.objects(activity, V.decision)}
+    expected = {f"{name}={count}" for name, count in routings.items() if count}
+    assert recorded == expected
+    assert output_path.is_file()

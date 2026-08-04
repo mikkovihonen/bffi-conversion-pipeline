@@ -29,6 +29,7 @@ Run `bffi-pipeline --help` to list all commands.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -44,6 +45,12 @@ from bffi_pipeline.diagnostic.mapping_tables import regenerate_mapping_tables
 from bffi_pipeline.diagnostic.marc_coverage import analyse_corpus, format_report
 from bffi_pipeline.diagnostic.marc_mapping import regenerate_marc_mapping
 from bffi_pipeline.diagnostic.xslt_coverage import regenerate_marc_to_bibframe_mapping
+from bffi_pipeline.observability.events import (
+    StageEventEmitter,
+    get_active_emitter,
+    set_active_emitter,
+)
+from bffi_pipeline.observability.exporter import DEFAULT_WATCH_GLOB, Exporter
 from bffi_pipeline.rdf_utils import local_name
 from bffi_pipeline.runs import (
     InvalidRunDirError,
@@ -73,6 +80,11 @@ from bffi_pipeline.stages.melinda.runner import (
 from bffi_pipeline.stages.melinda.runner import sync_corpus as melinda_sync_corpus
 from bffi_pipeline.stages.roundtrip_eval.runner import EvalOptions, run_eval
 
+#: Set ``BFFI_OBSERVABILITY_SIDECAR=none`` to suppress sidecar writes for
+#: one invocation. The Makefile sets it for the exporter's own process so
+#: ``serve-metrics`` never tails a sidecar it wrote itself.
+_SIDECAR_DISABLED = "none"
+
 
 def _require_run_dir(path: Path, *, option_label: str) -> None:
     """Enforce the run-dir convention on a stage's output path.
@@ -81,12 +93,34 @@ def _require_run_dir(path: Path, *, option_label: str) -> None:
     a path inside that directory to each stage's ``--output-dir`` (or
     ``--html``) option. Any other path errors out before the stage
     starts work.
+
+    Doubles as the activation point for observability: the validated run
+    directory is where this invocation's ``stage-events.jsonl`` lives, and
+    the run-dir name is the ``run_uuid`` every event carries. Every stage
+    routes its output path through here, so one hook covers them all.
     """
     try:
-        validate_under_run_dir(path)
+        run_dir = validate_under_run_dir(path)
     except InvalidRunDirError as exc:
         typer.echo(f"error: {option_label}: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+    _activate_emitter(run_dir)
+
+
+def _activate_emitter(run_dir: Path) -> None:
+    """Point the process-wide emitter at ``run_dir``'s sidecar.
+
+    Idempotent across the several ``_require_run_dir`` calls a single
+    command can make (``--output-dir`` plus ``--html``): re-activating for
+    the same run directory is a no-op.
+    """
+    if os.environ.get("BFFI_OBSERVABILITY_SIDECAR") == _SIDECAR_DISABLED:
+        return
+    sidecar = run_dir / "stage-events.jsonl"
+    existing = get_active_emitter()
+    if existing is not None and existing.sidecar_path == sidecar:
+        return
+    set_active_emitter(StageEventEmitter(sidecar_path=sidecar, run_uuid=run_dir.name))
 
 
 app = typer.Typer(
@@ -642,13 +676,55 @@ def roundtrip_eval_command(
 
 
 @app.command("serve-metrics")
-def serve_metrics_command() -> None:
+def serve_metrics_command(
+    port: Annotated[
+        int,
+        typer.Option("--port", help="Port to serve /metrics on."),
+    ] = 9100,
+    watch_glob: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--watch-glob",
+            help=(
+                "Glob (relative to --root) matching stage-event sidecars. "
+                "Repeatable. Re-listed periodically so sidecars from runs "
+                "started after the exporter are picked up automatically."
+            ),
+        ),
+    ] = None,
+    root: Annotated[
+        Path,
+        typer.Option("--root", help="Directory the globs resolve against."),
+    ] = Path(),
+    poll_seconds: Annotated[
+        float,
+        typer.Option("--poll-seconds", help="Seconds between sidecar polls."),
+    ] = 1.0,
+    rescan_seconds: Annotated[
+        float,
+        typer.Option("--rescan-seconds", help="Seconds between glob re-listings."),
+    ] = 30.0,
+) -> None:
     """Tail `runs/*/stage-events.jsonl` sidecars; serve Prometheus metrics on :9100.
 
+    Blocks until SIGTERM / SIGINT. Writes `.exporter.pid` + `.exporter.argv`
+    under `--root` on launch and removes them on clean exit, so an operator
+    reset can relaunch with the recorded argv.
+
     See `docs/observability.md` for the architecture (sidecar → exporter →
-    Prometheus → Grafana → Caddy at `http://localhost:8080`).
+    Prometheus → Grafana → Caddy at `http://localhost:8080`) and the metric
+    vocabulary the dashboard queries.
     """
-    raise NotImplementedError("serve-metrics scaffolded; not yet implemented")
+    globs = watch_glob or [DEFAULT_WATCH_GLOB]
+    exporter = Exporter(globs=globs, root=root)
+    attached = exporter.rescan()
+    typer.echo(f"serve-metrics: /metrics on :{port}; watching {', '.join(globs)}")
+    typer.echo(f"serve-metrics: {len(attached)} sidecar(s) attached at start")
+    exporter.serve_forever(
+        port=port,
+        poll_seconds=poll_seconds,
+        rescan_seconds=rescan_seconds,
+    )
 
 
 if __name__ == "__main__":

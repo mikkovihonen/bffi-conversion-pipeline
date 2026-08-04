@@ -6,7 +6,10 @@ import json
 import shutil
 from pathlib import Path
 
+from rdflib import Graph, Literal, URIRef
+
 from bffi_pipeline.observability.events import StageEventEmitter, set_active_emitter
+from bffi_pipeline.provenance import vocab as V
 from bffi_pipeline.stages.marc_to_bibframe.runner import (
     ConversionOptions,
     convert_corpus,
@@ -123,3 +126,24 @@ def test_convert_corpus_emits_failed_event_on_bad_input(tmp_path: Path) -> None:
     failed_events = [e for e in events if e["event"] == "failed"]
     assert len(failed_events) == 1
     assert failed_events[0]["extra"]["path"].endswith("broken.xml")
+
+
+def test_convert_one_writes_provenance_sidecar(tmp_path: Path) -> None:
+    """The XSLT hop records its Activity and converter version. No decision
+    triples — the stylesheet is one transform with no routing of ours."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    shutil.copy(_SAMPLE_MARC, in_dir / "b1.xml")
+
+    convert_one(in_dir / "b1.xml", options=_options(in_dir, out_dir))
+
+    sidecar = out_dir / "b1.prov.ttl"
+    assert sidecar.is_file()
+    g = Graph()
+    g.parse(sidecar, format="turtle")
+    activity = URIRef("http://urn.fi/URN:NBN:fi:bib:activity/marc2bibframe/b1")
+    assert (activity, V.RDF.type, V.MarcConversion) in g
+    assert (activity, V.stage, Literal("marc2bibframe")) in g
+    assert str(next(g.objects(activity, V.converterVersion))).startswith("bffi-pipeline/")
+    assert not list(g.objects(activity, V.decision))

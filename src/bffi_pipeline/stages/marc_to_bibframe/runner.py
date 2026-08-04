@@ -16,7 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from bffi_pipeline import __version__
 from bffi_pipeline.observability.events import emit_if_active
+from bffi_pipeline.provenance.activities import now, write_record_provenance
 from bffi_pipeline.stages.marc_to_bibframe.xslt import (
     XsltPaths,
     XsltprocError,
@@ -78,6 +80,7 @@ def convert_one(marcxml_path: Path, *, options: ConversionOptions) -> Path:
     Raises :exc:`XsltprocError` on any conversion failure (preprocess or
     convert pass).
     """
+    started = now()
     output_path = options.output_dir / f"{marcxml_path.stem}.bibframe.xml"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -123,6 +126,19 @@ def convert_one(marcxml_path: Path, *, options: ConversionOptions) -> Path:
         raise XsltprocError(f"convert failed for {marcxml_path}: {result.stderr.strip()[:240]}")
 
     output_path.write_text(result.stdout, encoding="utf-8")
+
+    # Provenance is mandatory (see ``CLAUDE.md``). The XSLT hop is one
+    # transform with no discriminator decisions of our own, so the sidecar
+    # records the Activity and the converter version only.
+    write_record_provenance(
+        output_path,
+        stage=STAGE,
+        bib_id=marcxml_path.name.split(".", 1)[0],
+        started=started,
+        ended=now(),
+        used=marcxml_path,
+        converter_version=f"bffi-pipeline/{__version__}",
+    )
     return output_path
 
 

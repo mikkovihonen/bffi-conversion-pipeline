@@ -2,7 +2,7 @@
 
 This repository builds observability in from the ground up. Every stage emits structured events to a JSONL sidecar from its first commit; an exporter tails the sidecars and serves Prometheus metrics; Grafana renders the operator dashboard; Caddy fronts both behind a single `http://localhost:8080` URL.
 
-**Status: the exporter is not implemented yet.** `bffi-pipeline serve-metrics` is a scaffold that raises `NotImplementedError`. The stage side is live — every stage writes `stage-events.jsonl` — but nothing publishes Prometheus metrics, so the Grafana dashboard renders no data until the exporter lands. The metric vocabulary below is the contract it must satisfy, not a description of running code.
+**Status: implemented** (see `docs/plans/p-059-prometheus-exporter.md`). `bffi-pipeline serve-metrics` tails every `runs/*/stage-events.jsonl` and serves the metric set below on `:9100`. The emitter is activated by the run-directory check every stage's `--output-dir` passes through, so any invocation writing into a canonical run directory produces a sidecar.
 
 **No outbound telemetry.** The whole stack runs in Docker Compose on the operator's machine; no data leaves the box.
 
@@ -38,21 +38,29 @@ Adding a new event type is a code change; the metric vocabulary table below is t
 
 The exporter publishes the canonical metric set below. Every metric maps one-to-one to a sidecar event field.
 
+All metrics are **Gauges**, including the `_total`-suffixed ones: the sidecar carries absolute cumulative values, so replaying it into a counter would double-count whenever the exporter restarts and re-reads from offset 0. A gauge holding the last observed absolute value is the honest primitive; the `_total` names are kept because the dashboard queries them.
+
 | Metric | Type | Labels | Source event | What it means |
 |---|---|---|---|---|
 | `bffi_stage_started_timestamp` | Gauge | `stage`, `run_uuid` | `start` | Unix ts the stage began. |
 | `bffi_stage_ended_timestamp` | Gauge | `stage`, `run_uuid` | `end` | Unix ts the stage finished. |
 | `bffi_stage_entities_total` | Gauge | `stage`, `phase`, `run_uuid` | `start` / `phase_boundary` | Total entities the stage/phase will process. |
-| `bffi_stage_entities_processed_total` | Counter | `stage`, `phase`, `run_uuid` | `progress` | Cumulative entities processed so far. |
-| `bffi_stage_outcomes_total` | Counter | `stage`, `outcome`, `run_uuid` | `end` | Per-outcome bucket counts (e.g. for the BFFI conversion stage: `hub_routed_work`, `hub_routed_expression`, `identifier_isbn`, `identifier_issn`, `title_variant`, `series_link`, `music_medium_collapse`, `validation_failed`, …). |
+| `bffi_stage_entities_processed_total` | Gauge | `stage`, `phase`, `run_uuid` | `progress` | Cumulative entities processed so far. |
+| `bffi_stage_outcomes_total` | Gauge | `stage`, `outcome`, `run_uuid` | `end` | One series per key in the stage's `end` counters — `success`, `failed`, and for `bibframe2bffi` also `closed_namespace_residue` plus one `routing_<name>` per discriminator routing. |
 | `bffi_stage_throughput_per_minute` | Gauge | `stage`, `phase`, `run_uuid` | derived | Rolling-window throughput from the last 5 progress events. |
 | `bffi_stage_eta_seconds` | Gauge | `stage`, `phase`, `run_uuid` | derived | Linear-extrapolation ETA to phase boundary or stage end. |
+| `bffi_stage_failed` | Gauge | `stage`, `phase`, `error_type`, `message`, `run_uuid` | `failed` | 1 when the stage or phase failed terminally. |
+| `bffi_stage_errors_total` | Gauge | `stage`, `error_type`, `run_uuid` | `failed` | Accumulated failed-record count per exception class. |
+| `bffi_stage_skipped` | Gauge | `stage`, `reason`, `run_uuid` | `skipped` | 1 when the runner explicitly skipped the stage. |
+| `bffi_stage_planned` | Gauge | `stage`, `run_uuid` | `plan` | 1 for every stage the run intends to execute. |
+| `bffi_stage_phase_planned` | Gauge | `stage`, `phase`, `run_uuid` | `plan` | 1 for every planned (stage, phase) pair. |
+| `bffi_run_description` | Gauge | `description`, `run_uuid` | `plan` | 1, carrying the run's free-text label. |
 
 ### Label cardinality
 
 - `stage` ∈ {`melinda-sync`, `marc2bibframe`, `bibframe2bffi`, `bffi2marc`, `roundtrip_eval`} — this repository's ingestion + bidirectional-conversion stage set. `bffi2marc` is the reverse direction (BFFI graph → reconstructed MARCXML); `roundtrip_eval` is the diff harness that compares reconstructed MARC against the source. Extend as new stages land.
 - `phase` ∈ {`_`, `phase1`, …}. `_` is the sentinel for stages without internal phases.
-- `outcome` is per-stage but bounded; the conversion stage's outcomes are the discriminator-routing buckets (one per row in the bf → bffi mapping doc's routing callouts) plus `validation_failed`.
+- `outcome` is per-stage but bounded: `success` / `failed` for every stage, plus `closed_namespace_residue` and one `routing_<name>` per discriminator routing for `bibframe2bffi`.
 - `run_uuid` is one value per pipeline invocation.
 
 Cardinality cap (per `run_uuid`): ~5 stages × ~3 phases + ~15 outcomes ≈ 30 series. Multiplied by accumulated runs in the current exporter session — well within Prometheus's comfort zone for any realistic dev / production cadence.
@@ -79,15 +87,21 @@ PID + argv files sit at `<runs-root>/.exporter.pid` and `.exporter.argv` — pro
 
 Mode A is the durable shape. The exporter never owns the run — it's a passive tail of the run's on-disk JSONL output.
 
-## Counter inheritance across exporter restarts
+## Exporter restarts
 
-Counters are cumulative within a single exporter process. Each invocation starts from zero, rehydrates the full sidecar once, then tails for new events. Restarting the exporter resets every counter to "sum of sidecar events on disk at startup" — the displayed numbers can drop visibly on the dashboard at the restart boundary.
+Restarting the exporter re-attaches every sidecar at offset 0 and replays
+it. Because every metric is an absolute-value Gauge, the replay lands on
+exactly the values the previous process had — no reset, no visible
+discontinuity on the dashboard, and no double-counting. The JSONL on disk
+is the ground truth; the exporter holds no state the sidecars don't.
 
-This is by design: rehydration replays the JSONL ground truth. PromQL queries spanning an exporter restart should use `increase(...[5m])` or `rate(...[5m])` rather than raw counter values across the boundary. The Grafana dashboard's rate panels do this already; the cumulative-count panels show the by-design discontinuity.
+The one exception is `bffi_stage_errors_total`, which accumulates one
+increment per `failed` row. A replay reconstructs it from the same rows,
+so the total is stable across restarts too.
 
 ## Per-run metric isolation
 
-Every Counter and Gauge carries an explicit `run_uuid` label. Dashboards filter every panel by `run_uuid="$active_run"`, where `$active_run` is a Grafana templating variable populated by `label_values(bffi_stage_started_timestamp, run_uuid)`. The operator picks the run they want to watch; panels re-render against that single `run_uuid`. Prior runs' data remains queryable in Prometheus under their own values for forensic comparison.
+Every metric carries an explicit `run_uuid` label. Dashboards filter every panel by `run_uuid="$active_run"`, where `$active_run` is a Grafana templating variable populated by `label_values(bffi_stage_started_timestamp, run_uuid)`. The operator picks the run they want to watch; panels re-render against that single `run_uuid`. Prior runs' data remains queryable in Prometheus under their own values for forensic comparison.
 
 ## Bundled Grafana dashboard
 
@@ -119,5 +133,6 @@ The metric vocabulary table above is the spec. Bump the table first; the code fo
 
 ## Outstanding
 
-- Implement the exporter behind `bffi-pipeline serve-metrics` so the metric
-  vocabulary above becomes real. Until then the dashboard is a specification.
+- `bffi_stage_throughput_per_minute` and `bffi_stage_eta_seconds` derive from a
+  5-event sliding window, so they stay absent until a stage has emitted two
+  `progress` events.

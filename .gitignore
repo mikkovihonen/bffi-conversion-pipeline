@@ -2,7 +2,7 @@
 # Anchor with a leading slash so test fixtures under tests/data/ are tracked.
 /marcxml/
 /scratchpad/
-# P-32: canonical runs root (BFFI_RUNS_ROOT, default <repo>/runs/).
+# Canonical runs root (BFFI_RUNS_ROOT, default <repo>/runs/).
 /runs/
 # Runtime logs (exporter, pipeline drivers) — operator-side artifacts.
 /logs/

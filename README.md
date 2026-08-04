@@ -206,7 +206,11 @@ reverse converter reads pipeline-internal provenance.
   retries are for transient external errors.
 - **Provenance is mandatory.** Every non-trivial conversion decision
   writes to the provenance graph before returning — there is no
-  "optional logging" flag.
+  "optional logging" flag. Both forward stages emit a per-record
+  `<bib_id>.prov.ttl` sidecar beside the record's output, carrying the
+  conversion Activity and one `bffi-prov:decision` triple per routing
+  that fired. See
+  [`docs/plans/p-060-conversion-provenance.md`](docs/plans/p-060-conversion-provenance.md).
 
 ## Committed identifiers (do not change without surfacing)
 

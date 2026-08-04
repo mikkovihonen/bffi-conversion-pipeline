@@ -20,6 +20,7 @@ from typing import Final
 from rdflib import BNode, Graph, Literal, URIRef
 
 from bffi_pipeline.observability.events import emit_if_active
+from bffi_pipeline.provenance.activities import now, write_record_provenance
 from bffi_pipeline.provenance.vocab import bind_canonical_prefixes
 from bffi_pipeline.stages.bibframe_to_bffi.mappings import (
     BF_NAMESPACE,
@@ -141,6 +142,7 @@ def convert_one(
     The routing counters are per-record; the caller aggregates them
     into the corpus summary.
     """
+    started = now()
     output_path = options.output_dir / f"{bibframe_path.stem.removesuffix('.bibframe')}.bffi.ttl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -170,6 +172,19 @@ def convert_one(
         ) from exc
 
     output_path.write_text(turtle, encoding="utf-8")
+
+    # Provenance is mandatory (see ``CLAUDE.md``): record the Activity and
+    # one decision triple per routing that actually fired, beside the
+    # record's own output.
+    write_record_provenance(
+        output_path,
+        stage=STAGE,
+        bib_id=bibframe_path.name.split(".", 1)[0],
+        started=started,
+        ended=now(),
+        used=bibframe_path,
+        decisions=routing_counters,
+    )
     return output_path, residual, routing_counters
 
 
