@@ -36,6 +36,7 @@ from typing import Annotated
 import typer
 
 from bffi_pipeline.config import get_settings
+from bffi_pipeline.diagnostic.field_coverage import regenerate_field_coverage_corpus
 from bffi_pipeline.diagnostic.mapping_coverage import (
     DEFAULT_MAX_HOPS,
     analyze_mapping_coverage,
@@ -314,6 +315,41 @@ def regenerate_marc_to_bibframe_mapping_command(
     else:
         verb = "updated" if changed else "already up to date"
         typer.echo(f"docs/marc_to_bibframe_mapping.md {verb}.")
+
+
+@app.command("regenerate-field-coverage-corpus")
+def regenerate_field_coverage_corpus_command(
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help=(
+                "Don't write the corpus — exit 1 if the on-disk records differ "
+                "from what the generator would emit. Use in CI / pre-commit."
+            ),
+        ),
+    ] = False,
+) -> None:
+    """Regenerate the synthetic field-coverage corpus under `tests/data/`.
+
+    One minimal MARCXML record per MARC tag the pipeline claims to handle,
+    driven by the vendored XSLT's field surface plus `MARC_EMIT_REGISTRY`.
+    Re-run after a `third_party/marc2bibframe2` submodule bump or after
+    adding a `@marc_emit` rule. See `docs/plans/p-061-field-coverage-corpus.md`.
+    """
+    count, changed = regenerate_field_coverage_corpus(check=check)
+    if check:
+        if changed:
+            typer.echo(
+                "field-coverage corpus is out of date — run "
+                "`bffi-pipeline regenerate-field-coverage-corpus` to refresh.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(f"field-coverage corpus is up to date ({count} records).")
+    else:
+        verb = "updated" if changed else "already up to date"
+        typer.echo(f"field-coverage corpus {verb} ({count} records).")
 
 
 @app.command("diagnose-marc-coverage")

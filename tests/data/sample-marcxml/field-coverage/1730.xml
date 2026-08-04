@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">1730</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="730" ind1="0" ind2=" ">
+    <subfield code="5">FI-Test</subfield>
+    <subfield code="a">Z730a</subfield>
+    <subfield code="g">Z730g</subfield>
+    <subfield code="i">Z730i</subfield>
+    <subfield code="l">Z730l</subfield>
+    <subfield code="n">Z730n</subfield>
+    <subfield code="o">Z730o</subfield>
+    <subfield code="p">Z730p</subfield>
+    <subfield code="s">Z730s</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 730 (maximal)</subfield>
+  </datafield>
+</record>

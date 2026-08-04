@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">1340</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="340" ind1=" " ind2=" ">
+    <subfield code="2">yso/fin</subfield>
+    <subfield code="a">Z340a</subfield>
+    <subfield code="b">Z340b</subfield>
+    <subfield code="c">Z340c</subfield>
+    <subfield code="d">1970-2020</subfield>
+    <subfield code="e">Z340e</subfield>
+    <subfield code="f">Z340f</subfield>
+    <subfield code="g">Z340g</subfield>
+    <subfield code="i">Z340i</subfield>
+    <subfield code="j">Z340j</subfield>
+    <subfield code="k">Z340k</subfield>
+    <subfield code="l">Z340l</subfield>
+    <subfield code="m">Z340m</subfield>
+    <subfield code="n">Z340n</subfield>
+    <subfield code="o">Z340o</subfield>
+    <subfield code="q">Z340q</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 340 (maximal)</subfield>
+  </datafield>
+</record>

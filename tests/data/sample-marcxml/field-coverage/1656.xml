@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">1656</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="656" ind1=" " ind2=" ">
+    <subfield code="0">http://www.yso.fi/onto/yso/p1234</subfield>
+    <subfield code="2">yso/fin</subfield>
+    <subfield code="3">Z6563</subfield>
+    <subfield code="a">Z656a</subfield>
+    <subfield code="k">Z656k</subfield>
+    <subfield code="v">Z656v</subfield>
+    <subfield code="w">(FI-Test)000000001</subfield>
+    <subfield code="x">Z656x</subfield>
+    <subfield code="y">Z656y</subfield>
+    <subfield code="z">Z656z</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 656 (maximal)</subfield>
+  </datafield>
+</record>

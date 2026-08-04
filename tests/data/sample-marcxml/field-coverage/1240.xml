@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">1240</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="240" ind1="1" ind2="0">
+    <subfield code="a">Z240a</subfield>
+    <subfield code="g">Z240g</subfield>
+    <subfield code="l">Z240l</subfield>
+    <subfield code="n">Z240n</subfield>
+    <subfield code="p">Z240p</subfield>
+    <subfield code="s">Z240s</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 240 (maximal)</subfield>
+  </datafield>
+</record>

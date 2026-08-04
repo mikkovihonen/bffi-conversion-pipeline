@@ -23,3 +23,4 @@ Index of plans of record for the BFFI conversion pipeline.
 |---|---|---|
 | [p-059](p-059-prometheus-exporter.md) | Implement the Prometheus exporter behind `serve-metrics` | **active** — Phase A shipped: exporter, tailer, CLI wiring. |
 | [p-060](p-060-conversion-provenance.md) | Emit conversion provenance per record | **active** — Phase A shipped: per-record `.prov.ttl` for both forward stages. |
+| [p-061](p-061-field-coverage-corpus.md) | Synthetic field-coverage corpus | **active** — Phase A shipped: generator, 319 probes, `--check` guard in CI. |

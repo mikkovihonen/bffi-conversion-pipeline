@@ -43,16 +43,23 @@ jobs:
         run: uv run ruff format --check src tests
       - name: mypy --strict
         run: uv run mypy --strict src
-      # The three mapping docs under docs/ are generated from code, not
-      # hand-maintained. Verify the committed copies still match what the
-      # generators emit; never rewrite them here — these are the artifacts
-      # NLF reviews, so drift gets surfaced, not silently papered over.
-      # pytest also guards this, but a dedicated step names the fix.
-      - name: Generated mapping docs are up to date
+      # The three mapping docs and the field-coverage corpus are generated
+      # from code, not hand-maintained. Verify the committed copies still
+      # match what the generators emit; never rewrite them here — the docs
+      # are the artifacts NLF reviews, so drift gets surfaced, not silently
+      # papered over. pytest also guards the docs, but a dedicated step
+      # names the fix.
+      #
+      # The corpus check is the one that catches a `third_party/
+      # marc2bibframe2` submodule bump: the probes are built from the XSLT's
+      # field surface, so a stylesheet that starts or stops handling a tag
+      # fails here until the corpus is regenerated.
+      - name: Generated artifacts are up to date
         run: |
           uv run bffi-pipeline regenerate-mapping-tables --check
           uv run bffi-pipeline regenerate-marc-mapping --check
           uv run bffi-pipeline regenerate-marc-to-bibframe-mapping --check
+          uv run bffi-pipeline regenerate-field-coverage-corpus --check
       # The whole suite, matching `make test`. Every test is a unit test
       # against on-disk fixtures — no Docker services, no network, no
       # triple store. If a test ever needs one, it gets the `integration`

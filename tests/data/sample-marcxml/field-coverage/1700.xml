@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000nam a2200000 a 4500</leader>
+  <controlfield tag="001">1700</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="0">http://www.yso.fi/onto/yso/p1234</subfield>
+    <subfield code="1">Z7001</subfield>
+    <subfield code="4">aut</subfield>
+    <subfield code="5">FI-Test</subfield>
+    <subfield code="a">Z700a</subfield>
+    <subfield code="b">Z700b</subfield>
+    <subfield code="c">Z700c</subfield>
+    <subfield code="d">1970-2020</subfield>
+    <subfield code="e">Z700e</subfield>
+    <subfield code="g">Z700g</subfield>
+    <subfield code="t">Z700t</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 700 (maximal)</subfield>
+  </datafield>
+</record>

@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <leader>00000ncm a2200000 a 4500</leader>
+  <controlfield tag="001">1383</controlfield>
+  <controlfield tag="008">230101s2023    fi ||||| |||| 00| 0 fin d</controlfield>
+  <datafield tag="383" ind1=" " ind2=" ">
+    <subfield code="3">Z3833</subfield>
+    <subfield code="a">Z383a</subfield>
+    <subfield code="b">Z383b</subfield>
+    <subfield code="c">Z383c</subfield>
+    <subfield code="d">1970-2020</subfield>
+    <subfield code="e">Z383e</subfield>
+  </datafield>
+  <datafield tag="245" ind1="0" ind2="0">
+    <subfield code="a">Field-coverage probe 383 (maximal)</subfield>
+  </datafield>
+</record>

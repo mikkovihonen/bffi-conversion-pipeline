@@ -170,12 +170,22 @@ uv run bffi-pipeline regenerate-marc-mapping              # bffi_to_marc
 uv run bffi-pipeline regenerate-marc-to-bibframe-mapping  # marc_to_bibframe
 ```
 
-CI runs the same three commands with `--check`, which writes nothing and
-exits non-zero if a committed doc differs from generator output. So a
-change to the emit, a `vocab/` refresh, or a `third_party/marc2bibframe2`
-submodule bump fails the build until you regenerate and commit the diff —
-CI never rewrites these docs for you, because they are the artifacts sent
-to NLF for review.
+A fourth generated artifact is the synthetic field-coverage corpus — one
+minimal and one maximal MARCXML probe per MARC tag the pipeline claims to
+handle, used to answer "what actually survives a round-trip?":
+
+```sh
+uv run bffi-pipeline regenerate-field-coverage-corpus   # tests/data/.../field-coverage/
+```
+
+CI runs all four commands with `--check`, which writes nothing and exits
+non-zero if a committed artifact differs from generator output. So a change
+to the emit, a `vocab/` refresh, or a `third_party/marc2bibframe2` submodule
+bump fails the build until you regenerate and commit the diff — CI never
+rewrites these for you, because the mapping docs are the artifacts sent to
+NLF for review. See
+[`docs/plans/p-061-field-coverage-corpus.md`](docs/plans/p-061-field-coverage-corpus.md)
+for what the corpus does and does not measure.
 
 ## Testing
 
