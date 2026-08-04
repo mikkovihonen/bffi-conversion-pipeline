@@ -1823,3 +1823,55 @@ def test_identifier_dispatch_scans_every_source_not_just_the_first() -> None:
     df = root.find(f"{{{MARC21_NS}}}datafield[@tag='020']")
     assert df is not None
     assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "9789511234567"  # type: ignore[union-attr]
+
+
+def test_emit_marcxml_emits_035_for_a_non_oclc_system_control_number() -> None:
+    """A non-OCoLC 035 becomes ``bffi:Local`` + ``bffi:assigner`` with no
+    scheme URI and no marcKey, so scheme dispatch skipped it entirely — all 35
+    on the reference corpus were lost. ``$a`` is recomposed as
+    ``(AGENCY)number`` from the assigner organization URI.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    ident = URIRef("http://example.org/b1#Sysnum")
+    g.add((ident, RDF.type, BFFI.Local))
+    g.add((ident, RDF.value, Literal("7418307")))
+    g.add((ident, BFFI.assigner, URIRef("http://id.loc.gov/vocabulary/organizations/fibtj")))
+    g.add((manifestation, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='035']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "(FI-BTJ)7418307"  # type: ignore[union-attr]
+
+
+def test_bib_id_local_identifier_is_not_mistaken_for_035() -> None:
+    """The 001-bound bib ID is also ``bffi:Local``; without an assigner it must
+    not surface as a system control number."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='035']") is None
+
+
+def test_unknown_agency_code_falls_back_to_uppercase() -> None:
+    """An unmapped organization keeps the number and loses only hyphenation —
+    visible as `changed`, never silently wrong."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    ident = URIRef("http://example.org/b1#Sysnum")
+    g.add((ident, RDF.type, BFFI.Local))
+    g.add((ident, RDF.value, Literal("42")))
+    g.add((ident, BFFI.assigner, URIRef("http://id.loc.gov/vocabulary/organizations/zzunknown")))
+    g.add((manifestation, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='035']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "(ZZUNKNOWN)42"  # type: ignore[union-attr]

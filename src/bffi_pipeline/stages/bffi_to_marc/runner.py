@@ -2778,6 +2778,42 @@ _IDENTIFIER_SCHEME_TO_MARC: Final[dict[URIRef, _IdentifierScheme]] = {
 _MARCKEY_IDENTIFIER_DISPATCH_TAGS: Final[frozenset[str]] = frozenset({"016", "074"})
 
 
+#: MARC organization codes, keyed by the local name of the LoC
+#: ``organizations/`` URI marc2bibframe2 emits for MARC 035's ``(agency)``
+#: prefix. The URI drops the hyphen (``FI-BTJ`` → ``fibtj``) and a generic
+#: rule can't put it back: ``dlc`` must stay ``DLC``, so inserting a hyphen
+#: after a two-letter prefix would wrongly yield ``DL-C``. Unknown codes fall
+#: back to a bare uppercase, which round-trips the number but not the
+#: hyphenation — visible as ``changed``, never silently wrong.
+_ORGANIZATION_MARC_CODES: Final[dict[str, str]] = {
+    "dlc": "DLC",
+    "fibtj": "FI-BTJ",
+}
+
+
+def _system_control_number(graph: Graph, ident: URIRef | BNode, value: str) -> str | None:
+    """Compose MARC 035 ``$a`` (``(agency)number``) for a local identifier.
+
+    Returns ``None`` unless the identifier is a ``bffi:Local`` carrying a
+    ``bffi:assigner`` organization URI. That combination is what
+    marc2bibframe2 produces for MARC 035: the ``(FI-BTJ)`` prefix becomes the
+    assigner and the bare number becomes ``rdf:value``. The record's own
+    001-bound bib ID is also ``bffi:Local`` but carries no assigner, so it is
+    not mistaken for a system control number.
+
+    **Ambiguity, on the record:** MARC 016 and 074 produce a similar shape.
+    They are dispatched first via their ``bffi:marcKey`` prefix; a corpus with
+    016s that carry no marcKey would see them emitted here as 035 instead.
+    """
+    if (ident, RDF.type, BFFI.Local) not in graph:
+        return None
+    assigner = next(graph.objects(ident, BFFI.assigner), None)
+    if not isinstance(assigner, URIRef) or "/organizations/" not in str(assigner):
+        return None
+    code = local_name(assigner)
+    return f"({_ORGANIZATION_MARC_CODES.get(code, code.upper())}){value}"
+
+
 @dataclass(frozen=True)
 class _IdentifierEmit:
     """One MARC identifier datafield's worth of content.
@@ -3396,15 +3432,26 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
         indicators=(" ", " "),
         subfields=(("a", "OCLC / system control number"),),
         source=(
-            "?m bffi:identifiedBy [a bffi:Identifier ; "
+            "OCoLC variant: ?m bffi:identifiedBy [a bffi:Identifier ; "
             "bffi:source <http://id.loc.gov/vocabulary/identifiers/oclc-number> ; "
-            "rdf:value ?value]"
+            "rdf:value ?value]. Other agencies: ?m bffi:identifiedBy "
+            "[a bffi:Local ; bffi:assigner <…/organizations/{code}> ; "
+            "rdf:value ?number] — \\$a is recomposed as (AGENCY)number."
         ),
         notes=(
-            "Only the OCoLC variant rounds-trips cleanly today; non-OCoLC "
-            "035 maps to bf:Local in the forward path and shares the "
-            "bffi:source <…/identifiers/local> URI with MARC 016. Disambiguation "
-            "requires a marcKey carrier on the bf:Identifier bnode."
+            "Both variants round-trip. The non-OCoLC shape carries **no** "
+            "bffi:source and no marcKey — an earlier note claimed it shared "
+            "<…/identifiers/local> with MARC 016 and needed a marcKey to "
+            "disambiguate, which the data does not bear out. The assigner "
+            "organization URI is the discriminator; the record's own "
+            "001-bound bib ID is also bffi:Local but carries no assigner. "
+            "The agency code is restored from a small organization-code map "
+            "because the LoC URI drops the hyphen (FI-BTJ → fibtj) and no "
+            "generic rule can put it back — DLC must stay DLC. Unknown codes "
+            "fall back to bare uppercase, which keeps the number and loses "
+            "only the hyphenation. MARC 016 / 074 share this shape and are "
+            "dispatched first by marcKey; 016s without a marcKey would be "
+            "emitted here as 035."
         ),
     ),
     MarcEmitMeta(
@@ -3480,6 +3527,19 @@ def _extract_identifier_datafields(graph: Graph, manifestation: URIRef) -> list[
             continue
         scheme = _identifier_marc_target(graph, ident)
         if scheme is None:
+            # MARC 035 non-OCoLC: a bffi:Local with an assigner organization
+            # and no scheme URI at all. The emit rule's note used to claim
+            # these shared `…/identifiers/local` with 016 and needed a
+            # marcKey to disambiguate; in practice they carry neither, and
+            # the assigner is the discriminator.
+            composed = _system_control_number(graph, ident, str(value))
+            if composed is None:
+                continue
+            emits.append(
+                _IdentifierEmit(
+                    tag="035", ind1=" ", ind2=" ", value=composed, assigner=None, qualifier=None
+                )
+            )
             continue
         qualifier = next(graph.objects(ident, BFFI.qualifier), None)
         emits.append(
