@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from lxml import etree
-from rdflib import RDF, Graph, Literal, URIRef
+from rdflib import RDF, BNode, Graph, Literal, URIRef
 from rdflib.namespace import RDFS
 
 from bffi_pipeline.observability.events import StageEventEmitter, set_active_emitter
@@ -2061,3 +2061,100 @@ def test_structural_added_title_path_only_claims_740_fragments() -> None:
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
     assert root.find(f"{{{MARC21_NS}}}datafield[@tag='740']") is None
+
+
+# --- MARC 041 language components ($h and friends) -----------------------
+
+
+def _add_language_component(g: Graph, work: URIRef, component: str, code: str) -> None:
+    """Attach the shape marc2bibframe2 emits for an 041 sub-language code."""
+    note = BNode()
+    g.add((work, BFFI.note, note))
+    g.add((note, RDF.type, BFFI.Note))
+    g.add((note, RDF.type, URIRef(f"http://id.loc.gov/vocabulary/resourceComponents/{component}")))
+    g.add((note, BFFI.language, URIRef(f"http://id.loc.gov/vocabulary/languages/{code}")))
+
+
+def test_emit_marcxml_recovers_041_subfield_h_from_an_original_text_note() -> None:
+    """MARC 041 \\$h (language of the original) round-trips.
+
+    The registry note used to claim every 041 sub-code collapses into a flat
+    ``bf:language``, indistinguishable from \\$a. It doesn't:
+    ``ConvSpec-010-048.xsl`` wraps the ``hijkmnpqr`` subfields in a
+    ``bf:Note`` typed with a ``resourceComponents`` URI, language inside — so
+    \\$h survives the forward hop and can be put back. 26 occurrences in the
+    fixture corpus.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    _add_language_component(g, work, "otx", "rus")
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert [(sf.get("code"), sf.text) for sf in df] == [("a", "fin"), ("h", "rus")]
+    # ind1=1 — "item is or includes a translation". All 26 source 041s
+    # carrying $h in the fixture corpus use it.
+    assert df.get("ind1") == "1"
+
+
+def test_emit_marcxml_recovers_other_041_component_subfields() -> None:
+    """The same mechanism carries \\$i / \\$j / \\$k / \\$m / \\$n / \\$p / \\$q / \\$r.
+    Subtitles (\\$j) are the second-most-common in the corpus after \\$h."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/hun")))
+    _add_language_component(g, work, "sub", "swe")
+    _add_language_component(g, work, "sub", "fin")
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert [(sf.get("code"), sf.text) for sf in df] == [
+        ("a", "hun"),
+        ("j", "fin"),
+        ("j", "swe"),
+    ]
+    # No $h, so no translation is asserted: blank means "no information
+    # provided", which is true of the graph. '0' would claim the item is not a
+    # translation, which the graph doesn't say.
+    assert df.get("ind1") == " "
+
+
+def test_emit_marcxml_drops_a_summary_language_code_beside_real_ones() -> None:
+    """``mul`` / ``zxx`` come from 008/35-37 and leak in as an extra \\$a.
+
+    A record whose 041 lists its languages individually was gaining a
+    spurious ``$azxx`` / ``$amul`` from its own 008. In the fixture corpus
+    these codes appear in a source 041 only on their own.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    for code in ("ita", "ger", "zxx"):
+        g.add((work, BFFI.language, URIRef(f"http://id.loc.gov/vocabulary/languages/{code}")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert [sf.text for sf in df.findall(f"{{{MARC21_NS}}}subfield[@code='a']")] == ["ger", "ita"]
+
+
+def test_emit_marcxml_keeps_a_summary_language_code_when_it_stands_alone() -> None:
+    """``zxx`` alone is a legitimate 041 \\$a — 3 fixture records carry it."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/zxx")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert [sf.text for sf in df.findall(f"{{{MARC21_NS}}}subfield[@code='a']")] == ["zxx"]

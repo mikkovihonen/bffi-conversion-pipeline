@@ -110,9 +110,12 @@ def test_diff_fields_classifies_added_when_only_in_reconstructed() -> None:
     assert diffs[0].reconstructed.subfields[0][1] == "Synthesised"
 
 
-def test_diff_fields_pairs_identical_first_then_zips_remainder() -> None:
-    """Repeated tags pair identical instances first, then zip leftover
-    positionally as `changed`, then overhang as lost / added."""
+def test_diff_fields_leaves_unrelated_repeated_instances_unpaired() -> None:
+    """Two repeated fields with nothing in common are lost + added.
+
+    They used to be zipped positionally into a `changed` row, which claimed
+    "A became X" about two fields that have no relationship (p-063).
+    """
     source = (
         _df("700", "a", "A"),
         _df("700", "a", "B"),  # matches recon[0]
@@ -120,12 +123,110 @@ def test_diff_fields_pairs_identical_first_then_zips_remainder() -> None:
     )
     recon = (
         _df("700", "a", "B"),  # identical to source[1]
-        _df("700", "a", "X"),  # paired as changed with leftover source[0]
+        _df("700", "a", "X"),  # shares nothing with A or C
     )
     diffs = diff_fields(source=source, reconstructed=recon)
-    statuses = sorted(d.status for d in diffs)
-    # 1 identical (B↔B), 1 changed (A↔X), 1 lost (C).
-    assert statuses == ["changed", "identical", "lost"]
+    assert sorted(d.status for d in diffs) == ["added", "identical", "lost", "lost"]
+
+
+# --- p-063: pairing by content, and the `reordered` status ----------------
+
+
+def _sub(tag: str, *subfields: tuple[str, str], ind1: str = "0", ind2: str = "0") -> FieldRow:
+    return FieldRow(tag=tag, ind1=ind1, ind2=ind2, subfields=subfields, text=None)
+
+
+def test_subfield_order_alone_is_reordered_not_changed() -> None:
+    """The reverse converter emits `$0` before `$2`; cataloguers write `$2`
+    first. Same content, so not `changed` — but MARC prescribes subfield
+    order, so not `identical` either."""
+    source = (_sub("650", ("a", "henget"), ("2", "kauno"), ("0", "http://x/p1")),)
+    recon = (_sub("650", ("a", "henget"), ("0", "http://x/p1"), ("2", "kauno")),)
+    diffs = diff_fields(source=source, reconstructed=recon)
+    assert [d.status for d in diffs] == ["reordered"]
+
+
+def test_differing_indicators_are_changed_not_reordered() -> None:
+    source = (_sub("084", ("a", "Historia"), ("2", "ykl"), ind1="9"),)
+    recon = (_sub("084", ("a", "Historia"), ("2", "ykl"), ind1=" "),)
+    diffs = diff_fields(source=source, reconstructed=recon)
+    assert [d.status for d in diffs] == ["changed"]
+
+
+def test_repeated_fields_pair_by_content_not_position() -> None:
+    """The 650 case from the curated corpus.
+
+    The reconstruction emits subjects in alphabetical order while the source
+    is in cataloguer order. Positional zipping paired `perhesalaisuudet` with
+    `aikatasot` and called it a changed value; each subject must instead find
+    the instance that shares its authority URI.
+    """
+    source = (
+        _sub("650", ("a", "perhesalaisuudet"), ("2", "kauno/fin"), ("0", "http://x/p959")),
+        _sub("650", ("a", "mysteerit"), ("2", "kauno/fin"), ("0", "http://x/p6221")),
+        _sub("650", ("a", "henget"), ("2", "kauno/fin"), ("0", "http://x/p5316")),
+    )
+    recon = (
+        _sub("650", ("a", "aikatasot"), ("0", "http://x/p5820"), ("2", "kauno")),
+        _sub("650", ("a", "henget"), ("0", "http://x/p5316"), ("2", "kauno")),
+        _sub("650", ("a", "mysteerit"), ("0", "http://x/p6221"), ("2", "kauno")),
+    )
+    diffs = diff_fields(source=source, reconstructed=recon)
+
+    paired = {
+        d.source.subfields[0][1]: d.reconstructed.subfields[0][1]
+        for d in diffs
+        if d.status == "changed"
+    }
+    assert paired == {"mysteerit": "mysteerit", "henget": "henget"}
+    lost = [d.source.subfields[0][1] for d in diffs if d.status == "lost"]
+    added = [d.reconstructed.subfields[0][1] for d in diffs if d.status == "added"]
+    assert lost == ["perhesalaisuudet"]
+    assert added == ["aikatasot"]
+
+
+def test_a_normalised_value_still_pairs_as_changed() -> None:
+    """Fields sharing no subfield value exactly can still be the same field.
+
+    A stripped nonfiling article or dropped trailing punctuation is the whole
+    point of the `changed` bucket, so primary-value similarity pairs them
+    even with no exact overlap to go on.
+    """
+    source = (_sub("700", ("a", "Puškin, Aleksandr,")), _sub("700", ("a", "Tolstoi, Leo,")))
+    recon = (_sub("700", ("a", "Tolstoi, Leo")), _sub("700", ("a", "Puškin, Aleksandr")))
+    diffs = diff_fields(source=source, reconstructed=recon)
+
+    assert [d.status for d in diffs] == ["changed", "changed"]
+    paired = {d.source.subfields[0][1]: d.reconstructed.subfields[0][1] for d in diffs}
+    assert paired == {
+        "Puškin, Aleksandr,": "Puškin, Aleksandr",
+        "Tolstoi, Leo,": "Tolstoi, Leo",
+    }
+
+
+def test_a_single_instance_pairs_even_with_nothing_in_common() -> None:
+    """One field in, one field out: `changed` beats a lost/added pair the
+    reader has to re-associate by eye."""
+    source = (_sub("040", ("a", "FI-BTJ")),)
+    recon = (_sub("040", ("b", "fin")),)
+    diffs = diff_fields(source=source, reconstructed=recon)
+    assert [d.status for d in diffs] == ["changed"]
+
+
+def test_pairing_is_deterministic_across_equally_good_candidates() -> None:
+    """Two equally-similar candidates must resolve the same way every run —
+    the review HTML is a conversion output like any other."""
+    source = (_sub("650", ("a", "x"), ("0", "http://x/p1")),)
+    recon = (
+        _sub("650", ("a", "y"), ("0", "http://x/p1")),
+        _sub("650", ("a", "z"), ("0", "http://x/p1")),
+    )
+    first = diff_fields(source=source, reconstructed=recon)
+    second = diff_fields(source=source, reconstructed=recon)
+    assert first == second
+    changed = next(d for d in first if d.status == "changed")
+    # Earliest reconstructed index wins the tie.
+    assert changed.reconstructed.subfields[0][1] == "y"
 
 
 # --- diff_records (integration) -----------------------------------------

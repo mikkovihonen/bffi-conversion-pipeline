@@ -7,6 +7,15 @@
     <subfield code="2">yso/fin</subfield>
     <subfield code="3">Z0413</subfield>
     <subfield code="a">fin</subfield>
+    <subfield code="h">eng</subfield>
+    <subfield code="i">Z041i</subfield>
+    <subfield code="j">Z041j</subfield>
+    <subfield code="k">Z041k</subfield>
+    <subfield code="m">Z041m</subfield>
+    <subfield code="n">Z041n</subfield>
+    <subfield code="p">Z041p</subfield>
+    <subfield code="q">Z041q</subfield>
+    <subfield code="r">Z041r</subfield>
   </datafield>
   <datafield tag="245" ind1="0" ind2="0">
     <subfield code="a">Field-coverage probe 041 (maximal)</subfield>

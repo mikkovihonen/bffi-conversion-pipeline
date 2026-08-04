@@ -18,7 +18,13 @@ from collections.abc import Iterable
 
 from bffi_pipeline.stages.roundtrip_eval.diff import DiffStatus, FieldDiff, RecordDiff
 
-_STATUS_ORDER: tuple[DiffStatus, ...] = ("identical", "changed", "lost", "added")
+_STATUS_ORDER: tuple[DiffStatus, ...] = (
+    "identical",
+    "reordered",
+    "changed",
+    "lost",
+    "added",
+)
 
 _STYLE = """
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 1em; }
@@ -27,6 +33,8 @@ table { border-collapse: collapse; margin: 0.5em 0 1em 0; }
 th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
 th { background: #f4f4f4; }
 .identical { background: #d4edda; }
+/* reordered sits between identical and changed: same content, wrong order. */
+.reordered { background: #e2f0d9; }
 .changed   { background: #fff3cd; }
 .lost      { background: #f8d7da; }
 .added     { background: #cce5ff; }

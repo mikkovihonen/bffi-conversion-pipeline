@@ -331,7 +331,7 @@ Verdict legend:
 | `032` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `035` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `040` | ≠ asymmetric | `adminmetadata` | ✓ | `$6` | — | `$b` `$e` | — | — |
-| `041` | ≠ asymmetric | `work` | ✓ | `$2` `$3` `$6` | `$a` | — | forward only: ind2=`7`<br>reverse only: ind1=`#` | — |
+| `041` | ≠ asymmetric | `work` | ✓ | `$2` `$3` `$6` | `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | — | forward only: ind2=`7`<br>reverse only: ind1=`#` | — |
 | `050` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
 | `060` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
 | `070` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`<br>reverse only: ind1=`#`, ind2=`#` | — |

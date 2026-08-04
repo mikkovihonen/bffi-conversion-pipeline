@@ -71,7 +71,7 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `040` | `040` | minimal | datafield | `##` | `$b` | asymmetric |
 | `1040` | `040` | maximal | datafield | `##` | `$b` `$e` | asymmetric |
 | `041` | `041` | minimal | datafield | `##` | `$a` | asymmetric |
-| `1041` | `041` | maximal | datafield | `##` | `$2` `$3` `$a` | asymmetric |
+| `1041` | `041` | maximal | datafield | `##` | `$2` `$3` `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | asymmetric |
 | `042` | `042` | minimal | datafield | `##` | `$a` | forward_only |
 | `043` | `043` | minimal | datafield | `##` | `$a` | forward_only |
 | `1043` | `043` | maximal | datafield | `##` | `$0` `$a` `$b` `$c` | forward_only |

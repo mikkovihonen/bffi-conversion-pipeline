@@ -118,7 +118,7 @@ Initial panel set for the bidirectional-conversion scope:
 | Forward-conversion throughput | Stat | Records per minute over the last 5 progress events. |
 | Routing outcome distribution | Bar gauge | Per-outcome counts after BIBFRAME → BFFI ends (hub_routed_work, hub_routed_expression, identifier_isbn, …). |
 | Reverse-conversion progress | Stat | Processed / total for the BFFI → MARC stage. |
-| Round-trip diff residue | Stat | After `roundtrip_eval`: counts of records by diff status (`identical` / `changed` / `lost` / `tag-changed` / `marckey-bypass`); clickable through to the cataloguer-review HTML via Caddy's `/files/` mount. |
+| Round-trip diff residue | Stat | After `roundtrip_eval`: counts of records by diff status (`identical` / `reordered` / `changed` / `lost` / `added`); clickable through to the cataloguer-review HTML via Caddy's `/files/` mount. |
 | Per-stage throughput | Time series | All stages — overlay view of who's currently moving. |
 | Validation residue | Stat | Count of records with non-zero `_validation.jsonl` rows from the forward conversion. |
 

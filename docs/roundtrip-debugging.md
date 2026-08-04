@@ -87,6 +87,7 @@ The classification decides which hop to look at and how urgent it is.
 | Symptom | Meaning | Where to look |
 |---|---|---|
 | **identical** | round-trips | — |
+| **reordered** | tag right, same subfields, different order | the emit's canonical subfield order; expected, not a defect |
 | **changed** | tag right, value differs | usually upstream normalisation (nonfiling articles, punctuation, EDTF dates) |
 | **retagged** | values present under another tag | reverse dispatch picked a different tag; often correct-by-model |
 | **lost** | values absent entirely | traversal, gating, or upstream drop |
@@ -94,6 +95,12 @@ The classification decides which hop to look at and how urgent it is.
 
 Fabrication outranks loss. A missing field is visible; an invented one reads
 as authoritative and quietly corrupts the diff it is supposed to falsify.
+
+Repeated fields are paired by **content**, not position — a record's eleven
+650s pair with their own counterparts even though the reconstruction emits
+them in a different order (p-063). Before that fix, half the `changed` rows
+in the review HTML compared two unrelated fields, so a `changed` row is now
+worth reading as a real value difference.
 
 To tell **lost** from **retagged**, search the reconstruction for the source
 value rather than the tag:

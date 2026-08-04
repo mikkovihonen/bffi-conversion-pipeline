@@ -3037,22 +3037,54 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
     MarcEmitMeta(
         tag="041",
         indicators=(" ", " "),
-        subfields=(("a", "3-letter language code (one per language)"),),
+        subfields=(
+            ("a", "3-letter language code (one per language)"),
+            ("h", "language of the original"),
+            ("i", "language of intertitles"),
+            ("j", "language of subtitles"),
+            ("k", "language of intermediate translations"),
+            ("m", "language of accompanying material"),
+            ("n", "language of the original libretto"),
+            ("p", "language of captions"),
+            ("q", "language of accessible audio"),
+            ("r", "language of accessible visual language"),
+        ),
         source=(
-            "?m or ?work or ?expression bffi:language "
-            "<http://id.loc.gov/vocabulary/languages/{code}> "
-            "— the last URI segment is the MARC code"
+            "\\$a: ?m or ?work or ?expression bffi:language "
+            "<http://id.loc.gov/vocabulary/languages/{code}> — the last URI "
+            "segment is the MARC code. \\$h and the other component codes: "
+            "?work bffi:note [a <http://id.loc.gov/vocabulary/resourceComponents/"
+            "{component}> ; bffi:language <…/languages/{code}>], where the "
+            "component URI selects the subfield (otx → \\$h, sub → \\$j, …)"
         ),
         notes=(
-            "Only \\$a is emitted. **MARC 041 sub-language codes "
-            "(\\$h language of original, \\$b summary, \\$d sung/spoken, "
-            "\\$g accompanying material, \\$j subtitles, etc.) collapse "
-            "into flat bffi:language URIs** at the marc2bibframe2 layer: "
-            "every source 041 sub-code becomes bf:language on the Work, "
-            "indistinguishable from the primary \\$a language. The reverse "
-            "converter has no signal to recover which language URI was "
-            "originally \\$h vs \\$a. Corpus impact: small (~54 sub-code "
-            "occurrences across the 500-record bench)."
+            "**The sub-language codes do survive the forward hop** — an earlier "
+            "note here claimed they collapse into flat bffi:language URIs, and "
+            "that is wrong. ``ConvSpec-010-048.xsl``'s ``parse041`` wraps every "
+            "subfield in the ``hijkmnpqr`` set in a ``bf:Note`` typed with a "
+            "``resourceComponents`` URI carrying the language inside, so the "
+            "sub-code is recoverable: \\$h (otx) is emitted from "
+            "``bffi:note [a <…/resourceComponents/otx> ; bffi:language ?lang]``, "
+            "and likewise \\$i \\$j \\$k \\$m \\$n \\$p \\$q \\$r. "
+            "26 source \\$h and 10 \\$j occurrences in the fixture corpus; "
+            "9 records' 041s became byte-identical when this landed.\n\n"
+            "**Not recovered:** the ``bdefgt`` set (\\$b summary, \\$d sung or "
+            "spoken text, \\$e librettos, \\$f table of contents, \\$g "
+            "accompanying material, \\$t transcripts), which the XSLT emits as "
+            "``bf:accompaniedBy`` → ``bf:Work`` instead — a different shape this "
+            "path doesn't walk (one \\$d in the corpus). A source \\$3 "
+            "(materials specified) makes the XSLT drop the language outright, so "
+            "those are unrecoverable at any stage.\n\n"
+            "ind1=1 is asserted when \\$h is present (all 26 corpus \\$h "
+            "carriers use ind1=1); the XSLT comments out its own ind1 handling, "
+            "so ind1 is otherwise absent from BIBFRAME and stays blank rather "
+            "than claiming '0' (not a translation) without evidence.\n\n"
+            "\\$a order is not preserved — the codes come from an unordered "
+            "RDF set and are emitted sorted, so a source whose first \\$a marks "
+            "the predominant language loses that distinction. ``mul`` and "
+            "``zxx`` are dropped from \\$a when other codes are present: they "
+            "are 008/35-37 summary codes that leaked in as an extra \\$a, and "
+            "in the corpus they appear in a source 041 only alone.\n\n"
             "Emitted whenever the graph carries a language statement, so a "
             "record whose language came only from 008 (no source 041) gains "
             "one — visible as `added` in the round-trip diff. Suppressing "
@@ -3087,7 +3119,95 @@ def _extract_language_codes(graph: Graph, manifestation: URIRef) -> list[str]:
         for obj in graph.objects(owner, BFFI.language)
         if isinstance(obj, URIRef)
     }
+    # ``mul`` (multiple languages) and ``zxx`` (no linguistic content) are
+    # 008/35-37 summary codes. marc2bibframe2 emits them as ``bf:language``
+    # like any other, so a record whose 041 lists its languages individually
+    # picked up a spurious extra ``$a`` from its own 008 — ``$azxx`` beside
+    # ``$aita $ager``, ``$amul`` beside eight real codes. In the fixture
+    # corpus these two codes appear in a source 041 only on their own (3
+    # records, all ``zxx`` alone), never alongside real languages, so they
+    # are dropped when anything else is present and kept when they aren't.
+    if len(codes) > 1:
+        codes -= _LANGUAGE_SUMMARY_CODES
     return sorted(codes)
+
+
+#: MARC language codes that summarise a record rather than name a language:
+#: ``mul`` = multiple languages, ``zxx`` = no linguistic content. Both come
+#: from 008/35-37 and only make sense as a record's sole language claim.
+_LANGUAGE_SUMMARY_CODES: Final[frozenset[str]] = frozenset({"mul", "zxx"})
+
+#: MARC 041 language-component subfields, keyed by the LoC
+#: ``resourceComponents`` URI marc2bibframe2 types the note with.
+#:
+#: The forward XSLT does **not** flatten these into plain ``bf:language``:
+#: ``ConvSpec-010-048.xsl``'s ``parse041`` wraps every subfield in the
+#: ``hijkmnpqr`` set in a ``bf:Note`` typed with the component URI, carrying
+#: the language inside. So the sub-code survives the forward hop and the
+#: reverse direction can put it back — 26 ``$h`` occurrences in the fixture
+#: corpus, the largest single 041 loss.
+#:
+#: The ``bdefgt`` set (``$b`` summary, ``$d`` sung text, ``$e`` librettos,
+#: ``$f`` table of contents, ``$g`` accompanying material, ``$t``
+#: transcripts) takes a different shape — ``bf:accompaniedBy`` → ``bf:Work``
+#: — and is not recovered here. One ``$d`` in the corpus.
+#:
+#: ``$a`` is unaffected: it stays a bare ``bffi:language`` on the Work and
+#: feeds the ``$a`` codes.
+_RESOURCE_COMPONENT_TO_041_SUBFIELD: Final[dict[URIRef, str]] = {
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/otx"): "h",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/int"): "i",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/sub"): "j",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/itr"): "k",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/amt"): "m",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/olb"): "n",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/cap"): "p",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/aud"): "q",
+    URIRef("http://id.loc.gov/vocabulary/resourceComponents/vis"): "r",
+}
+
+
+def _extract_language_components(graph: Graph, manifestation: URIRef) -> list[tuple[str, str]]:
+    """Recover MARC 041's language-component subfields.
+
+    Returns ``(subfield_code, language_code)`` pairs — e.g. ``("h", "rus")``
+    for a Finnish translation of a Russian original — sorted so the emit is
+    deterministic.
+
+    Walks the same owners as the ``$a`` codes: marc2bibframe2 attaches the
+    041 notes to the **Work**, so a Manifestation-only walk finds nothing.
+
+    A source ``$3`` (materials specified) suppresses the language in the
+    XSLT entirely, so those are not recoverable at all — one occurrence in
+    the fixture corpus.
+    """
+    work = _find_work_for_manifestation(graph, manifestation)
+    owners: list[URIRef | BNode] = [manifestation]
+    if work is not None:
+        owners.append(work)
+    owners.extend(_expressions_for(graph, manifestation, work))
+
+    pairs: set[tuple[str, str]] = set()
+    seen: set[URIRef | BNode] = set()
+    for owner in owners:
+        for note in graph.objects(owner, BFFI.note):
+            if not isinstance(note, URIRef | BNode) or note in seen:
+                continue
+            seen.add(note)
+            code = next(
+                (
+                    subfield
+                    for component, subfield in _RESOURCE_COMPONENT_TO_041_SUBFIELD.items()
+                    if (note, RDF.type, component) in graph
+                ),
+                None,
+            )
+            if code is None:
+                continue
+            for language in graph.objects(note, BFFI.language):
+                if isinstance(language, URIRef):
+                    pairs.add((code, local_name(language)))
+    return sorted(pairs)
 
 
 #: Matches ``#<Type><tag>-<n>`` in subject-node URI fragments emitted
@@ -4041,6 +4161,7 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     publication: _PublicationEmit | None,
     identifiers: list[_IdentifierEmit],
     language_codes: list[str],
+    language_components: list[tuple[str, str]],
     physical: _PhysicalDescription | None,
     rda: _RdaDescriptors,
     classifications: list[_ClassificationEmit],
@@ -4080,11 +4201,27 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
 
     _append_classification_datafields(record, classifications)
 
-    if language_codes:
-        df041 = etree.SubElement(record, f"{_MARC}datafield", tag="041", ind1=" ", ind2=" ")
+    if language_codes or language_components:
+        # ind1=1 ("item is or includes a translation") whenever a language of
+        # the original is present: all 26 source 041s carrying $h in the
+        # fixture corpus use ind1=1. Without $h there is no evidence either
+        # way, so the indicator stays blank ("no information provided")
+        # rather than asserting 0.
+        translation = any(code == "h" for code, _ in language_components)
+        df041 = etree.SubElement(
+            record,
+            f"{_MARC}datafield",
+            tag="041",
+            ind1="1" if translation else " ",
+            ind2=" ",
+        )
         for code in language_codes:
             sf_a = etree.SubElement(df041, f"{_MARC}subfield", code="a")
             sf_a.text = code
+        # $h / $i / $j / … follow every $a, which is also their MARC order.
+        for subfield_code, language_code in language_components:
+            sf = etree.SubElement(df041, f"{_MARC}subfield", code=subfield_code)
+            sf.text = language_code
 
     # Primary contributors (MARC 100/110/111) come before 130 in MARC
     # tag order.
@@ -4199,6 +4336,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
     publication = _extract_publication(graph, manifestation)
     identifiers = _extract_identifier_datafields(graph, manifestation)
     language_codes = _extract_language_codes(graph, manifestation)
+    language_components = _extract_language_components(graph, manifestation)
     physical = _extract_physical_description(graph, manifestation)
     rda = _extract_rda_descriptors(graph, manifestation)
     classifications = _extract_classifications(graph, manifestation)
@@ -4234,6 +4372,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         publication=publication,
         identifiers=identifiers,
         language_codes=language_codes,
+        language_components=language_components,
         physical=physical,
         rda=rda,
         classifications=classifications,
