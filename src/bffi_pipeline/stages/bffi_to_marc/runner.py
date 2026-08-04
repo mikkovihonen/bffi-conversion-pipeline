@@ -1013,18 +1013,44 @@ def _extract_added_titles(graph: Graph, manifestation: URIRef) -> list[_AddedTit
                 if not isinstance(target, URIRef):
                     continue
                 marc_key = next(graph.objects(target, BFFI.marcKey), None)
-                if not isinstance(marc_key, Literal):
+                if isinstance(marc_key, Literal):
+                    parsed = _parse_marc_key(str(marc_key))
+                    if parsed is None:
+                        continue
+                    tag, ind1, ind2, subfields = parsed
+                    if tag not in ("730", "740") or not subfields:
+                        continue
+                    emits.append(
+                        _AddedTitleEmit(tag=tag, ind1=ind1, ind2=ind2, subfields=subfields)
+                    )
                     continue
-                parsed = _parse_marc_key(str(marc_key))
-                if parsed is None:
-                    continue
-                tag, ind1, ind2, subfields = parsed
-                if tag not in ("730", "740"):
-                    continue
-                if not subfields:
-                    continue
-                emits.append(_AddedTitleEmit(tag=tag, ind1=ind1, ind2=ind2, subfields=subfields))
+                structural = _uncontrolled_added_title(graph, target)
+                if structural is not None:
+                    emits.append(structural)
     return sorted(emits, key=lambda e: (e.tag, e.subfields))
+
+
+def _uncontrolled_added_title(graph: Graph, target: URIRef) -> _AddedTitleEmit | None:
+    """Recover a MARC 740 from a marcKey-less uncontrolled related title.
+
+    marc2bibframe2 renders MARC 740 as a ``bffi:Uncontrolled`` Work whose URI
+    fragment carries the source tag (``#Work740-42``) and whose title hangs
+    off ``bffi:title / bffi:mainTitle``. Unlike 730 it gets **no marcKey**, so
+    the marcKey path above skipped it and every 740 was lost.
+
+    Only ``$a`` is recoverable this way: ``$g`` / ``$l`` / ``$n`` / ``$o`` /
+    ``$p`` have no structured BFFI predicate, which is exactly why the 730
+    path prefers marcKey. ind1 is not recoverable either — the source's
+    nonfiling-character count is not carried — so it emits blank.
+    """
+    match = _SUBJECT_TAG_PATTERN.search(str(target))
+    if match is None or match.group(1) != "740":
+        return None
+    for title in graph.objects(target, BFFI.title):
+        main = next(graph.objects(title, BFFI.mainTitle), None)
+        if isinstance(main, Literal) and str(main).strip():
+            return _AddedTitleEmit(tag="740", ind1=" ", ind2=" ", subfields=(("a", str(main)),))
+    return None
 
 
 #: marc2bibframe2 attaches an ``rdf:type <mnotetype/<tail>>`` discriminator

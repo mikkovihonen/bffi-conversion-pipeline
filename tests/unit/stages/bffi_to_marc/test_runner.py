@@ -2009,3 +2009,55 @@ def test_787_still_emitted_for_a_genuine_related_work() -> None:
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
     assert root.find(f"{{{MARC21_NS}}}datafield[@tag='787']") is not None
+
+
+def test_emit_marcxml_emits_740_from_an_uncontrolled_title_without_a_marckey() -> None:
+    """Regression: marc2bibframe2 renders MARC 740 as a ``bffi:Uncontrolled``
+    Work whose URI fragment carries the tag (``#Work740-42``) and gives it
+    **no marcKey**, unlike 730. The marcKey-only path lost every 740 — 23 on
+    the reference corpus.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    target = URIRef("http://urn.fi/URN:NBN:fi:bib:b1#Work740-42")
+    g.add((target, RDF.type, BFFI.Work))
+    g.add((target, RDF.type, URIRef("http://urn.fi/URN:NBN:fi:schema:bffi:Uncontrolled")))
+    title = URIRef("http://example.org/b1#T740")
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, BFFI.mainTitle, Literal("Charka")))
+    g.add((target, BFFI.title, title))
+    rel = URIRef("http://example.org/b1#Rel740")
+    g.add((rel, BFFI.relationship, URIRef("http://id.loc.gov/vocabulary/relationship/relatedwork")))
+    g.add((rel, BFFI.associatedResource, target))
+    g.add((work, BFFI.relation, rel))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='740']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "Charka"  # type: ignore[union-attr]
+    # And it must not also surface as a related-work linking entry.
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='787']") is None
+
+
+def test_structural_added_title_path_only_claims_740_fragments() -> None:
+    """A marcKey-less related resource whose fragment names another tag must
+    not be emitted as 740."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    target = URIRef("http://urn.fi/URN:NBN:fi:bib:b1#Work700-9")
+    g.add((target, RDF.type, BFFI.Work))
+    title = URIRef("http://example.org/b1#T700")
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, BFFI.mainTitle, Literal("Not a 740")))
+    g.add((target, BFFI.title, title))
+    rel = URIRef("http://example.org/b1#Rel700")
+    g.add((rel, BFFI.relationship, URIRef("http://id.loc.gov/vocabulary/relationship/relatedwork")))
+    g.add((rel, BFFI.associatedResource, target))
+    g.add((work, BFFI.relation, rel))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert root.find(f"{{{MARC21_NS}}}datafield[@tag='740']") is None
