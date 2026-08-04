@@ -1,7 +1,7 @@
 # BFFI conversion pipeline
 
 Bidirectional conversion between MARCXML and [BFFI](https://schema.finto.fi/bffi/)
-(*Bibliografiset formaatit Finnassa* — the National Library of Finland's
+(the National Library of Finland's
 BIBFRAME application profile), by way of BIBFRAME:
 
 ```
