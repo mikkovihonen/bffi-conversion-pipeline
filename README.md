@@ -47,7 +47,7 @@ enumerated rather than hidden — see the "Known limitations" section of
 
 ```mermaid
 flowchart TD
-    SRC[Helmet MARCXML<br/>~800k records]
+    SRC[MARCXML]
     MEL[Melinda OAI-PMH]
 
     subgraph Forward
@@ -64,7 +64,7 @@ flowchart TD
     end
 
     SRC --> S1
-    MEL --> S1
+    MEL --> SRC
     S1 --> S2 --> S3 --> S4
     SRC -.->|source of truth| S4
 
