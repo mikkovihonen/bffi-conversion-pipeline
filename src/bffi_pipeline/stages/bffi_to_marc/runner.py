@@ -2807,7 +2807,7 @@ def _find_work_for_manifestation(graph: Graph, manifestation: URIRef) -> URIRef 
 #: abstract Work, not a particular Manifestation), so every row's
 #: source begins with the same walk.
 _SUBJECT_SOURCE_PREFIX: Final[str] = (
-    "?m bffi:workManifested ?work . ?work bffi:subject|bffi:genreForm ?subject . "
+    "?m bffi:workManifested ?work . ?work bffi:subject \\| bffi:genreForm ?subject . "
     "?subject rdfs:label ?label . "
     "$2 = local-name of ?subject's bffi:source URI when present; "
     "$0 = ?subject URI itself when it's not a bib-internal mint"
@@ -3081,7 +3081,8 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
         indicators=("0-3", " "),
         subfields=(("a", "EAN / UPC / ISMN value"),),
         source=(
-            "?m bffi:identifiedBy [a bffi:Identifier ; bffi:source <…/identifiers/upc|ismn|ean> ; "
+            "?m bffi:identifiedBy [a bffi:Identifier ; "
+            "bffi:source <…/identifiers/upc \\| ismn \\| ean> ; "
             "rdf:value ?value] — ind1 selects the scheme (1=UPC, 2=ISMN, 3=EAN)."
         ),
     ),
