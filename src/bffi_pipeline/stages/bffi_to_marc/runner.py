@@ -3513,8 +3513,16 @@ def _identifier_marc_target(graph: Graph, ident: Node) -> _IdentifierScheme | No
     bnode (either the 001-bound bib ID or an identifier scheme this
     converter doesn't yet emit).
     """
-    source = next(graph.objects(ident, BFFI.source), None)
-    if isinstance(source, URIRef):
+    # Scan every ``bffi:source``, not just the first. An identifier can carry
+    # more than one — the scheme URI plus a vocabulary node — and
+    # ``next(graph.objects(...))`` returns them in rdflib's arbitrary
+    # iteration order, so taking one and giving up silently dropped the
+    # field whenever the non-scheme source happened to come first. That made
+    # the emit order-dependent, which is a correctness bug even where it
+    # currently happens to work.
+    for source in graph.objects(ident, BFFI.source):
+        if not isinstance(source, URIRef):
+            continue
         scheme = _IDENTIFIER_SCHEME_TO_MARC.get(source)
         if scheme is not None:
             return scheme

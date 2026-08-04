@@ -1796,3 +1796,30 @@ def test_identifier_reachable_from_both_axes_emits_once() -> None:
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
     assert len(root.findall(f"{{{MARC21_NS}}}datafield[@tag='020']")) == 1
+
+
+def test_identifier_dispatch_scans_every_source_not_just_the_first() -> None:
+    """Regression: an identifier can carry more than one ``bffi:source`` — the
+    scheme URI plus a vocabulary node. ``next(graph.objects(...))`` returns
+    them in rdflib's arbitrary order, so taking one and giving up dropped the
+    field whenever the non-scheme source came first. Order-dependent emit is a
+    correctness bug even where it happens to work.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    ident = URIRef("http://example.org/b1#Isbn")
+    g.add((ident, RDF.type, BFFI.Identifier))
+    g.add((ident, RDF.value, Literal("9789511234567")))
+    # A non-scheme source alongside the real one.
+    decoy = URIRef("http://example.org/b1#Vocab")
+    g.add((decoy, RDFS.label, Literal("yso/fin")))
+    g.add((ident, BFFI.source, decoy))
+    g.add((ident, BFFI.source, URIRef("http://id.loc.gov/vocabulary/identifiers/isbn")))
+    g.add((manifestation, BFFI.identifiedBy, ident))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='020']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "9789511234567"  # type: ignore[union-attr]
