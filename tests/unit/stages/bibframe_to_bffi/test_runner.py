@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -220,3 +221,43 @@ def test_convert_one_writes_provenance_sidecar_with_routing_decisions(
     expected = {f"{name}={count}" for name, count in routings.items() if count}
     assert recorded == expected
     assert output_path.is_file()
+
+
+def test_emitted_turtle_has_no_auto_generated_prefixes(tmp_path: Path) -> None:
+    """Real marc2bibframe2 output must serialise with zero ``ns1:`` prefixes.
+
+    Regression guard with teeth: the hand-listed namespace test in
+    ``test_vocab_prefixes.py`` can only catch namespaces someone remembered
+    to list. This one converts an actual BIBFRAME record, so any namespace
+    the pipeline genuinely emits but forgets to bind shows up here. Dropping
+    ``madsrdf`` from the canonical prefixes leaked ``ns1:`` into 255 of 302
+    corpus records before this existed — marc2bibframe2 emits
+    ``madsrdf:authoritativeLabel`` / ``madsrdf:Topic`` / ``madsrdf:GenreForm``
+    on 6XX blocks and they survive the clean rename.
+    """
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir(parents=True, exist_ok=True)
+    # A curated record with a 655 genre/form block: marc2bibframe2 renders
+    # those with madsrdf terms, which is what makes this a real test. The
+    # vendored marc2bibframe2 sample has no such block, so using it here
+    # would pass whether or not madsrdf is bound.
+    source = _REPO_ROOT / "tests" / "data" / "sample-marcxml" / "curated" / "1353996.xml"
+    bibframe_path = in_dir / "genre.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(source)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+    assert "mads/rdf" in result.stdout, "fixture no longer exercises madsrdf"
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    turtle = output_path.read_text(encoding="utf-8")
+    auto = re.findall(r"^@prefix\s+(ns\d+):\s+<([^>]*)>", turtle, re.MULTILINE)
+    assert not auto, f"unbound namespaces leaked as auto-prefixes: {auto}"

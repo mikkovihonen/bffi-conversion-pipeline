@@ -29,14 +29,22 @@ BIB = Namespace("http://urn.fi/URN:NBN:fi:bib:")
 BF = Namespace("http://id.loc.gov/ontologies/bibframe/")
 BFLC = Namespace("http://id.loc.gov/ontologies/bflc/")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
+#: MADS/RDF. Neither a BFFI nor a BIBFRAME namespace, and absent from
+#: ``lkd.rdf`` — but marc2bibframe2 renders 6XX subject blocks with
+#: ``madsrdf:authoritativeLabel`` / ``madsrdf:Topic`` / ``madsrdf:GenreForm``,
+#: and those survive the clean rename into the BFFI graph. It must stay
+#: bound or rdflib invents ``ns1:`` for them — the exact failure the
+#: prefix-discipline rule in ``CLAUDE.md`` exists to prevent.
+MADSRDF = Namespace("http://www.loc.gov/mads/rdf/v1#")
 
 
 #: Canonical short prefix → namespace mapping for every vocabulary the
 #: pipeline emits in serialised output. The union covers BIBFRAME
 #: (``bf``, ``bflc``), BFFI (``bffi``, our private ``bffi-prov``,
 #: ``bib`` for record-scoped URIs), W3C standards (``rdf``, ``rdfs``,
-#: ``skos``, ``owl``, ``xsd``, ``prov``), and the Dublin Core terms set
-#: (``dct``).
+#: ``skos``, ``owl``, ``xsd``, ``prov``), the Dublin Core terms set
+#: (``dct``), and MADS/RDF (``madsrdf``, emitted by marc2bibframe2 on 6XX
+#: subject blocks).
 #:
 #: Two reasons to keep this list one place:
 #:
@@ -51,8 +59,8 @@ SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 #:    (commit ``2103de3`` and its companion fix) was exactly this
 #:    failure mode.
 #:
-#: 2. **Per-file consistency.** A stage that binds 7 of the 12
-#:    namespaces it emits leaves the other 5 prone to auto-prefixing.
+#: 2. **Per-file consistency.** A stage that binds 7 of the 13
+#:    namespaces it emits leaves the other 6 prone to auto-prefixing.
 #:    Historical per-stage bind lists drifted — each one missed a
 #:    different subset of the namespaces its stage emitted, so every
 #:    fresh predicate addition reopened the
@@ -73,6 +81,7 @@ CANONICAL_TURTLE_PREFIXES: dict[str, object] = {
     "prov": PROV,
     "bf": BF,
     "bflc": BFLC,
+    "madsrdf": MADSRDF,
     "bffi": BFFI,
     "bffi-prov": BFFI_PROV,
     "bib": BIB,
@@ -314,6 +323,7 @@ __all__ = [
     "DESC_LEVEL_MINIMUM",
     "ENC_LEVEL_AUTO",
     "GEN_PROCESS_PIPELINE_V0_1_0",
+    "MADSRDF",
     "METADATA_LICENSOR_CC0",
     "PROV",
     "RDF",

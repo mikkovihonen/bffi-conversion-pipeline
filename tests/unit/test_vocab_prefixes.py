@@ -68,6 +68,7 @@ def test_serialised_turtle_emits_zero_auto_prefixes_for_project_namespaces() -> 
     g.add((subj, V.PROV.wasGeneratedBy, URIRef("urn:activity")))
     g.add((subj, V.BF.title, Literal("test title")))
     g.add((subj, V.BFLC.marcKey, Literal("245 $a test")))
+    g.add((subj, V.MADSRDF.authoritativeLabel, Literal("test")))
     g.add((subj, V.BFFI.contribution, URIRef("urn:contrib")))
     g.add((subj, V.fromMarcField, Literal("test:245:1")))
     g.add((subj, V.BIB.localBibId, Literal("b00000001")))

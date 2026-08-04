@@ -2807,7 +2807,8 @@ def _find_work_for_manifestation(graph: Graph, manifestation: URIRef) -> URIRef 
 #: abstract Work, not a particular Manifestation), so every row's
 #: source begins with the same walk.
 _SUBJECT_SOURCE_PREFIX: Final[str] = (
-    "?m bffi:workManifested ?work . ?work bffi:subject ?subject . ?subject rdfs:label ?label . "
+    "?m bffi:workManifested ?work . ?work bffi:subject|bffi:genreForm ?subject . "
+    "?subject rdfs:label ?label . "
     "$2 = local-name of ?subject's bffi:source URI when present; "
     "$0 = ?subject URI itself when it's not a bib-internal mint"
 )
@@ -2912,8 +2913,8 @@ _SUBJECT_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
     ),
 )
 def _extract_subject_datafields(graph: Graph, manifestation: URIRef) -> list[_SubjectEmit]:
-    """Walk ``?work bffi:subject ?subject_node`` and emit one MARC 6XX
-    datafield per subject.
+    """Walk ``?work bffi:subject|bffi:genreForm ?subject_node`` and emit one
+    MARC 6XX datafield per subject.
 
     Tag dispatch: when the subject URI is a bib-internal mint (e.g.
     ``#Agent600-28`` / ``#Topic650-12`` / ``#Place651-30``), the URI
@@ -2937,12 +2938,20 @@ def _extract_subject_datafields(graph: Graph, manifestation: URIRef) -> list[_Su
     if work is None:
         return []
     emits: list[_SubjectEmit] = []
-    for subj_node in graph.objects(work, BFFI.subject):
-        if not isinstance(subj_node, URIRef | BNode):
-            continue
-        emit = _build_subject_emit(graph, subj_node)
-        if emit is not None:
-            emits.append(emit)
+    seen: set[URIRef | BNode] = set()
+    # Genre/form terms hang off the Work under ``bffi:genreForm``, not
+    # ``bffi:subject`` — marc2bibframe2 renders MARC 655 as ``bf:GenreForm``
+    # reached by ``bf:genreForm``, and the clean rename preserves that
+    # shape. Walking only ``bffi:subject`` therefore lost every 655 in the
+    # corpus even though the class → tag mapping was correct.
+    for predicate in (BFFI.subject, BFFI.genreForm):
+        for subj_node in graph.objects(work, predicate):
+            if not isinstance(subj_node, URIRef | BNode) or subj_node in seen:
+                continue
+            seen.add(subj_node)
+            emit = _build_subject_emit(graph, subj_node)
+            if emit is not None:
+                emits.append(emit)
     return sorted(emits, key=lambda e: (e.tag, e.label, e.vocab_code or "", e.authority_uri or ""))
 
 

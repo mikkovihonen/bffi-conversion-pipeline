@@ -1562,3 +1562,66 @@ def test_convert_corpus_summary_and_sidecar_events(tmp_path: Path) -> None:
 def _clear_active_emitter() -> None:
     yield
     set_active_emitter(None)
+
+
+def test_emit_marcxml_emits_655_from_bffi_genre_form() -> None:
+    """Genre/form terms hang off the Work under ``bffi:genreForm``, not
+    ``bffi:subject``.
+
+    Regression: the subject walker followed ``bffi:subject`` only, so every
+    MARC 655 was lost in the round-trip (145 occurrences, all ``lost``, on a
+    308-record corpus) even though ``BFFI.GenreForm -> "655"`` was correctly
+    registered. marc2bibframe2 renders 655 as ``bf:GenreForm`` reached by
+    ``bf:genreForm``, and the clean rename preserves that shape.
+    """
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance",
+        bib_id="b1",
+        title="t",
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+
+    work = URIRef("http://example.org/b1#Work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((manifestation, BFFI.workManifested, work))
+
+    genre = URIRef("http://urn.fi/URN:NBN:fi:au:slm:s286")
+    g.add((genre, RDF.type, BFFI.GenreForm))
+    g.add((genre, RDFS.label, Literal("muistelmat")))
+    g.add((genre, BFFI.source, URIRef("http://id.loc.gov/vocabulary/genreFormSchemes/slm")))
+    g.add((work, BFFI.genreForm, genre))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='655']")
+    assert df is not None
+
+    def sub(code: str) -> str | None:
+        el = df.find(f"{{{MARC21_NS}}}subfield[@code='{code}']")
+        return el.text if el is not None else None
+
+    assert sub("a") == "muistelmat"
+    assert sub("2") == "slm"
+    assert sub("0") == str(genre)
+
+
+def test_emit_marcxml_does_not_duplicate_a_term_reachable_both_ways() -> None:
+    """A node linked by both ``bffi:subject`` and ``bffi:genreForm`` must
+    emit one datafield, not two."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance",
+        bib_id="b1",
+        title="t",
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    work = URIRef("http://example.org/b1#Work")
+    g.add((work, RDF.type, BFFI.BibframeWork))
+    g.add((manifestation, BFFI.workManifested, work))
+
+    genre = URIRef("http://example.org/b1#GenreForm655-1")
+    g.add((genre, RDF.type, BFFI.GenreForm))
+    g.add((genre, RDFS.label, Literal("romaanit")))
+    g.add((work, BFFI.subject, genre))
+    g.add((work, BFFI.genreForm, genre))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    assert len(root.findall(f"{{{MARC21_NS}}}datafield[@tag='655']")) == 1
