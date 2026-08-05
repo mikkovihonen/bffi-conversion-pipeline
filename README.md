@@ -25,15 +25,16 @@ Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/
   - BIBFRAME to BFFI canonical Turtle (31 routings in `stages/bibframe_to_bffi/routings.py`)
   - The reverse direction reconstructing MARCXML from the BFFI graph.
 - **Hard namespace boundary**
-   - `bf:*` URIs stay inside the conversion input
-   - BFFI output emits **only** `bffi:*` terms declared in `vocab/lkd.rdf`
+  - `bf:*` URIs stay inside the conversion input
+  - BFFI output emits **only** `bffi:*` terms declared in `vocab/lkd.rdf`
 - **Provenance**
-   - Every non-trivial conversion decision writes to the provenance graph before returning.
-   - No "optional logging" flag.
+  - Every non-trivial conversion decision writes to the provenance graph before returning.
+  - No "optional logging" flag.
 - **Round-trip evaluation**
-   - An evaluation harness wraps the three conversion hops: round-trip diff, cataloguer-review HTML, and mapping-discipline tests against a fixture corpus.
+  - An evaluation harness wraps the three conversion hops: round-trip diff, cataloguer-review HTML, and mapping-discipline tests against a fixture corpus.
 - **Observable**
-  - Every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus + Grafana stack at `http://localhost:8080`.
+  - Every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus
+  - Grafana stack at `http://localhost:8080`.
 
 ## Quick start
 
@@ -79,6 +80,8 @@ See **[Getting Started](docs/getting-started.md)** for prerequisites, dependenci
 - Published RDF data: [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
 
 ## Agentic coding disclosure
+
 Built using agentic coding tools.
+
 - [Pi Coding Agent](https://pi.dev) via [pi-container](https://mikkovihonen.github.io/pi-container/) for agentic coding.
 - [Claude Code](https://claude.com/product/claude-code)
