@@ -46,14 +46,8 @@ See **[Getting Started](docs/getting-started.md)** for prerequisites, dependenci
 |------|---------------|
 | [Getting Started](docs/getting-started.md) | Prerequisites, dependencies, build, CLI reference |
 | [Development](docs/development.md) | Local dev setup, tests, lint, coverage, pre-commit |
-| [Mapping references](docs/bf_to_bffi_mapping.md) | Every `bf:*` class/predicate → `bffi:*` routing decision |
-| [BFFI → MARC mapping](docs/bffi_to_marc_mapping.md) | Every MARC field the reverse converter emits, with known limitations |
-| [MARC → BIBFRAME mapping](docs/marc_to_bibframe_mapping.md) | What the LoC XSLT does with each MARC field |
-| [Round-trip debugging](docs/roundtrip-debugging.md) | Diagnose missing, wrong, or fabricated fields in reconstructed MARC |
-| [Validation strategy](docs/validation-strategy.md) | SHACL shapes, sidecar validation, three validation boundaries |
+| [Debugging](docs/roundtrip-debugging.md) | Diagnose missing, wrong, or fabricated fields in reconstructed MARC |
 | [Observability](docs/observability.md) | Prometheus + Grafana local stack, JSONL sidecar, stage events |
-| [Vocabulary](docs/vocabulary.md) | BFFI 1.0.0 ontology (RDF/XML) reference |
-| [Plans](docs/plans/README.md) | Plans of record with status tracking |
 
 ## Implementation
 
