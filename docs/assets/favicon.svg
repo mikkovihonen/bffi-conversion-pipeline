@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 80 80" width="80" height="80" role="img" aria-label="BFFI conversion pipeline">
+  
+  <g class="s">
+    <path d="M 14 48 A 34 34 0 0 1 66 19"></path>
+    <path d="M 82 48 A 34 34 0 0 1 30 77"></path>
+  </g>
+  <g class="f">
+    <path d="M 70.2 12.2 L 77 26 L 61.8 25.8 Z"></path>
+    <path d="M 25.8 83.8 L 19 70 L 34.2 70.2 Z"></path>
+    <path d="M 48 39 L 57 48 L 48 57 L 39 48 Z"></path>
+  </g>
+</svg>
