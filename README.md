@@ -18,6 +18,10 @@ intended for upstream contribution alongside the existing NLF tooling.
 Code is **MIT** (Copyright © 2026 Mikko Vihonen); published RDF data is **CC0**
 (matching Finto vocabularies).
 
+## Logo
+
+![BFFI conversion pipeline](docs/assets/logo.svg)
+
 ## Badges
 
 [![CI](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml)
