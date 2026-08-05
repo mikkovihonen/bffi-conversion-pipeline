@@ -246,8 +246,14 @@ reverse converter reads pipeline-internal provenance.
 
 ## License
 
-Code: [Apache License 2.0](LICENSE). Copyright (c) 2026 University of
-Helsinki (The National Library of Finland).
+Code: [MIT License](LICENSE). Copyright (c) 2026 Mikko Vihonen.
 
 Published RDF data: [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/),
 matching the Finto vocabulary licensing.
+
+## Implementation
+
+This pipeline is developed and run with [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent) via
+[pi-container](https://mikkovihonen.github.io/pi-container/) — an agentic coding
+sandbox that wraps pi in a reproducible container. See the pi-container docs
+for the full setup.

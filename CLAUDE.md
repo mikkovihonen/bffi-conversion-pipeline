@@ -29,7 +29,7 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages ar
 
 - Pro bono. **No paid API services.**
 - Open-source tooling only.
-- License: code **Apache 2.0** (matching NLF tools); published RDF data **CC0** (matching Finto vocabularies).
+- License: code **MIT**; published RDF data **CC0** (matching Finto vocabularies).
 - **Observability is built in from the ground up.** Every stage emits structured events to a `stage-events.jsonl` sidecar from its first commit. The local Prometheus + Grafana stack (wrapped by Caddy at `http://localhost:8080`) is the operator's single source of truth for "what's happening right now?" See `docs/observability.md`.
 - No **outbound** telemetry / error reporting — no Datadog, Sentry, Honeycomb, or similar. The Prometheus + Grafana + Caddy stack runs entirely on the operator's machine; no data leaves the box.
 
