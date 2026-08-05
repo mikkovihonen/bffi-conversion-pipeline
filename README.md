@@ -18,24 +18,46 @@ A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built 
 
 ## Highlights
 
-- **Three-way conversion** — MARCXML → BIBFRAME (via LoC [marc2bibframe2](https://github.com/loccolorado/marc2bibframe2) XSLT) → BFFI canonical Turtle (31 routings in `stages/bibframe_to_bffi/routings.py`), and the reverse direction reconstructing MARCXML from the BFFI graph.
-- **Hard namespace boundary** — `bf:*` URIs stay inside the conversion input; the BFFI output emits **only** `bffi:*` terms declared in `vocab/lkd.rdf`. BIBFRAME is recoverable by OWL inference through the re-anchor pattern.
-- **Provenance** — every non-trivial conversion decision writes to the provenance graph before returning. No "optional logging" flag.
-- **Round-trip evaluation** — an evaluation harness wraps the three conversion hops: round-trip diff, cataloguer-review HTML, and mapping-discipline tests against a fixture corpus.
-- **Observable** — every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus + Grafana stack at `http://localhost:8080`.
+- **Three-way conversion**
+  - MARCXML to BIBFRAME (via LoC [marc2bibframe2](https://github.com/loccolorado/marc2bibframe2) XSLT)
+  - BIBFRAME to BFFI canonical Turtle (31 routings in `stages/bibframe_to_bffi/routings.py`)
+  - The reverse direction reconstructing MARCXML from the BFFI graph.
+- **Hard namespace boundary**
+   - `bf:*` URIs stay inside the conversion input
+   - BFFI output emits **only** `bffi:*` terms declared in `vocab/lkd.rdf`
+- **Provenance**
+   - Every non-trivial conversion decision writes to the provenance graph before returning.
+   - No "optional logging" flag.
+- **Round-trip evaluation**
+   - An evaluation harness wraps the three conversion hops: round-trip diff, cataloguer-review HTML, and mapping-discipline tests against a fixture corpus.
+- **Observable**
+  - Every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus + Grafana stack at `http://localhost:8080`.
 
 ## Quick start
 
 ```bash
+# Clone with submodules (marc2bibframe2 XSLT is a git submodule)
 git clone --recursive https://github.com/mikkovihonen/bffi-conversion-pipeline.git
 cd bffi-conversion-pipeline
 uv sync --frozen
 make test && make lint
-bffi-pipeline new-run                    # create a run directory
-bffi-pipeline marc-to-bibframe --input /path/to/marc.xml --output-dir runs/...
-bffi-pipeline bibframe-to-bffi --input .../bibframe.ntriples --output-dir runs/...
-bffi-pipeline bffi-to-marc --input .../bffi.ntriples --output-dir runs/...
-bffi-pipeline roundtrip-eval --original .../marc.xml --reconstructed .../marc-reconstructed.xml
+
+# Mint a run directory — capture its path for the stage commands below
+RUN=$(bffi-pipeline new-run)
+
+# Forward: MARCXML → BIBFRAME → BFFI
+cp /path/to/marc.xml "$RUN/marc/"
+bffi-pipeline marc-to-bibframe --input-dir "$RUN/marc" --output-dir "$RUN/bibframe"
+bffi-pipeline bibframe-to-bffi --input-dir "$RUN/bibframe" --output-dir "$RUN/bffi"
+
+# Reverse: BFFI → reconstructed MARCXML
+bffi-pipeline bffi-to-marc --input-dir "$RUN/bffi" --output-dir "$RUN/marc-reconstructed"
+
+# Evaluate: diff source vs reconstructed
+bffi-pipeline roundtrip-eval \
+  --source-dir "$RUN/marc" \
+  --reconstructed-dir "$RUN/marc-reconstructed" \
+  --html "$RUN/eval/review.html"
 ```
 
 See **[Getting Started](docs/getting-started.md)** for prerequisites, dependencies, and the full CLI reference.
@@ -49,10 +71,12 @@ See **[Getting Started](docs/getting-started.md)** for prerequisites, dependenci
 | [Debugging](docs/roundtrip-debugging.md) | Diagnose missing, wrong, or fabricated fields in reconstructed MARC |
 | [Observability](docs/observability.md) | Prometheus + Grafana local stack, JSONL sidecar, stage events |
 
-## Implementation
-
-Built with [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent) via [pi-container](https://mikkovihonen.github.io/pi-container/) for agentic coding.
-
 ## License
 
-Code: [MIT](LICENSE) · Published RDF data: [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+- Code: [MIT](LICENSE)
+- Published RDF data: [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+
+## Agentic coding disclosure
+Built using agentic coding tools.
+- [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent) via [pi-container](https://mikkovihonen.github.io/pi-container/) for agentic coding.
+- [Claude Code](https://claude.com/product/claude-code)
