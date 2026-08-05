@@ -18,21 +18,9 @@ A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built 
 
 - **Three-way conversion** — MARCXML → BIBFRAME (via LoC [marc2bibframe2](https://github.com/loccolorado/marc2bibframe2) XSLT) → BFFI canonical Turtle (31 routings in `stages/bibframe_to_bffi/routings.py`), and the reverse direction reconstructing MARCXML from the BFFI graph.
 - **Hard namespace boundary** — `bf:*` URIs stay inside the conversion input; the BFFI output emits **only** `bffi:*` terms declared in `vocab/lkd.rdf`. BIBFRAME is recoverable by OWL inference through the re-anchor pattern.
-- **Provenance by default** — every non-trivial conversion decision writes to the provenance graph before returning. No "optional logging" flag.
+- **Provenance** — every non-trivial conversion decision writes to the provenance graph before returning. No "optional logging" flag.
 - **Round-trip evaluation** — an evaluation harness wraps the three conversion hops: round-trip diff, cataloguer-review HTML, and mapping-discipline tests against a fixture corpus.
-- **Observable from day one** — every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus + Grafana stack at `http://localhost:8080`.
-
-## What this repo does (and doesn't)
-
-| In scope | Out of scope |
-|----------|--------------|
-| MARCXML → BIBFRAME (marc2bibframe2 XSLT) | Clustering / deduplication |
-| BIBFRAME → BFFI canonical Turtle | LLM judge |
-| BFFI → MARCXML (round-trip) | Reconciliation with authority files |
-| Round-trip diff & evaluation HTML | Skosmos / vocabulary service load |
-| Field-coverage diagnostics | ILS / database access |
-
-**MARCXML is an input, not a product.** The corpus is produced upstream, outside this repository. `melinda-sync` is the one ingestion stage kept here, harvesting MARCXML over OAI-PMH. Nothing in this repo touches the ILS.
+- **Observable** — every stage emits structured events to a JSONL sidecar, tail-exported to a local Prometheus + Grafana stack at `http://localhost:8080`.
 
 ## Quick start
 
