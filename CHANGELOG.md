@@ -12,11 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DevOps: CI coverage badge auto-publish, GitHub Pages (MkDocs Material),
   release workflow, CHANGELOG, release skill for pi, dependabot, `.gitattributes`.
   ([p-066](docs/plans/p-066-devops-ci-release.md))
-
-## [0.1.0] - 2026-08-05
-
-### Added
-
 - **MARCXML → BIBFRAME conversion** via LoC marc2bibframe2 XSLT (vendored as git submodule)
 - **BIBFRAME → BFFI canonical Turtle** with 31 discriminator routings; hard `bffi:` namespace boundary (zero `bf:*` URIs in output)
 - **BFFI → MARCXML reverse reconstruction** for round-trip verification
