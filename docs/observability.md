@@ -23,7 +23,7 @@ flowchart LR
     end
 
     subgraph Exporter["metrics-exporter<br/>host :9100"]
-        E[/metrics endpoint]
+        E["/metrics endpoint"]
     end
 
     subgraph Docker["Docker Compose"]
