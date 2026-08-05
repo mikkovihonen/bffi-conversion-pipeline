@@ -2,11 +2,11 @@
 
 A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/), producing [BFFI](https://finto.fi/bffi/en/) canonical Turtle from MARCXML records harvested via OAI-PMH, and reconstructing MARCXML from the BFFI graph for round-trip verification.
 
-<p align="center">
+<figure markdown = "1">
   <img src="docs/assets/logo-2x.png" alt="BFFI conversion pipeline" width="400">
-</p>
+</figure>
 
-<div align="center">
+<figure markdown = "1">
 
 [![CI](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml)
 [![Coverage](docs/assets/coverage.svg)](docs/development.md#coverage)
@@ -14,7 +14,7 @@ A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built 
 [![Python: 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/desc/uv-managed-brightgreen.svg)](https://docs.astral.sh/uv/)
 
-</div>
+</figure>
 
 ## Highlights
 
