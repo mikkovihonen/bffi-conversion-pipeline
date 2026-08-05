@@ -13,6 +13,7 @@ Stage label for observability sidecar events: ``bibframe2bffi``.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -76,14 +77,39 @@ class BibframeToBffiError(RuntimeError):
     """A single-record conversion failed."""
 
 
+#: Whitespace runs inside a URI, which the Turtle serializer refuses.
+_URI_WHITESPACE: Final[re.Pattern[str]] = re.compile(r"\s+")
+
+
+def _sanitise_uri(uri: URIRef) -> URIRef:
+    """Return ``uri`` in a form the Turtle serializer accepts.
+
+    rdflib's RDF/XML parser accepts URIs containing whitespace — the
+    MARCXML source has a few such cases, catalogue free text typed into
+    a ``$0`` authority field, which marc2bibframe2 then concatenates
+    onto a LoC URI base — but the Turtle serializer raises on them
+    ("does not look like a valid URI"), which would abort an otherwise
+    convertible record.
+
+    Leading / trailing whitespace is dropped; interior whitespace is
+    percent-encoded rather than removed, because the run is part of the
+    cataloguer's text and ``%20`` keeps the original string recoverable
+    by URL-decoding the local name. Stripping alone is not enough: the
+    typed-free-text case is words separated by spaces, so the interior
+    runs are the ones that actually break serialisation.
+    """
+    return URIRef(_URI_WHITESPACE.sub("%20", str(uri).strip()))
+
+
 def _rename_node(node: object, rules: CleanRenameRules) -> object:
     """Return the BFFI counterpart of ``node`` if a rename applies.
 
     Literals and blank nodes pass through unchanged; only URIs are
-    rewritten via the rules table.
+    rewritten via the rules table, after :func:`_sanitise_uri` has made
+    them serialisable.
     """
     if isinstance(node, URIRef):
-        return rules.rename(node)
+        return rules.rename(_sanitise_uri(node))
     return node
 
 
@@ -102,8 +128,8 @@ def _residual_bf_uris(graph: Graph) -> set[URIRef]:
     return out
 
 
-def rename_graph(input_graph: Graph, rules: CleanRenameRules) -> Graph:
-    """Apply every clean rename rule to ``input_graph``; return a fresh graph.
+def rename_graph(input_graph: Graph, rules: CleanRenameRules) -> tuple[Graph, int]:
+    """Apply every clean rename rule to ``input_graph``.
 
     The transformation is term-by-term: every URI in subject / predicate /
     object position is looked up in the rules table; matches get
@@ -112,10 +138,19 @@ def rename_graph(input_graph: Graph, rules: CleanRenameRules) -> Graph:
 
     The output graph has the canonical Turtle prefix bindings applied
     so serialisation is deterministic across records.
+
+    Returns ``(graph, uri_whitespace_cleaned)`` — the second element
+    counts distinct URIs :func:`_sanitise_uri` had to rewrite, so a
+    silent repair shows up in the stage's counters and in the record's
+    provenance rather than only in the output bytes.
     """
     output = Graph()
     bind_canonical_prefixes(output)
+    cleaned: set[URIRef] = set()
     for s, p, o in input_graph:
+        for node in (s, p, o):
+            if isinstance(node, URIRef) and _sanitise_uri(node) != node:
+                cleaned.add(node)
         renamed_s = _rename_node(s, rules)
         renamed_p = _rename_node(p, rules)
         renamed_o = _rename_node(o, rules)
@@ -125,7 +160,7 @@ def rename_graph(input_graph: Graph, rules: CleanRenameRules) -> Graph:
         assert isinstance(renamed_p, URIRef)
         assert isinstance(renamed_o, URIRef | BNode | Literal)
         output.add((renamed_s, renamed_p, renamed_o))
-    return output
+    return output, len(cleaned)
 
 
 def convert_one(
@@ -161,18 +196,17 @@ def convert_one(
     except Exception as exc:
         raise BibframeToBffiError(f"rdflib parse failed for {bibframe_path}: {exc}") from exc
 
-    output_graph = rename_graph(input_graph, rules)
+    output_graph, uri_whitespace_cleaned = rename_graph(input_graph, rules)
     routing_counters = apply_all_routings(output_graph)
+    routing_counters["uri_whitespace_cleaned"] = uri_whitespace_cleaned
     residual = len(_residual_bf_uris(output_graph))
 
-    # rdflib's RDF/XML parser is permissive and accepts URIs containing
-    # spaces / control characters that the stricter Turtle serializer
-    # then refuses ("does not look like a valid URI"). These appear in
-    # the HELMET libraries test corpus when a cataloguer typed free text into a field
-    # marc2bibframe2 then concatenates onto a LoC URI base. Catch the
-    # serialize-side failure per-record so one bad URI in record N
-    # doesn't abort the corpus run; the closed-namespace test still
-    # catches any bffi:* drift.
+    # ``_sanitise_uri`` handles the whitespace case (see its docstring),
+    # but rdflib's RDF/XML parser is permissive about more than
+    # whitespace — control characters in a cataloguer-typed URI reach
+    # here too. Catch the serialize-side failure per-record so one bad
+    # URI in record N doesn't abort the corpus run; the closed-namespace
+    # test still catches any bffi:* drift.
     try:
         turtle = output_graph.serialize(format="turtle")
     except Exception as exc:

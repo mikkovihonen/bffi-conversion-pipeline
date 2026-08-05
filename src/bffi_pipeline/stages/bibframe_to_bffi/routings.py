@@ -6,8 +6,10 @@ handles every ``bf:*`` term with a direct ``owl:equivalentClass`` /
 classes and predicates that don't have a single direct counterpart but
 *do* have a canonical routing in `docs/bf_to_bffi_mapping.md`.
 
-Six routings ship in this module, in the order documented in the
-mapping doc:
+Seven term routings are numbered below, in the order documented in the
+mapping doc. The module also carries the inverse-direction swaps and the
+drop / collapse routings (note type, variant type, subseries and music
+residue); :data:`ROUTING_REGISTRY` is the full list.
 
 1. **Identifier-scheme** — ``bf:Isbn`` / ``bf:Issn`` / ``bf:Ean`` /
    ``bf:AudioIssueNumber`` / ``bf:Lccn`` / ``bf:IssnL`` / ``bf:OtherIdentifier``
@@ -21,14 +23,25 @@ mapping doc:
    ``bffi:Relation`` bnode with ``bffi:relationship
    <vocabulary/relationship/series>`` + ``bffi:associatedResource``.
 4. **Hub** — ``bf:Hub`` → ``bffi:Work`` or ``bffi:Expression`` (or a leaf
-   subclass) based on the ``bflc:marcKey`` content.
-5. **Axis-default class** — ``bf:Monograph`` / ``bf:Series`` /
+   subclass) based on the ``bflc:marcKey`` content. SHACL override:
+   if any Hub is the target of ``bffi:expressionOf``, force
+   ``bffi:Work`` regardless of the marcKey discriminator (see
+   :func:`route_hubs` for the rationale).
+5. **Manifestation → Work domain-property lift** — lifts
+   ``bffi:genreForm`` / ``bffi:subject`` / ``bffi:classification`` /
+   ``bffi:originDate`` off ``bffi:Manifestation`` nodes onto the
+   ``bffi:Work`` that manifests them, resolved through
+   ``bffi:workManifested``, ``bffi:manifestationOfWork`` or an
+   Expression detour ending in ``bffi:expressionOf`` (see
+   :func:`_work_for_manifestation`). ``bffi:Item`` subjects are left
+   alone — see :func:`route_manifestation_work_domain_props`.
+6. **Axis-default class** — ``bf:Monograph`` / ``bf:Series`` /
    ``bf:Serial`` / ``bf:MusicAudio`` / ``bf:MovingImage`` /
    ``bf:Cartography`` / ``bf:NonMusicAudio`` / ``bf:Audio`` →
    per-subject pick between the Work-axis and Expression-axis BFFI
    variants (discriminated by the subject's co-typed ``rdf:type``
    assertions; see :data:`_WORK_AXIS_SIGNALS`).
-6. **Axis-default predicate** — ``bf:instanceOf`` / ``bf:hasInstance``
+7. **Axis-default predicate** — ``bf:instanceOf`` / ``bf:hasInstance``
    / ``bf:issuance`` → BFFI defaults per :data:`AXIS_DEFAULT_PREDICATES`.
 
 Each routing is a single graph-mutation function returning the number
@@ -598,16 +611,219 @@ def route_hubs(graph: Graph) -> int:
     attached to the Hub bnode (which started as ``bflc:marcKey`` in the
     marc2bibframe2 output and was renamed to ``bffi:marcKey`` by the
     generic ``rename_graph`` pass before this routing runs).
+
+    **SHACL override:** if any triple ``?s bffi:expressionOf ?hub``
+    exists in the graph, force the Hub's type to ``bffi:Work``
+    regardless of the marcKey discriminator.
+
+    Rationale: BFFI's ``bffi:expressionOf`` has
+    ``rdfs:range bffi:Work`` (``lkd.rdf``). marc2bibframe2 routinely
+    attaches ``bf:expressionOf`` from ``bf:Instance`` (and from the
+    abstract ``bf:Work``) to a ``bf:Hub`` whose marcKey carries an
+    Expression signal (``$l``, ``$r``, ``$s``). After renaming and
+    Hub-routing, that Hub is typed ``bffi:Expression`` — but it is
+    simultaneously the *target* of ``bffi:expressionOf``, which
+    ``bffi-prov:AxisLinkRangeShape`` rejects because the range is
+    ``bffi:Work``. The Hub *is* a specific realisation (FRBR: an
+    Expression), but the BFFI ontology funnels every ``expressionOf``
+    target through the Work axis. Forcing the type to ``bffi:Work``
+    here is the only way to satisfy the SHACL without weakening the
+    range constraint or re-anchoring the ontology.
+
+    The semantic information that the Hub is a language-qualified
+    realisation is preserved on the Hub's marcKey literal — it is not
+    lost, only not expressed via ``rdf:type``. Measured on the 319
+    field-coverage probes: the override retypes 3 Hubs (records 130,
+    1130, 1240 — marcKey ``130``, ``240$l$s``), clearing all 3
+    ``AxisLinkRangeShape`` violations, and all 3 records reconstruct
+    byte-identical MARCXML afterwards, because the reverse converter
+    reaches a Hub by URI fragment plus marcKey rather than by
+    ``rdf:type``.
     """
     rewritten = 0
     for hub in list(graph.subjects(RDF.type, BF.Hub)):
         marc_key_lit = next(graph.objects(hub, BFFI.marcKey), None)
         marc_key = str(marc_key_lit) if isinstance(marc_key_lit, Literal) else ""
         target = _hub_target_type(marc_key)
+
+        # SHACL override: any Hub that is the target of
+        # ``bffi:expressionOf`` must be typed ``bffi:Work`` — that
+        # predicate's ``rdfs:range`` (``lkd.rdf``) is ``bffi:Work``
+        # and ``bffi-prov:AxisLinkRangeShape`` enforces it via an OR
+        # over ``sh:class bffi:Work`` plus anonymous-nodes-only.
+        # Force ``bffi:Work`` regardless of the marcKey discriminator.
+        if any(True for _ in graph.triples((None, BFFI.expressionOf, hub))):
+            target = BFFI.Work
+
         graph.remove((hub, RDF.type, BF.Hub))
         graph.add((hub, RDF.type, target))
         rewritten += 1
     return rewritten
+
+
+# --- routing 5b: Manifestation → Work domain-property lift ---------------
+
+#: Predicates whose ``lkd.rdf`` ``rdfs:domain`` is ``bffi:Work`` but which
+#: marc2bibframe2 occasionally attaches to a ``bf:Instance`` (→
+#: ``bffi:Manifestation``) instead of the corresponding Work, which the
+#: ``WorkDomainShape`` SHACL shape then reports. This routing lifts those
+#: triples onto the Manifestation's Work, preserving the object URI /
+#: BNode intact.
+#:
+#: A tuple, not a frozenset: :data:`ROUTING_REGISTRY` records the term
+#: order and the doc generator reads it, and ``frozenset`` iteration
+#: order for ``str`` subclasses varies with the interpreter's hash seed.
+#:
+#: Measured owner distribution over the fixture corpora (the three
+#: predicates absent from a list carry zero off-Work occurrences):
+#:
+#:   - 319 field-coverage probes: ``bffi:classification`` on 2 ``bf:Item``
+#:     nodes (MARC 051), nothing on a ``bf:Instance``.
+#:   - 61 real fixture records: ``bffi:genreForm`` on 1 ``bf:Instance``.
+#:
+#: ``bf:Item`` is deliberately **not** lifted — see the routing's
+#: docstring.
+WORK_DOMAIN_PREDICATES: Final[tuple[URIRef, ...]] = (
+    BFFI.genreForm,
+    BFFI.subject,
+    BFFI.classification,
+    BFFI.originDate,
+)
+
+
+def _work_for_manifestation(graph: Graph, manifestation: URIRef) -> list[URIRef]:
+    """Return the ``bffi:Work`` nodes reachable from ``manifestation``.
+
+    Three link shapes can carry the Manifestation → Work relation by the
+    time this runs. They are tried in order and the first one that
+    resolves anything wins, rather than unioning all three — a weaker
+    shape must not add a second candidate and turn a resolvable lift
+    into an ambiguous one:
+
+      (a) ``?m bffi:workManifested ?work`` — the dominant shape
+          (``bf:instanceOf`` with a Work-typed object; 346 of 346
+          Manifestations in the field-coverage corpus, always exactly one
+          object). This is also the link the reverse converter reads
+          (``bffi_to_marc.runner._find_work_for_manifestation``), so
+          lifting to the Work it resolves is what keeps the datum
+          round-trippable.
+      (b) ``?work bffi:manifestationOfWork ?m`` — the inverse shape, from
+          ``bf:hasInstance`` asserted by a Work-typed subject. Never
+          emitted in the measured corpora, because
+          :func:`route_work_split` migrates ``bf:hasInstance`` to the
+          BNode Expression before the axis-default routing sees it.
+      (c) ``?m bffi:expressionManifested ?expr`` / ``?expr
+          bffi:manifestationOfExpression ?m``, then ``?expr
+          bffi:expressionOf ?work`` — the Expression-axis detour, walked
+          forward because ``bffi:expressionOf`` has ``rdfs:range
+          bffi:Work``. Last resort: an Expression commonly points at both
+          the record's Work and a Hub retyped ``bffi:Work`` by
+          :func:`route_hubs`, and nothing in the graph distinguishes them
+          at that point, so this shape often resolves as ambiguous.
+
+    Candidates are filtered to Work-axis-typed nodes
+    (:data:`_WORK_AXIS_SIGNALS`), which drops the BNode Expressions and
+    any not-yet-routed node.
+    """
+    detour: list[Node] = []
+    for expr in (
+        *graph.objects(manifestation, BFFI.expressionManifested),
+        *graph.subjects(BFFI.manifestationOfExpression, manifestation),
+    ):
+        detour.extend(graph.objects(expr, BFFI.expressionOf))
+
+    for candidates in (
+        graph.objects(manifestation, BFFI.workManifested),
+        graph.subjects(BFFI.manifestationOfWork, manifestation),
+        detour,
+    ):
+        works: list[URIRef] = []
+        for node in candidates:
+            if not isinstance(node, URIRef) or node in works:
+                continue
+            if _WORK_AXIS_SIGNALS & set(graph.objects(node, RDF.type)):
+                works.append(node)
+        if works:
+            return works
+    return []
+
+
+@routing(
+    # The terms are ``bffi:*``, not ``bf:*``: this routing normalises the
+    # FRBR axis of already-renamed predicates rather than replacing a
+    # BIBFRAME term, so it contributes no row to the mapping doc's
+    # per-``bf:``-term tables. It is registered anyway so the registry
+    # stays the single place that enumerates the routings.
+    terms=WORK_DOMAIN_PREDICATES,
+    replacement=(
+        "lift from ``bffi:Manifestation`` to the ``bffi:Work`` it manifests "
+        "(``bffi:workManifested`` / ``bffi:manifestationOfWork`` / "
+        "``bffi:expressionOf``)"
+    ),
+    link_kind="axis-lift: Manifestation → Work",
+)
+def route_manifestation_work_domain_props(graph: Graph) -> dict[str, int]:
+    """Move Work-domain predicates off Manifestations onto their Work.
+
+    marc2bibframe2 sometimes attaches ``bf:genreForm``, ``bf:subject``,
+    ``bf:classification`` or ``bf:originDate`` to a ``bf:Instance``
+    rather than its ``bf:Work``. After clean-rename and axis-default
+    predicate routing those land on a ``bffi:Manifestation``, which
+    ``lkd.rdf`` forbids (``rdfs:domain bffi:Work``) and
+    ``WorkDomainShape`` reports. It is also the wrong-FRBR-axis pattern
+    from `docs/roundtrip-debugging.md`: the reverse converter looks for
+    these predicates on the Work, so a Manifestation-attached subject or
+    genre term is dropped from the reconstructed MARC.
+
+    Work resolution is :func:`_work_for_manifestation`. The lift happens
+    only when it resolves **exactly one** Work:
+
+      - **zero** — the Manifestation has no Work link at all. Leave the
+        triple where it is: the shape still reports it, which is the
+        honest signal, and no data is dropped.
+      - **more than one** — ambiguous. Copying to all of them fabricates
+        subject / genre assertions on Works the cataloguer never made
+        them about, and picking one arbitrarily is the
+        arbitrary-single-value failure pattern. Leave it and let the
+        shape report. Does not occur in the measured corpora (every
+        Manifestation resolves to exactly one Work).
+
+    ``bffi:Item`` is out of scope by design. MARC 051 gives
+    marc2bibframe2 an Item-attached ``bf:classification`` — the LC class
+    number of one specific copy. Lifting that to the Work would assert a
+    copy-level shelf number as the Work's classification and make the
+    reverse direction emit it as MARC 050, fabricating a field the source
+    never had. That residue is a `lkd.rdf` shortfall (no item-level
+    classification property), handled by scoping
+    ``bffi-prov:ClassificationDomainShape`` to accept ``bffi:Item``.
+
+    Returns ``lifted`` / ``unresolved`` counts. A non-zero
+    ``unresolved`` means records went out with a known domain violation
+    — worth a look in the observability summary, not a failure.
+    """
+    counters = {
+        "manifestation_work_domain_lifted": 0,
+        "manifestation_work_domain_unresolved": 0,
+    }
+    for predicate in WORK_DOMAIN_PREDICATES:
+        for subject, obj in list(graph.subject_objects(predicate)):
+            if not isinstance(subject, URIRef):
+                continue
+            if BFFI.Manifestation not in set(graph.objects(subject, RDF.type)):
+                continue
+
+            works = _work_for_manifestation(graph, subject)
+            if len(works) != 1:
+                counters["manifestation_work_domain_unresolved"] += 1
+                continue
+
+            # add() is a no-op when the Work already carries the pair, so
+            # the lift never duplicates; the Manifestation-side triple
+            # goes either way.
+            graph.add((works[0], predicate, obj))
+            graph.remove((subject, predicate, obj))
+            counters["manifestation_work_domain_lifted"] += 1
+    return counters
 
 
 # --- routing 6: axis-default class rewrites -----------------------------
@@ -1457,6 +1673,11 @@ def apply_all_routings(graph: Graph) -> dict[str, int]:
     discriminator below reads. Identifier / Title / Audio / Series-link
     are independent and can run in any order.
 
+    The Manifestation→Work lift (5) must run after
+    ``route_axis_default_predicates``: that is what mints the
+    ``bffi:workManifested`` / ``bffi:manifestationOf*`` links it
+    resolves the Work through. Nothing downstream depends on it.
+
     Returns a per-routing counter dict suitable for inclusion in the
     observability ``end`` event.
     """
@@ -1477,10 +1698,14 @@ def apply_all_routings(graph: Graph) -> dict[str, int]:
         "music_medium_collapsed": route_music_medium(graph),
         "music_medium_residue_dropped": drop_music_residue(graph),
     }
-    # The remaining three routings each split their counters into
+    # The remaining four routings each split their counters into
     # per-discriminator buckets so the observability summary surfaces
-    # the pick distribution per axis / direction.
+    # the pick distribution per axis / direction (and, for the lift, how
+    # many domain violations it could not resolve).
     counters.update(route_axis_default_predicates(graph))
+    # Manifestation→Work domain-property lift: needs the axis-link
+    # predicates ``route_axis_default_predicates`` just minted.
+    counters.update(route_manifestation_work_domain_props(graph))
     counters.update(route_axis_default_classes(graph))
     counters.update(route_provision_activity_statement(graph))
     # Runs LAST. By the time we get here, every legitimate bf:* URI

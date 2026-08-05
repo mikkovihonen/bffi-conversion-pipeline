@@ -26,3 +26,4 @@ Index of plans of record for the BFFI conversion pipeline.
 | [p-061](p-061-field-coverage-corpus.md) | Synthetic field-coverage corpus | **completed** — generator, 319 probes, `--check` guard in CI. |
 | [p-063](p-063-diff-pairing.md) | Pair repeated fields by content, not position | **active** — Phase A shipped: content-based pairing, fuzzy fallback, `reordered` status. |
 | [p-062](p-062-wire-validation.md) | Wire the three validation boundaries into the stages | **completed** — all three boundaries run: Boundary 1 gates by severity, Boundary 2 rescoped and gating, Boundary 3 rescoped to lkd.rdf axioms and reporting. |
+| [p-064](p-064-boundary3-residue.md) | Clear the Boundary-3 residue p-062 left behind | **active** — Phase A shipped: Hub retype + Manifestation→Work lift, 10 flagged records → 5. Title shapes and the `expressionOf` domain family open. |

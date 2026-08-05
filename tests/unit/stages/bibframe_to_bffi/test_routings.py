@@ -30,6 +30,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     route_hubs,
     route_identifier_schemes,
     route_inverse_predicates,
+    route_manifestation_work_domain_props,
     route_music_key,
     route_music_medium,
     route_note_for,
@@ -66,6 +67,7 @@ def test_routing_registry_attaches_metadata_to_decorated_functions() -> None:
         "drop_music_mode_residue",
         "drop_subseries_residue",
         "route_work_split",
+        "route_manifestation_work_domain_props",
     }
     registered = {meta.handler for meta in ROUTING_REGISTRY}
     assert registered == expected_handlers
@@ -304,6 +306,188 @@ def test_route_hubs_defaults_to_work_when_marckey_absent() -> None:
     assert (hub, RDF.type, BFFI.Work) in g
 
 
+def test_route_hubs_forces_work_when_hub_is_an_expression_of_target() -> None:
+    """A Hub whose marcKey says Expression but which something points at
+    with ``bffi:expressionOf`` is forced to ``bffi:Work``: lkd.rdf gives
+    that predicate ``rdfs:range bffi:Work`` and
+    ``bffi-prov:AxisLinkRangeShape`` enforces it."""
+    g = Graph()
+    hub = URIRef("http://example.org/hub")
+    expression = BNode()
+    g.add((hub, RDF.type, BF.Hub))
+    # $l alone would route this Hub to bffi:Expression.
+    g.add((hub, BFFI.marcKey, Literal("2401 $aSymphonie no. 5$lenglanti")))
+    g.add((expression, BFFI.expressionOf, hub))
+
+    assert route_hubs(g) == 1
+    assert (hub, RDF.type, BFFI.Work) in g
+    assert (hub, RDF.type, BFFI.Expression) not in g
+    # The Expression signal is not lost, only carried by the marcKey.
+    assert (hub, BFFI.marcKey, Literal("2401 $aSymphonie no. 5$lenglanti")) in g
+
+
+# --- Manifestation → Work domain-property lift --------------------------
+
+
+def _manifestation_with_work(
+    graph: Graph, *, link: URIRef = BFFI.workManifested
+) -> tuple[URIRef, URIRef]:
+    """Build ``?m <link> ?work`` (or its inverse) and return ``(m, work)``."""
+    manifestation = URIRef("http://example.org/m")
+    work = URIRef("http://example.org/w")
+    graph.add((manifestation, RDF.type, BFFI.Manifestation))
+    graph.add((work, RDF.type, BFFI.Work))
+    if link == BFFI.manifestationOfWork:
+        graph.add((work, link, manifestation))
+    else:
+        graph.add((manifestation, link, work))
+    return manifestation, work
+
+
+def test_lift_moves_work_domain_props_via_work_manifested() -> None:
+    """``bffi:workManifested`` is the link the emit actually produces and
+    the one the reverse converter reads."""
+    g = Graph()
+    m, work = _manifestation_with_work(g)
+    genre = URIRef("http://example.org/genre/novel")
+    g.add((m, BFFI.genreForm, genre))
+
+    counters = route_manifestation_work_domain_props(g)
+
+    assert counters == {
+        "manifestation_work_domain_lifted": 1,
+        "manifestation_work_domain_unresolved": 0,
+    }
+    assert (work, BFFI.genreForm, genre) in g
+    assert (m, BFFI.genreForm, genre) not in g
+
+
+def test_lift_moves_work_domain_props_via_manifestation_of_work_inverse() -> None:
+    g = Graph()
+    m, work = _manifestation_with_work(g, link=BFFI.manifestationOfWork)
+    subject = URIRef("http://example.org/subject/sauna")
+    g.add((m, BFFI.subject, subject))
+
+    assert route_manifestation_work_domain_props(g)["manifestation_work_domain_lifted"] == 1
+    assert (work, BFFI.subject, subject) in g
+    assert (m, BFFI.subject, subject) not in g
+
+
+def test_lift_moves_work_domain_props_via_expression_detour() -> None:
+    """When only the Expression axis links the Manifestation — the shape
+    :func:`route_work_split` leaves behind — the lift walks
+    ``bffi:expressionOf`` forward to reach the Work."""
+    g = Graph()
+    m = URIRef("http://example.org/m")
+    work = URIRef("http://example.org/w")
+    expression = BNode()
+    g.add((m, RDF.type, BFFI.Manifestation))
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expression, RDF.type, BFFI.Expression))
+    g.add((expression, BFFI.manifestationOfExpression, m))
+    g.add((expression, BFFI.expressionOf, work))
+    g.add((m, BFFI.originDate, Literal("1955")))
+
+    assert route_manifestation_work_domain_props(g)["manifestation_work_domain_lifted"] == 1
+    assert (work, BFFI.originDate, Literal("1955")) in g
+
+
+def test_lift_prefers_work_manifested_over_an_ambiguous_expression_detour() -> None:
+    """An Expression routinely points at both the record's Work and a Hub
+    retyped ``bffi:Work``. Unioning the link shapes would make that pair
+    ambiguous and block a lift the ``bffi:workManifested`` link resolves
+    cleanly, so the shapes are tried in order instead."""
+    g = Graph()
+    m, work = _manifestation_with_work(g)
+    hub = URIRef("http://example.org/hub")
+    expression = BNode()
+    g.add((hub, RDF.type, BFFI.Work))
+    g.add((expression, BFFI.manifestationOfExpression, m))
+    g.add((expression, BFFI.expressionOf, work))
+    g.add((expression, BFFI.expressionOf, hub))
+    genre = URIRef("http://example.org/genre/novel")
+    g.add((m, BFFI.genreForm, genre))
+
+    assert route_manifestation_work_domain_props(g)["manifestation_work_domain_lifted"] == 1
+    assert (work, BFFI.genreForm, genre) in g
+    assert (hub, BFFI.genreForm, genre) not in g
+
+
+def test_lift_leaves_item_classifications_alone() -> None:
+    """MARC 051 / 852 put a copy-level class number on a ``bffi:Item``.
+    Lifting it would assert it as the Work's classification and make the
+    reverse direction emit a MARC 050 the source never had."""
+    g = Graph()
+    m, work = _manifestation_with_work(g)
+    item = URIRef("http://example.org/item")
+    classification = BNode()
+    g.add((item, RDF.type, BFFI.Item))
+    g.add((item, BFFI.itemOf, m))
+    g.add((item, BFFI.classification, classification))
+
+    counters = route_manifestation_work_domain_props(g)
+
+    assert counters == {
+        "manifestation_work_domain_lifted": 0,
+        "manifestation_work_domain_unresolved": 0,
+    }
+    assert (item, BFFI.classification, classification) in g
+    assert (work, BFFI.classification, classification) not in g
+
+
+def test_lift_leaves_the_triple_in_place_when_no_work_resolves() -> None:
+    """No Work link at all: keep the data where it is and let Boundary 3
+    report it, rather than dropping it silently."""
+    g = Graph()
+    m = URIRef("http://example.org/m")
+    g.add((m, RDF.type, BFFI.Manifestation))
+    subject = URIRef("http://example.org/subject/sauna")
+    g.add((m, BFFI.subject, subject))
+
+    counters = route_manifestation_work_domain_props(g)
+
+    assert counters == {
+        "manifestation_work_domain_lifted": 0,
+        "manifestation_work_domain_unresolved": 1,
+    }
+    assert (m, BFFI.subject, subject) in g
+
+
+def test_lift_leaves_the_triple_in_place_when_the_work_is_ambiguous() -> None:
+    """Two candidate Works on the same link shape: copying to both would
+    fabricate an assertion the cataloguer never made, and picking one is
+    the arbitrary-single-value failure pattern."""
+    g = Graph()
+    m, work = _manifestation_with_work(g)
+    other = URIRef("http://example.org/w2")
+    g.add((other, RDF.type, BFFI.Work))
+    g.add((m, BFFI.workManifested, other))
+    subject = URIRef("http://example.org/subject/sauna")
+    g.add((m, BFFI.subject, subject))
+
+    counters = route_manifestation_work_domain_props(g)
+
+    assert counters == {
+        "manifestation_work_domain_lifted": 0,
+        "manifestation_work_domain_unresolved": 1,
+    }
+    assert (m, BFFI.subject, subject) in g
+    assert (work, BFFI.subject, subject) not in g
+    assert (other, BFFI.subject, subject) not in g
+
+
+def test_lift_does_not_duplicate_a_pair_the_work_already_carries() -> None:
+    g = Graph()
+    m, work = _manifestation_with_work(g)
+    subject = URIRef("http://example.org/subject/sauna")
+    g.add((m, BFFI.subject, subject))
+    g.add((work, BFFI.subject, subject))
+
+    assert route_manifestation_work_domain_props(g)["manifestation_work_domain_lifted"] == 1
+    assert len(list(g.triples((work, BFFI.subject, subject)))) == 1
+    assert (m, BFFI.subject, subject) not in g
+
+
 # --- apply_all_routings -------------------------------------------------
 
 
@@ -359,6 +543,8 @@ def test_apply_all_routings_returns_per_routing_counts() -> None:
         "provision_statement_to_note": 0,
         "dropped_undeclared_bf": 0,
         "work_split": 0,
+        "manifestation_work_domain_lifted": 0,
+        "manifestation_work_domain_unresolved": 0,
     }
 
     # The Hub routing reads bffi:marcKey (after rename), so the rename

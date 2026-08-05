@@ -69,9 +69,10 @@ bffi-prov:AxisDisjointnessShape
 
 # --- rdfs:domain — predicates lkd.rdf restricts to one axis ---------------
 #
-# Only these four. `bffi:content` and `bffi:summary` are Expression-domain;
-# `bffi:subject`, `bffi:classification`, `bffi:originDate` and
-# `bffi:genreForm` are Work-domain. Everything else the emit uses has
+# Only these six predicates. `bffi:content` and `bffi:summary` are
+# Expression-domain; `bffi:subject`, `bffi:classification`, `bffi:originDate`
+# and `bffi:genreForm` are Work-domain (`bffi:classification` gets its own
+# shape below — see the note there). Everything else the emit uses has
 # `rdfs:domain rdfs:Resource` in lkd.rdf and is therefore unconstrained here.
 #
 # Catches the wrong-FRBR-axis family from `docs/roundtrip-debugging.md`: data
@@ -87,10 +88,30 @@ bffi-prov:ExpressionDomainShape
 
 bffi-prov:WorkDomainShape
     a sh:NodeShape ;
-    rdfs:label "bffi:subject / classification / originDate / genreForm have domain bffi:Work" ;
-    sh:targetSubjectsOf bffi:subject, bffi:classification, bffi:originDate, bffi:genreForm ;
+    rdfs:label "bffi:subject / originDate / genreForm have domain bffi:Work" ;
+    sh:targetSubjectsOf bffi:subject, bffi:originDate, bffi:genreForm ;
     sh:class bffi:Work ;
-    sh:message "A Work-domain predicate (subject / classification / originDate / genreForm) on a node that is not a bffi:Work (lkd.rdf rdfs:domain)." .
+    sh:message "A Work-domain predicate (subject / originDate / genreForm) on a node that is not a bffi:Work (lkd.rdf rdfs:domain)." .
+
+# `bffi:classification` is split out of the shape above because one MARC
+# field legitimately puts it on an Item. MARC 051 (and 852) is the LC class
+# number of one specific *copy*, and marc2bibframe2 attaches it to the
+# `bf:Item` — 2 of the 319 field-coverage probes, 0 of the 61 real fixture
+# records. lkd.rdf declares `rdfs:domain bffi:Work` and has no item-level
+# classification property, so the Item case is an ontology shortfall to raise
+# with NLF, not a conversion bug: `routings.route_manifestation_work_domain_props`
+# deliberately does not lift it (that would assert a copy's shelf number as the
+# Work's classification and make the reverse direction emit MARC 050, a field
+# the source never had). Accept Work or Item here; keep reporting anything else.
+bffi-prov:ClassificationDomainShape
+    a sh:NodeShape ;
+    rdfs:label "bffi:classification sits on a bffi:Work or (MARC 051 / 852) a bffi:Item" ;
+    sh:targetSubjectsOf bffi:classification ;
+    sh:or (
+        [ sh:class bffi:Work ]
+        [ sh:class bffi:Item ]
+    ) ;
+    sh:message "bffi:classification on a node that is neither a bffi:Work (lkd.rdf rdfs:domain) nor a bffi:Item (MARC 051 / 852 copy-level class number)." .
 
 # --- rdfs:domain — the axis-link predicates -------------------------------
 #

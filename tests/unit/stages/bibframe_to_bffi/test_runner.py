@@ -122,6 +122,44 @@ def test_convert_one_residual_count_surfaces_unhandled_bf_terms(tmp_path: Path) 
     assert residual >= 0
 
 
+_WHITESPACE_URI_BIBFRAME = """<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:bf="http://id.loc.gov/ontologies/bibframe/">
+  <bf:Work rdf:about="http://urn.fi/URN:NBN:fi:bib:ws#Work">
+    <bf:subject rdf:resource="http://id.loc.gov/authorities/names/Kalevala ja Suomi "/>
+  </bf:Work>
+</rdf:RDF>
+"""
+
+
+def test_convert_one_percent_encodes_whitespace_in_cataloguer_typed_uris(
+    tmp_path: Path,
+) -> None:
+    """rdflib's RDF/XML parser accepts a URI containing spaces (free text
+    typed into ``$0``, concatenated onto a LoC base by marc2bibframe2);
+    the Turtle serializer refuses it. Interior runs are percent-encoded so
+    one such URI can't abort an otherwise convertible record, and the
+    repair is counted rather than silent."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    (in_dir / "ws.bibframe.xml").write_text(_WHITESPACE_URI_BIBFRAME, encoding="utf-8")
+
+    output_path, _residual, counters = convert_one(
+        in_dir / "ws.bibframe.xml",
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+
+    assert counters["uri_whitespace_cleaned"] == 1
+    graph = _parse_turtle(output_path)
+    subjects = {str(o) for o in graph.objects(None, URIRef(f"{BFFI_NAMESPACE}subject"))}
+    assert subjects == {"http://id.loc.gov/authorities/names/Kalevala%20ja%20Suomi"}
+    # The counter reaches the provenance sidecar like any other decision.
+    prov = _parse_turtle(out_dir / "ws.prov.ttl")
+    assert Literal("uri_whitespace_cleaned=1") in set(prov.objects(None, V.decision))
+
+
 def test_convert_corpus_summary_and_sidecar_events(tmp_path: Path) -> None:
     in_dir = tmp_path / "in"
     out_dir = tmp_path / "out"

@@ -72,13 +72,14 @@ Every constraint derives from `vocab/lkd.rdf` — and only from `lkd.rdf`. The c
 | Kind | Constraints |
 |---|---|
 | `owl:disjointWith` | `bffi:Work` / `bffi:Expression` — the only disjointness lkd.rdf declares between the axes |
-| `rdfs:domain` | `bffi:content`, `bffi:summary` (Expression); `bffi:subject`, `bffi:classification`, `bffi:originDate`, `bffi:genreForm` (Work); the three axis links; `bffi:mainTitle` (Title) |
+| `rdfs:domain` | `bffi:content`, `bffi:summary` (Expression); `bffi:subject`, `bffi:originDate`, `bffi:genreForm` (Work); `bffi:classification` (Work **or** `bffi:Item` — see below); the three axis links; `bffi:mainTitle` (Title) |
 | `rdfs:range` | `bffi:title`, `bffi:identifiedBy`, `bffi:source`, `bffi:note`, `bffi:adminMetadata`, the three axis links |
 
 Two subtleties make the difference between a useful boundary and noise:
 
 - **`vocab/lkd.rdf` is passed to pyshacl as the ontology graph.** `sh:class` tests membership by walking `rdf:type/rdfs:subClassOf*` in the graph it can see, and the subclass axioms aren't in a converted record. Without lkd.rdf in scope, a correct `bffi:Local` identifier fails a `bffi:Identifier` range check — 348 phantom violations across 343 records.
 - **`rdfs:range` infers a type; it doesn't forbid the absence of one.** An untyped external authority URI (90 of the emit's `bffi:source` values) satisfies the range check; a value typed as something *else* does not. Literals are excluded from that leniency — `bffi:title "Some title"` instead of a `bffi:Title` node is precisely the defect these checks exist for.
+- **One domain is deliberately wider than lkd.rdf**: `bffi:classification` gets its own `bffi-prov:ClassificationDomainShape` accepting `bffi:Work` **or** `bffi:Item`. MARC 051 / 852 is the class number of one specific copy and marc2bibframe2 attaches it to the Item; lkd.rdf declares `rdfs:domain bffi:Work` and has no item-level alternative, so the shape records an ontology gap to raise with NLF rather than a defect to fix in the converter. See [p-064](plans/p-064-boundary3-residue.md) for why lifting it to the Work would fabricate a MARC 050.
 
 Result: 21 of 343 emitted records flagged, five distinct finding types, 15 ms/record. That is a boundary worth reading. The previous version of this shape flagged 342 of 343.
 
