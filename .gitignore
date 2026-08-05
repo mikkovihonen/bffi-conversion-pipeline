@@ -35,6 +35,9 @@ htmlcov/
 build/
 dist/
 
+# MkDocs generated site
+site/
+
 # uv / virtualenv
 .venv/
 

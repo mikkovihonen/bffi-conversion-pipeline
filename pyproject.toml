@@ -31,10 +31,13 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9",
+    "pytest-cov>=7",
+    "coverage>=7",
     "ruff>=0.15",
     "mypy>=2",
     "types-requests",
     "lxml-stubs",
+    "mkdocs-material>=1.0",
 ]
 
 [project.scripts]
@@ -80,4 +83,13 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 markers = [
     "integration: tests that require Docker services (Grafana/Prometheus)",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__:",
+    "raise NotImplementedError",
 ]

@@ -14,6 +14,8 @@ Plus an evaluation harness wrapping the three — round-trip diff, cataloguer-re
 
 No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages are out of scope here.
 
+No Docker image publishing. This repo ships Python + XSLT + RDF; git tags are the release boundary. No registry to publish to.
+
 ## Project docs
 
 - `vocab/lkd.rdf` — full BFFI 1.0.0 ontology (RDF/XML, ~4600 lines), vendored because `https://schema.finto.fi/bffi/` returns HTTP 403 outside the Finto network. **The canonical reference for class and property definitions, AND the closed set of terms we may emit under the `bffi:` namespace.** See the BFFI namespace discipline rule in Conventions.
@@ -54,6 +56,8 @@ No clustering, no LLM judge, no reconciliation, no Skosmos load. Those stages ar
 - **Hard-cut closed-namespace emit**: **zero `bf:*` URIs in the BFFI emit graph.** BIBFRAME (`bf:*`) stays inside the conversion's INPUT (the marc2bibframe2 output); it must never appear in the BFFI output. The BIBFRAME view is recoverable by OWL inference through the re-anchor pattern (`bffi:Sub rdfs:subClassOf bffi:Anchor owl:equivalentClass bf:X`). See `docs/bf_to_bffi_mapping.md` for the routing decisions.
 - **Turtle prefix bindings**: Every Turtle-serialising path MUST bind its namespaces through a single shared helper. Never write a private `graph.bind("foo", FOO)` list — even for one or two prefixes. rdflib invents non-deterministic `@prefix ns1: …` declarations otherwise, and concatenating Turtle from different records then silently reinterprets the local-name half of `ns1:…` triples in whichever record's prefix block loses the redeclaration race.
 - **SPARQL**: there is currently **none** — the BIBFRAME → BFFI conversion is implemented as Python routings over an rdflib graph, not as CONSTRUCT queries, and no `sparql/` directory exists. (`Settings.sparql_dir` and the SHACL shapes' sibling `.rq` slot are vestigial.) If a query is ever genuinely the right tool, it goes in `sparql/` as a versioned file, read at startup and parametrized with Jinja2 if needed (autoescape off) — but prefer extending `routings.py`, where the routing registry gives every decision a provenance hook and a discipline test.
+- **Semantic versioning**: Releases follow `vMAJOR.MINOR.PATCH` per semver.org. The git tag and `pyproject.toml` `[project].version` stay in sync. Use the release skill (`.pi/skills/release/SKILL.md`) or `release.sh` to drive the process. No `schema_version` to sync (no seeded config template).
+- **Dependabot**: Handles Python dependency updates (`pip` and `github-actions` ecosystems). `third_party/marc2bibframe2` submodule bumps are **manual** — the operator reviews the diff, regenerates mapping docs (`--check` catches drift), and lands them in their own commit.
 - **Idempotency**: Conversion outputs are deterministic — same input, same bytes. **The atomic-write and skip-when-newer half of this rule is aspirational, not shipped**: the three conversion stages overwrite unconditionally and have no `--force` flag. Only `melinda-sync` does it properly (`.tmp` → rename, resumption-token state, `--force-restart`). Don't cite this rule as if the conversion stages already satisfied it.
 - **Stage isolation**: Stages don't import each other. Orchestration lives in `cli.py`.
 - **Errors over silent fallbacks**: Conversion failures raise. The only retry logic is for transient external errors (e.g. a vocab fetch).

@@ -15,8 +15,17 @@ falsifiable test of the mapping rather than a one-way assertion about it.
 
 This is **pro bono** work for the [National Library of Finland](https://www.kansalliskirjasto.fi/),
 intended for upstream contribution alongside the existing NLF tooling.
-Code is **Apache 2.0** (matching NLF tools); published RDF data is **CC0**
+Code is **MIT** (Copyright © 2026 Mikko Vihonen); published RDF data is **CC0**
 (matching Finto vocabularies).
+
+## Badges
+
+[![CI](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml)
+[![Coverage](docs/assets/coverage.svg)](.github/workflows/ci.yml)
+[![GitHub Pages](https://img.shields.io/badge/gh--pages-active-blue)](https://mikkovihonen.github.io/bffi-conversion-pipeline/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python: 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
+[![SemVer: 0.1.0](https://img.shields.io/badge/semver-0.1.0-orange.svg)](pyproject.toml)
 
 ## Why the round-trip
 
