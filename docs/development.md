@@ -11,11 +11,10 @@ uv sync --frozen
 ## Testing
 
 ```bash
-make test          # run all tests (504 unit tests)
-make test-fast     # run only fast tests (no MARC corpus needed)
+make test          # run all unit tests against on-disk fixtures
 ```
 
-Tests run against on-disk fixtures — no Docker services, no network, no triple store. If a test ever needs an external service, it gets the `integration` marker and its own job.
+No Docker services, no network, no triple store. If a test ever needs an external service, it gets the `integration` marker and its own job.
 
 ## Linting
 
@@ -27,11 +26,13 @@ All three must pass before any commit. The pre-commit hook runs `make lint && ma
 
 ## Coverage
 
+Coverage is measured in CI on every `push` to `main` via the `coverage` job:
+
 ```bash
-make coverage      # run tests with coverage, generate badge
+uv run pytest --cov --cov-report=xml --cov-report=term-missing tests/
 ```
 
-Coverage badge auto-publishes to `docs/assets/coverage.svg` on `push` to `main`. The `fail_under = 80` threshold in `pyproject.toml` enforces a minimum.
+The badge auto-publishes to `docs/assets/coverage.svg`. The `fail_under = 80` threshold in `pyproject.toml` enforces a minimum.
 
 ## Generated artifacts
 
@@ -50,7 +51,7 @@ If a generated file drifts from its source, `--check` fails the build. Submodule
 
 ```
 src/bffi_pipeline/
-├── stages/              # Conversion stages (marc_to_bibframe, etc.)
+├── stages/              # Conversion stages
 │   ├── marc_to_bibframe/     # MARCXML → BIBFRAME via marc2bibframe2 XSLT
 │   ├── bibframe_to_bffi/     # BIBFRAME → BFFI (31 routings)
 │   ├── bffi_to_marc/         # BFFI → MARCXML (round-trip)
@@ -60,7 +61,13 @@ src/bffi_pipeline/
 ├── observability/       # Structured events → JSONL → Prometheus
 ├── provenance/          # Conversion decision audit trail
 ├── validation/          # SHACL shapes, sidecar validation
-└── cli.py               # Typer CLI entry point
+├── schemas/             # MARC21slim XSD
+├── cli.py               # Typer CLI entry point
+├── config.py            # Settings (pydantic)
+├── uris.py              # URI helpers
+├── rdf_utils.py         # RDF graph utilities
+├── bibframe.py          # BIBFRAME type helpers
+└── run_manifest.py      # Run directory tracking
 
 docs/                    # Documentation (MkDocs)
 third_party/             # Vendored XSLT (git submodule)
@@ -77,5 +84,5 @@ This is a pro-bono project for the National Library of Finland. Before starting 
 
 - **No paid API services.** Everything runs locally or against free endpoints.
 - **Open-source tooling only.**
-- **License:** code Apache 2.0, published RDF data CC0.
+- **License:** code MIT, published RDF data CC0.
 - **No outbound telemetry** — no Datadog, Sentry, Honeycomb, or similar.
