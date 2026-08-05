@@ -84,7 +84,7 @@ PID + argv files sit at `<runs-root>/.exporter.pid` and `.exporter.argv` — pro
 
 **Mode A — ambient observer (default):** one long-lived exporter with `--watch-glob 'runs/*/stage-events.jsonl'`. Initial walk attaches every existing sidecar; the 30 s rescan picks up new runs as they spawn. The dashboard's `active_run` dropdown shows new runs within ~30 s — no exporter restart needed.
 
-**Mode B — per-run focused bench:** single `--sidecar runs/<uuid>/stage-events.jsonl`. Useful for an isolated A/B test where you want zero noise from other runs. Operator kills the exporter when done.
+**Mode B — per-run focused bench:** single `--watch-glob 'runs/<uuid>/stage-events.jsonl'`. Useful for an isolated A/B test where you want zero noise from other runs. Operator kills the exporter when done.
 
 Mode A is the durable shape. The exporter never owns the run — it's a passive tail of the run's on-disk JSONL output.
 
@@ -108,19 +108,15 @@ Every metric carries an explicit `run_uuid` label. Dashboards filter every panel
 
 Auto-loaded from `config/grafana/dashboards/bffi-pipeline.json` at container start (via `config/grafana/provisioning/`). Read-only in the UI; operators clone-and-edit if they want a custom view.
 
-Initial panel set for the bidirectional-conversion scope:
+Panel set:
 
-| Panel | Type | What it shows |
-|---|---|---|
-| Pipeline overview | Stat × 5 | One tile per stage (Export / marc2bibframe / BIBFRAME→BFFI / BFFI→MARC / Round-trip eval). Coloured green if running, blue if done, grey if idle. Filtered to the active run. |
-| Forward-conversion progress | Stat | Processed / total for the BIBFRAME → BFFI stage. |
-| Forward-conversion ETA | Stat | Linear-extrapolation ETA. |
-| Forward-conversion throughput | Stat | Records per minute over the last 5 progress events. |
-| Routing outcome distribution | Bar gauge | Per-outcome counts after BIBFRAME → BFFI ends (hub_routed_work, hub_routed_expression, identifier_isbn, …). |
-| Reverse-conversion progress | Stat | Processed / total for the BFFI → MARC stage. |
-| Round-trip diff residue | Stat | After `roundtrip_eval`: counts of records by diff status (`identical` / `reordered` / `changed` / `lost` / `added`); clickable through to the cataloguer-review HTML via Caddy's `/files/` mount. |
-| Per-stage throughput | Time series | All stages — overlay view of who's currently moving. |
-| Validation residue | Stat | Count of records with non-zero `_validation.jsonl` rows from the forward conversion. |
+| Panel | What it shows |
+|---|---|
+| Run selector | Templated variable `$active_run` filtered by `label_values(bffi_stage_started_timestamp, run_uuid)`. |
+| Started / Ended | Timestamps for when each stage began and finished. |
+| Per-stage record counts | `${melinda_total}`, `${marc2bibframe_total}`, `${bibframe2bffi_total}`, `${bffi2marc_total}`, `${roundtrip_total}` — total entities processed per stage. |
+| Errors by stage | Failed-record counts grouped by stage and error type. |
+| Run artifacts | Link through Caddy's `/files/` mount to per-record diff TSVs and cataloguer-review HTML. |
 
 ## Extending
 
