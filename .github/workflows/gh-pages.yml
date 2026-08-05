@@ -33,7 +33,7 @@ jobs:
       - name: Build with MkDocs
         run: uv run mkdocs build --site-dir site
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
