@@ -47,13 +47,6 @@ flowchart LR
     CADDY -->|/grafana/| GRAF
     CADDY -->|/prometheus/| PROM
     CADDY -->|/files/| R
-
-    style Stages fill:#e3f2fd,stroke:#1565c0
-    style Sidecars fill:#fff8e1,stroke:#f57f17
-    style Exporter fill:#e0f7fa,stroke:#00838f
-    style Docker fill:#f3e5f5,stroke:#7b1fa2
-    style Caddy fill:#e0f7fa,stroke:#00838f
-    style Runs fill:#e8f5e9,stroke:#4caf50
 ```
 
 All local. The exporter runs on the host alongside the conversion pipeline (it shares the data dir directly, no volume mapping); Prometheus, Grafana, and Caddy run as Docker Compose services. Operators reach the stack through a single URL; Caddy routes paths to the right backend and serves the `runs/` directory as static files so per-record diff artifacts are clickable from dashboard links.
