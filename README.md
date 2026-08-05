@@ -78,5 +78,5 @@ See **[Getting Started](docs/getting-started.md)** for prerequisites, dependenci
 
 ## Agentic coding disclosure
 Built using agentic coding tools.
-- [Pi Coding Agent](https://github.com/earendil-works/pi-coding-agent) via [pi-container](https://mikkovihonen.github.io/pi-container/) for agentic coding.
+- [Pi Coding Agent](https://pi.dev) via [pi-container](https://mikkovihonen.github.io/pi-container/) for agentic coding.
 - [Claude Code](https://claude.com/product/claude-code)
