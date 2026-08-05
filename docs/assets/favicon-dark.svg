@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 80 80" width="80" height="80" role="img" aria-label="BFFI conversion pipeline">
-  <rect width="80" height="80" rx="16" fill="#1a1a2e"/>
-  <circle cx="48" cy="48" r="28" fill="none" stroke="#4c1" stroke-width="4"/>
-  <path d="M 70.2 12.2 L 77 26 L 61.8 25.8 Z" fill="#fff" transform="translate(-22, 22) scale(0.8)"/>
-  <path d="M 25.8 83.8 L 19 70 L 34.2 70.2 Z" fill="#fff" transform="translate(-22, 22) scale(0.8)"/>
-  <path d="M 48 39 L 57 48 L 48 57 L 39 48 Z" fill="#fff" transform="translate(-22, 22) scale(0.8)"/>
-</svg>

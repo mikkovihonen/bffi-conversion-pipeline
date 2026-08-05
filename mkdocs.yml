@@ -16,8 +16,8 @@ theme:
     - scheme: default
       primary: indigo
       accent: indigo
-  favicon: assets/favicon.svg
-  logo: assets/logo.svg
+  favicon: assets/apple-touch-icon.png
+  logo: assets/mark-dark.svg
   icon:
     repo: fontawesome/brands/github
   apple-touch-icon: assets/apple-touch-icon.png
