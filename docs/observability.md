@@ -8,15 +8,52 @@ This repository builds observability in from the ground up. Every stage emits st
 
 ## Architecture
 
-```
-pipeline stages ─emit→ stage-events.jsonl ─tail→ metrics-exporter ─scrape→ Prometheus ─query→ Grafana
-                       (per-run sidecar)         (host :9100)              (container)    (container)
-                                                                                │             │
-                                                                                └─────────────┴──→ Caddy
-                                                                                                   127.0.0.1:8080
-                                                                                                   /  → Grafana
-                                                                                                   /prometheus/
-                                                                                                   /files/ → runs/
+```mermaid
+flowchart LR
+    subgraph Stages["Pipeline stages"]
+        S1[melinda-sync]
+        S2[marc-to-bibframe]
+        S3[bibframe-to-bffi]
+        S4[bffi-to-marc]
+        S5[roundtrip-eval]
+    end
+
+    subgraph Sidecars["Per-run sidecars"]
+        SJ[stage-events.jsonl]
+    end
+
+    subgraph Exporter["metrics-exporter<br/>host :9100"]
+        E[/metrics endpoint]
+    end
+
+    subgraph Docker["Docker Compose"]
+        PROM[Prometheus<br/>:9090]
+        GRAF[Grafana<br/>:3000]
+    end
+
+    subgraph Caddy["Caddy reverse proxy<br/>127.0.0.1:8080"]
+        CADDY[Caddy]
+    end
+
+    subgraph Runs["runs/ directory"]
+        R[per-record artifacts<br/>diff TSVs, review HTML]
+    end
+
+    S1 & S2 & S3 & S4 & S5 --> SJ
+    SJ -->|tail| E
+    E -->|scrape| PROM
+    PROM -->|query| GRAF
+    PROM & GRAF --> CADDY
+    CADDY -->|/grafana/| GRAF
+    CADDY -->|/prometheus/| PROM
+    CADDY -->|/files/| R
+
+    style Stages fill:#e3f2fd,stroke:#1565c0
+    style Sidecars fill:#fff8e1,stroke:#f57f17
+    style Exporter fill:#e0f7fa,stroke:#00838f
+    style Docker fill:#f3e5f5,stroke:#7b1fa2
+    style Caddy fill:#e0f7fa,stroke:#00838f
+    style Runs fill:#e8f5e9,stroke:#4caf50
 ```
 
 All local. The exporter runs on the host alongside the conversion pipeline (it shares the data dir directly, no volume mapping); Prometheus, Grafana, and Caddy run as Docker Compose services. Operators reach the stack through a single URL; Caddy routes paths to the right backend and serves the `runs/` directory as static files so per-record diff artifacts are clickable from dashboard links.
