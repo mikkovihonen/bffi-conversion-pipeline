@@ -1,6 +1,8 @@
 # BFFI conversion pipeline
 
-A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/), producing [BFFI](https://finto.fi/bffi/en/) canonical Turtle from MARCXML records harvested via OAI-PMH, and reconstructing MARCXML from the BFFI graph for round-trip verification.
+A bidirectional MARCXML to BFFI conversion pipeline, by way of BIBFRAME.
+
+Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/), producing [BFFI](https://www.kiwi.fi/spaces/LKD/overview) canonical Turtle from MARCXML records harvested via OAI-PMH, and reconstructing MARCXML from the BFFI graph for round-trip verification.
 
 <div align="center" style="text-align:center;" markdown = "1">
   <img src="docs/assets/logo-2x.png" alt="BFFI conversion pipeline" width="400">
