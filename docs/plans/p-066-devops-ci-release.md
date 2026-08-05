@@ -1,6 +1,6 @@
 # p-066 — DevOps: CI coverage, GitHub Pages, releases
 
-**Status:** proposed
+**Status:** done
 
 **Created:** 2026-08-05
 
@@ -226,6 +226,50 @@ can bump git submodules, but the submodule is a vendored LoC stylesheet with
 its own release cadence and breaking-change surface. Treat submodule bumps as
 a separate concern: the operator reviews the diff, regenerates mapping docs
 (`--check` will catch drift), and lands them in their own commit.
+
+## Outcome
+
+All phases shipped. Deviations from the plan are noted per phase.
+
+### Phase A: Coverage + badge
+
+**Shipped:** `pytest-cov` in dev deps, `coverage` job in `ci.yml` (runs on `push` to `main`, gated on `lint-and-test`), `docs/assets/coverage.svg` committed, `fail_under = 80` in `pyproject.toml`, badge linked in README.
+
+**Deviations:** No `docs/assets/.gitignore` — the badge is committed normally alongside other assets. The plan called for excluding it from normal tracking; that distinction turned out to be unnecessary.
+
+### Phase B: GitHub Pages
+
+**Shipped:** `mkdocs-material` + `mermaid2` plugin in dev deps, full `mkdocs.yml` with grouped navigation, `.github/scripts/generate_index.py`, `.github/workflows/gh-pages.yml`, `site/` in `.gitignore`, README badge linking to coverage section.
+
+**Deviations from plan:**
+- `mkdocs.yml` nav is more elaborate than the plan's "minimal, single-page" — grouped into **Runbook** (Getting Started, Development, Debugging, Observability), **Pipeline docs** (Overview, Mapping references, Schema), and **Plans**. Includes `pipeline-overview.md` with mermaid architecture diagrams.
+- `mermaid2` plugin added for interactive architecture diagrams in the pipeline overview.
+- Logo set to `assets/mark-dark.svg`, favicon to `assets/apple-touch-icon.png` — not in the plan.
+
+### Phase C: Release workflow + CHANGELOG
+
+**Shipped:** `CHANGELOG.md` with `[Unreleased]` block, `.github/workflows/release.yml` (triggers on `v*` tags, runs its own `check` job then creates GitHub Release via `softprops/action-gh-release`), `fail_under = 80` in `pyproject.toml`.
+
+**Deviations from plan:** The release workflow is a **separate** `release.yml` triggered on tag push, not a `release` job inside `ci.yml` gated on tag push (as the plan described). The `release.yml` has its own `check` job that runs lint + format + mypy + artifact checks + tests, then a `release` job that creates the GitHub Release. This is cleaner separation — the main CI runs on every push, the release CI only on tags.
+
+### Phase D: Release skill
+
+**Shipped:** `.pi/skills/release/SKILL.md`, `.pi/skills/release/scripts/release.sh` (summarizes commits, bumps version, regenerates uv.lock, lints, tests, amends, tags, pushes), `.github/dependabot.yml` (python + github-actions ecosystems), submodule discipline documented in CLAUDE.md Conventions.
+
+**Deviations:** None significant. Matches the plan.
+
+### Phase E: .gitattributes + dependabot + polish
+
+**Shipped:** `.gitattributes` (LF normalization, binary for SVG/lock), submodule discipline in CLAUDE.md Conventions, coverage badge in README.
+
+**Deviations from plan:**
+- GitHub Pages badge not added to README — the plan called for it but it wasn't implemented.
+- Semver badge not added to README — same.
+- CLAUDE.md updated with semantic versioning convention and submodule discipline (as planned).
+
+### What the plan got wrong
+
+The `validate_versions.py` callout in the plan was correct — it's intentionally thin (only tag ↔ pyproject sync, no `schema_version`) and the release skill handles it inline. The plan's call to "don't build it" held.
 
 ## Out of scope (noted, not deferred)
 
