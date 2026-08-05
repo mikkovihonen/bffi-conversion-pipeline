@@ -9,9 +9,8 @@ This repository builds observability in from the ground up. Every stage emits st
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Stages["Pipeline stages"]
-        S1[melinda-sync]
         S2[marc-to-bibframe]
         S3[bibframe-to-bffi]
         S4[bffi-to-marc]
@@ -31,15 +30,15 @@ flowchart LR
         GRAF[Grafana<br/>:3000]
     end
 
-    subgraph Caddy["Caddy reverse proxy<br/>127.0.0.1:8080"]
-        CADDY[Caddy]
-    end
-
     subgraph Runs["runs/ directory"]
         R[per-record artifacts<br/>diff TSVs, review HTML]
     end
 
-    S1 & S2 & S3 & S4 & S5 --> SJ
+    subgraph Caddy["Caddy reverse proxy<br/>127.0.0.1:8080"]
+        CADDY[Caddy]
+    end
+
+    S2 & S3 & S4 & S5 --> SJ
     SJ -->|tail| E
     E -->|scrape| PROM
     PROM -->|query| GRAF
