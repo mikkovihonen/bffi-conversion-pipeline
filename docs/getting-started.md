@@ -97,11 +97,3 @@ The pipeline reads from environment variables and optional config files:
 | `BFFI_INPUT_DIR` | MARCXML input directory | `./input` |
 | `BFFI_OUTPUT_DIR` | Conversion output directory | `./runs/default` |
 | `BFFI_LOG_LEVEL` | Logging verbosity | `INFO` |
-
-See **[Configuration](docs/configuration.md)** for the full reference.
-
-## Next steps
-
-- **[Development](docs/development.md)** — local dev setup, tests, lint, coverage
-- **[Mapping references](docs/bf_to_bffi_mapping.md)** — routing decisions from BIBFRAME to BFFI
-- **[Observability](docs/observability.md)** — Prometheus + Grafana local stack

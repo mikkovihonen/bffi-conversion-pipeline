@@ -35,8 +35,9 @@ nav:
           - MARCXML to BIBFRAME: marc_to_bibframe_mapping.md
           - BIBFRAME to BFFI: bf_to_bffi_mapping.md
           - BFFI to MARC: bffi_to_marc_mapping.md
-      - Validation: validation-strategy.md
-      - Vocabulary: vocabulary.md
+      - Schema:
+          - Vocabulary: vocabulary.md
+          - Validation: validation-strategy.md
   - Plans: plans/README.md
 
 markdown_extensions:

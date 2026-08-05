@@ -1,9 +1,7 @@
 # BFFI Vocabulary
 
 The closed set of `bffi:` classes and properties is declared in
-[`vocab/lkd.rdf`](../vocab/lkd.rdf) — the full BFFI 1.0.0 ontology, vendored
-because the canonical schema URL (`https://schema.finto.fi/bffi/`) returns
-HTTP 403 outside the Finto network.
+[`vocab/lkd.rdf`](../vocab/lkd.rdf) — the full BFFI 1.0.0 ontology.
 
 This is the only source of truth for what terms may be emitted under the
 `bffi:` namespace. When the ontology has no term for something, the converter
