@@ -38,6 +38,8 @@ dev = [
     "types-requests",
     "lxml-stubs",
     "mkdocs-material>=1.0",
+    "mkdocs-mermaid2-plugin>=1.2",  # renders ```mermaid code blocks in MkDocs docs/
+
 ]
 
 [project.scripts]

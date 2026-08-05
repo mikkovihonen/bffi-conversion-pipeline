@@ -24,22 +24,30 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
-  - Development: development.md
-  - Mapping references:
-      - MARC → BIBFRAME: marc_to_bibframe_mapping.md
-      - BIBFRAME → BFFI: bf_to_bffi_mapping.md
-      - BFFI → MARC: bffi_to_marc_mapping.md
-  - Debugging: roundtrip-debugging.md
-  - Validation: validation-strategy.md
-  - Observability: observability.md
+  - Pipeline overview: pipeline-overview.md
+  - Runbook:
+      - Getting Started: getting-started.md
+      - Development: development.md
+      - Debugging: roundtrip-debugging.md
+      - Observability: observability.md
+  - Conversion documentation:
+      - Pipeline: pipeline.md
+      - Mapping references:
+          - MARCXML to BIBFRAME: marc_to_bibframe_mapping.md
+          - BIBFRAME to BFFI: bf_to_bffi_mapping.md
+          - BFFI →toMARC: bffi_to_marc_mapping.md
+      - Validation: validation-strategy.md
+      - Vocabulary: vocabulary.md
   - Plans: plans/README.md
-  - Vocabulary: vocabulary.md
 
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
   - admonition
   - pymdownx.details
   - attr_list
@@ -49,3 +57,4 @@ markdown_extensions:
 
 plugins:
   - search
+  - mermaid2
