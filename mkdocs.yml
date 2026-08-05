@@ -24,18 +24,17 @@ theme:
 
 nav:
   - Home: index.md
-  - Pipeline overview: pipeline-overview.md
   - Runbook:
       - Getting Started: getting-started.md
       - Development: development.md
       - Debugging: roundtrip-debugging.md
       - Observability: observability.md
-  - Conversion documentation:
-      - Pipeline: pipeline.md
+  - Pipeline docs:
+      - Overview: pipeline-overview.md
       - Mapping references:
           - MARCXML to BIBFRAME: marc_to_bibframe_mapping.md
           - BIBFRAME to BFFI: bf_to_bffi_mapping.md
-          - BFFI →toMARC: bffi_to_marc_mapping.md
+          - BFFI to MARC: bffi_to_marc_mapping.md
       - Validation: validation-strategy.md
       - Vocabulary: vocabulary.md
   - Plans: plans/README.md
