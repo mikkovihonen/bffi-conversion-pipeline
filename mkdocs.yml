@@ -16,6 +16,11 @@ theme:
     - scheme: default
       primary: indigo
       accent: indigo
+  favicon: assets/favicon.svg
+  logo: assets/logo.svg
+  icon:
+    repo: fontawesome/brands/github
+  apple-touch-icon: assets/apple-touch-icon.png
 
 nav:
   - Home: index.md
