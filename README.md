@@ -3,7 +3,7 @@
 A bidirectional MARCXML ↔ BFFI conversion pipeline, by way of BIBFRAME. Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/), producing [BFFI](https://finto.fi/bffi/en/) canonical Turtle from MARCXML records harvested via OAI-PMH, and reconstructing MARCXML from the BFFI graph for round-trip verification.
 
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="BFFI conversion pipeline" width="400">
+  <img src="docs/assets/logo-2x.png" alt="BFFI conversion pipeline" width="400">
 </p>
 
 [![CI](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikkovihonen/bffi-conversion-pipeline/actions/workflows/ci.yml)
