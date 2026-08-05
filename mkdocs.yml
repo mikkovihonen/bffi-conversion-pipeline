@@ -24,6 +24,8 @@ theme:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
+  - Development: development.md
   - Mapping references:
       - MARC → BIBFRAME: marc_to_bibframe_mapping.md
       - BIBFRAME → BFFI: bf_to_bffi_mapping.md
