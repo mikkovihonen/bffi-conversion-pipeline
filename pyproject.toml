@@ -2,7 +2,7 @@
 name = "bffi-pipeline"
 version = "0.1.0"
 description = "MARCXML ↔ BIBFRAME ↔ BFFI conversion pipeline (pro bono for the National Library of Finland)."
-license = "Apache-2.0"
+license = "MIT"
 authors = [{ name = "Mikko Vihonen" }]
 requires-python = ">=3.14"
 readme = "README.md"
