@@ -35,43 +35,51 @@ git submodule update --init --recursive
 ### 1. Create a run directory
 
 ```bash
-bffi-pipeline new-run
+RUN=$(bffi-pipeline new-run)
+echo "$RUN"
 # → runs/20260805-1630-a1b2c3/
 ```
 
 The run directory is the atomic output boundary for one pipeline invocation.
 
-### 2. Convert MARCXML → BIBFRAME
+### 2. Stage MARCXML input
+
+```bash
+mkdir -p "$RUN/marc"
+cp /path/to/records.xml "$RUN/marc/"
+```
+
+### 3. Convert MARCXML → BIBFRAME
 
 ```bash
 bffi-pipeline marc-to-bibframe \
-  --input /path/to/records.xml \
-  --output-dir runs/20260805-1630-a1b2c3
+  --input-dir "$RUN/marc" \
+  --output-dir "$RUN/bibframe"
 ```
 
-### 3. Convert BIBFRAME → BFFI
+### 4. Convert BIBFRAME → BFFI
 
 ```bash
 bffi-pipeline bibframe-to-bffi \
-  --input runs/.../bibframe.ntriples \
-  --output-dir runs/...
+  --input-dir "$RUN/bibframe" \
+  --output-dir "$RUN/bffi"
 ```
 
-### 4. Convert BFFI → MARCXML (round-trip)
+### 5. Convert BFFI → MARCXML (round-trip)
 
 ```bash
 bffi-pipeline bffi-to-marc \
-  --input runs/.../bffi.ntriples \
-  --output-dir runs/...
+  --input-dir "$RUN/bffi" \
+  --output-dir "$RUN/marc-reconstructed"
 ```
 
-### 5. Evaluate round-trip
+### 6. Evaluate round-trip
 
 ```bash
 bffi-pipeline roundtrip-eval \
-  --original /path/to/records.xml \
-  --reconstructed runs/.../marc-reconstructed.xml \
-  --html runs/.../roundtrip.html
+  --source-dir "$RUN/marc" \
+  --reconstructed-dir "$RUN/marc-reconstructed" \
+  --html "$RUN/eval/review.html"
 ```
 
 ## CLI reference
@@ -88,12 +96,3 @@ bffi-pipeline melinda-sync --help
 bffi-pipeline new-run --help
 ```
 
-## Configuration
-
-The pipeline reads from environment variables and optional config files:
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `BFFI_INPUT_DIR` | MARCXML input directory | `./input` |
-| `BFFI_OUTPUT_DIR` | Conversion output directory | `./runs/default` |
-| `BFFI_LOG_LEVEL` | Logging verbosity | `INFO` |
