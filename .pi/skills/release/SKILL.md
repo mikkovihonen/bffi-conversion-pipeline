@@ -1,3 +1,7 @@
+---
+description: Drive the BFFI pipeline release process — bump version, update changelog, run validation, commit, tag, and push.
+---
+
 # Release Skill
 
 **Purpose:** Drive the release process for the BFFI conversion pipeline.
