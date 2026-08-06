@@ -1,0 +1,30 @@
+# Scrape config for running the stack inside a pi-container agent. A copy of
+# prometheus.yml with exactly one line changed — the target. Mounted over
+# /etc/prometheus/prometheus.yml by docker-compose.pi-container.yml, which
+# carries the full explanation and is itself inert unless explicitly named —
+# the Makefile names it when PI_CONTAINER is set.
+#
+# Short version: `host.docker.internal` inside a nested container resolves to
+# the podman machine's gvproxy address, i.e. the macOS host, not the agent. The
+# exporter runs inside the agent, and the agent's --internal network has no
+# route to the host, so the scrape times out and the dashboard renders empty
+# with no error. 169.254.1.2 is where podman puts the rootless-netns host —
+# `pasta --map-guest-addr 169.254.1.2`. The literal address is used rather than
+# the name because podman keeps its own `host.docker.internal` entry alongside
+# any `--add-host`, and Go's RFC 6724 address sorting prefers the global-scope
+# wrong one over the link-local right one.
+#
+# Keep in step with prometheus.yml: a job or interval added there must be
+# copied here by hand.
+
+global:
+  scrape_interval: 2s
+  scrape_timeout: 1s
+
+scrape_configs:
+  - job_name: "bffi-pipeline"
+    static_configs:
+      # Was host.docker.internal:9100 — see the header.
+      - targets: ["169.254.1.2:9100"]
+        labels:
+          deployment: "local"

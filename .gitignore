@@ -53,3 +53,12 @@ site/
 # serve-metrics bookkeeping, written under its --root on launch.
 .exporter.pid
 .exporter.argv
+
+# docker-compose.override.yml is loaded automatically, so whatever lands in it
+# applies to everyone who runs compose here — which makes it per-machine by
+# definition (Linux-Docker operators need an extra_hosts line for
+# host.docker.internal that Podman rejects; see the note in docker-compose.yml).
+# Named overlays are different and ARE tracked: docker-compose.pi-container.yml
+# only applies when passed with -f, so it can carry agent-only settings safely.
+docker-compose.override.yml
+docker-compose.override.yaml

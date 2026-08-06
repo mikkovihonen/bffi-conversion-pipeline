@@ -1,0 +1,114 @@
+# Compose overlay for running the observability stack inside a pi-container
+# agent. Tracked, but inert unless named — an explicit -f list replaces
+# compose's auto-discovery, so this file only ever applies when asked for.
+#
+# The Makefile asks for it automatically when PI_CONTAINER is set, which the
+# agent image sets and nothing else does, so `make observability-up` is correct
+# both inside an agent and outside it. Directly, if not going through make:
+#
+#     podman compose -f docker-compose.yml -f docker-compose.pi-container.yml \
+#         --profile observability up -d
+#
+# That is why it is not called docker-compose.override.yml: that name is loaded
+# automatically, which would push an agent-only address onto every operator.
+#
+# ── What it fixes ───────────────────────────────────────────────────────────
+#
+# config/prometheus.yml scrapes `host.docker.internal:9100` to reach the
+# `bffi-pipeline serve-metrics` exporter. That is correct when the stack and the
+# exporter both run on your machine. Inside a pi-container agent it resolves to
+# 192.168.127.254 — gvproxy, i.e. the macOS host as seen from the podman machine
+# VM — which is wrong twice over. The exporter is not on the host; it runs inside
+# the agent. And the agent sits on a network created --internal, so there is no
+# route to that address anyway.
+#
+# The second failure masks the first: the scrape times out rather than being
+# refused, Prometheus reports `context deadline exceeded`, and Grafana renders
+# the dashboard perfectly and shows no runs, with no error anywhere in the UI.
+#
+# The address that reaches the agent from a nested container is 169.254.1.2,
+# assigned by podman when it builds the rootless network namespace — visible as
+# `pasta --map-guest-addr 169.254.1.2` inside the agent. Measured from inside
+# bffi-prometheus, exporter listening on 0.0.0.0:9100 in the agent:
+#
+#   192.168.127.254:9100  (host.docker.internal)   timed out
+#   10.89.1.1:9100        (bridge gateway)         refused — pasta --no-map-gw
+#   10.89.0.2:9100        (agent bridge address)   refused — wrong netns
+#   169.254.1.2:9100                               serves
+#
+# ── Why a replacement config file and not `extra_hosts` ─────────────────────
+#
+# `extra_hosts: ["host.docker.internal:169.254.1.2"]` was tried first and does
+# NOT work, for a reason worth writing down. Podman keeps its own entry for that
+# name, so /etc/hosts ends up listing it twice:
+#
+#   169.254.1.2      host.docker.internal        <- ours, from --add-host
+#   192.168.127.254  host.containers.internal host.docker.internal
+#
+# busybox `wget` takes the first match and succeeds, which makes the fix look
+# like it worked — and that is the check an operator runs to confirm it.
+# Prometheus is Go, and Go's resolver sorts multi-address results by RFC 6724
+# destination-address selection, which ranks a global-scope address above a
+# link-local one. So Go dials 192.168.127.254 first, into a black hole that
+# neither connects nor refuses, and the 1s `scrape_timeout` expires before the
+# second address is tried. Deleting the podman line from /etc/hosts by hand
+# flipped the target to `up` on the next scrape; that is the evidence.
+#
+# Podman will not omit its own entry — `--no-hosts` suppresses it but is
+# mutually exclusive with `--add-host`, and the `containers.conf` key for this
+# (`host_containers_internal_ip`) is ignored inside an agent. So the fix is to
+# stop resolving the name at all and put the literal address in the scrape
+# config. config/prometheus.pi-container.yml is that config.
+#
+# The volume below replaces rather than adds: compose merges volumes keyed on
+# the container-side target path, so `/etc/prometheus/prometheus.yml` from
+# docker-compose.yml is superseded, while the `prometheus-data` named volume
+# survives untouched.
+#
+# ── Caveats ─────────────────────────────────────────────────────────────────
+#
+# 169.254.1.2 is tied to podman's rootless-netns layout rather than a promised
+# interface, so a podman upgrade in the agent image can invalidate it — and the
+# symptom will again be an empty dashboard rather than an error.
+#
+# config/prometheus.pi-container.yml is a copy of config/prometheus.yml with one
+# line changed. New scrape jobs or changed intervals in the committed file do
+# not reach it; re-copy when that file changes.
+#
+# See the pi-container docs, Configuration → Nested containers.
+
+# ── Why caddy's bind is widened here ────────────────────────────────────────
+#
+# docker-compose.yml binds Caddy to 127.0.0.1, which is right on a normal
+# machine: the stack has no auth anywhere, so it should be reachable only from
+# the machine running it.
+#
+# Inside an agent that bind is a dead end. The agent republishes 8080 onward to
+# the host, and podman delivers that forward to the agent's BRIDGE address, not
+# its loopback — so a loopback-only bind is unreachable from the host whatever
+# the agent publishes. Same shape as the Prometheus problem above: an address
+# that is correct outside the agent and wrong inside it.
+#
+# 0.0.0.0 here is not 0.0.0.0 on your machine. The agent sits on a network
+# created --internal — no gateway, no route in, and the proxy container as its
+# only other member. What actually governs external reach is the agent's own
+# publish, in .pi-container/config.yaml:
+#     nested_containers.ports.expose: localhost  → host 127.0.0.1 only
+#     nested_containers.ports.publish: 18080:8080
+# Setting `expose: lan` there is what would put this no-auth stack on the
+# network. That is the line to guard — not this one.
+#
+# `!override` replaces the base list instead of appending to it. Ports do NOT
+# merge the way volumes do: volumes are keyed on the container-side target, so
+# the Prometheus mount above supersedes cleanly, but a second `ports` entry is
+# simply appended — 127.0.0.1:8080:8080 AND 8080:8080, two publishes of the
+# same port, which podman then rejects. Measured, not assumed.
+
+services:
+  prometheus:
+    volumes:
+      - ./config/prometheus.pi-container.yml:/etc/prometheus/prometheus.yml:ro
+
+  caddy:
+    ports: !override
+      - "8080:8080"

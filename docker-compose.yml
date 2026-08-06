@@ -86,10 +86,21 @@ services:
   #                   export tarballs, per-record artifacts)
   #   /             → 301 → /grafana/ (default landing)
   #
-  # Bound to 127.0.0.1:8080 only — never exposed externally. The bundled
-  # Caddyfile carries no auth (Grafana's own anonymous-Viewer model
-  # provides the read-only access tier; Prometheus + the file browser
-  # have no auth either, mirroring the existing local-only stance).
+  # Not exposed externally. The bundled Caddyfile carries no auth (Grafana's
+  # own anonymous-Viewer model provides the read-only access tier; Prometheus
+  # + the file browser have no auth either, mirroring the local-only stance),
+  # so reaching this port must stay a deliberate act. Hence the 127.0.0.1 bind
+  # below: on a normal machine this stack is reachable from that machine only.
+  #
+  # Inside a pi-container agent that bind has to be relaxed to 0.0.0.0, because
+  # the agent republishes 8080 onward to the host and podman delivers that
+  # forward to the agent's BRIDGE address, not its loopback — a loopback-only
+  # bind is unreachable there no matter what the agent publishes. That change
+  # lives in docker-compose.pi-container.yml, which only applies when named,
+  # and 0.0.0.0 inside an agent is not 0.0.0.0 on your machine: the agent sits
+  # on a network created --internal, with no gateway and no route in. Do not
+  # relax this line to make that case work — it would widen every other
+  # operator's exposure to fix an environment they are not in.
   caddy:
     image: caddy:2-alpine
     container_name: bffi-caddy
