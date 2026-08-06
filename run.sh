@@ -116,8 +116,24 @@ echo ""
 # ── start observability stack ──────────────────────────────────────────────
 echo -e "${CYAN}── Starting observability stack ──────────────────────────────────────${RESET}"
 
+# Compose overlay. Inside a pi-container agent the stack needs agent-only
+# addresses: Caddy must bind 0.0.0.0 (the host's published port arrives at the
+# agent's bridge address, not its loopback) and Prometheus must scrape
+# 169.254.1.2 instead of host.docker.internal. Both live in
+# docker-compose.pi-container.yml, which is inert unless named with -f.
+#
+# PI_CONTAINER is set by the agent image and by nothing else, so this is a
+# no-op on a normal machine — where the empty file list also preserves compose's
+# auto-discovery of a local docker-compose.override.yml. Same rule as the
+# Makefile's COMPOSE_OVERLAY; keep the two in step.
+COMPOSE_FILES=()
+if [[ -n "${PI_CONTAINER:-}" ]]; then
+    COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.pi-container.yml)
+    echo -e "  ${GREEN}✓${RESET} pi-container detected — layering docker-compose.pi-container.yml"
+fi
+
 # Start Docker Compose services (Prometheus + Grafana + Caddy)
-$DOCKER_CMD compose --profile observability up -d prometheus grafana caddy
+$DOCKER_CMD compose "${COMPOSE_FILES[@]}" --profile observability up -d prometheus grafana caddy
 
 # Start the host-side metrics exporter in the background
 mkdir -p runs
@@ -139,6 +155,19 @@ done
 
 echo -e "  ${GREEN}✓${RESET} Prometheus + Grafana + Caddy at http://localhost:8080"
 echo -e "  ${GREEN}✓${RESET} Metrics exporter (PID $EXPORTER_PID)"
+
+# In an agent, localhost:8080 is the agent's own view. From the host terminal
+# reading this output, the stack is behind the port the agent republishes —
+# nested_containers.ports.publish in .pi-container/config.yaml.
+HOST_PORT=""
+if [[ -n "${PI_CONTAINER:-}" ]]; then
+    HOST_PORT=$(sed -n 's/.*"\([0-9]\{1,5\}\):8080".*/\1/p' .pi-container/config.yaml 2>/dev/null | head -1)
+    if [[ -n "$HOST_PORT" ]]; then
+        echo -e "  ${YELLOW}↳${RESET} From your host, use ${BOLD}http://localhost:$HOST_PORT${RESET} (agent republishes 8080)"
+    else
+        echo -e "  ${YELLOW}↳${RESET} From your host, use the port nested_containers.ports.publish maps to 8080"
+    fi
+fi
 echo ""
 
 # ── mint run directory ─────────────────────────────────────────────────────
@@ -188,7 +217,7 @@ echo -e "${CYAN}═════════════════════�
 echo -e "${BOLD}  Demo run complete${RESET}"
 echo -e "${CYAN}══════════════════════════════════════════════════════════${RESET}"
 echo ""
-echo -e "  Dashboard: ${BOLD}http://localhost:8080${RESET}"
+echo -e "  Dashboard: ${BOLD}http://localhost:${HOST_PORT:-8080}${RESET}"
 echo -e "  Run dir:   ${BOLD}$RUN_DIR${RESET}"
 echo ""
 echo -e "  Per-record review HTML: ${BOLD}$RUN_DIR/eval/review.html${RESET}"
