@@ -386,18 +386,22 @@ def _first_literal(graph: Graph, subject: Node, predicate: URIRef) -> str | None
 
 @dataclass(frozen=True)
 class _RdaEntry:
-    """One MARC 336/337/338 emit: ``$a`` label + ``$b`` code + ``$2`` scheme.
+    """One MARC 336/337/338 emit: ``$a`` label + ``$b`` code + ``$2``
+    scheme + optional ``$3`` materials specified.
 
     ``label`` comes from the URI's ``rdfs:label`` when present (English
     typically; source-MARC ``$a`` is the cataloguer's display language
     which BFFI doesn't preserve, so labels will not always round-trip
     byte-identical). ``code`` is the URI's last segment (e.g. ``"sti"``).
     ``scheme`` is derived from the URI's namespace (e.g. ``"rdacontent"``
-    for ``…/contentTypes/sti``)."""
+    for ``…/contentTypes/sti``). ``applies_to`` is the
+    ``bffi:appliesTo`` bnode's ``rdfs:label`` when present — this is the
+    MARC ``$3`` (materials specified)."""
 
     label: str | None
     code: str
     scheme: str
+    applies_to: str | None = None
 
 
 @dataclass(frozen=True)
@@ -547,6 +551,7 @@ _RDA_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("a", "term in the cataloguing language (rdfs:label of the URI)"),
     ("b", "RDA 3-letter code (URI last segment)"),
     ("2", "scheme name (rdacontent / rdamedia / rdacarrier)"),
+    ("3", "materials specified (from bffi:appliesTo/rdfs:label)"),
 )
 
 
@@ -560,7 +565,9 @@ _RDA_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
             "?expression bffi:expressionOf ?work (or ?expression "
             "bffi:manifestationOfExpression ?m) . "
             "?expression bffi:content <http://id.loc.gov/vocabulary/contentTypes/{code}> . "
-            "$a = ?content's rdfs:label; $b = {code}; $2 = 'rdacontent'."
+            "?content bffi:appliesTo ?applies . ?applies rdfs:label ?applies_to . "
+            "$a = ?content's rdfs:label; $b = {code}; $2 = 'rdacontent'; "
+            "$3 = ?applies_to."
         ),
         notes=(
             "Content type is an **Expression** attribute, not a Work one. "
@@ -578,7 +585,9 @@ _RDA_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
         subfields=_RDA_SUBFIELDS,
         source=(
             "?m bffi:media <http://id.loc.gov/vocabulary/mediaTypes/{code}> . "
-            "$a from rdfs:label; $b = {code}; $2 = 'rdamedia'."
+            "?media bffi:appliesTo ?applies . ?applies rdfs:label ?applies_to . "
+            "$a from rdfs:label; $b = {code}; $2 = 'rdamedia'; "
+            "$3 = ?applies_to."
         ),
     ),
     MarcEmitMeta(
@@ -587,7 +596,9 @@ _RDA_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
         subfields=_RDA_SUBFIELDS,
         source=(
             "?m bffi:carrier <http://id.loc.gov/vocabulary/carriers/{code}> . "
-            "$a from rdfs:label; $b = {code}; $2 = 'rdacarrier'."
+            "?carrier bffi:appliesTo ?applies . ?applies rdfs:label ?applies_to . "
+            "$a from rdfs:label; $b = {code}; $2 = 'rdacarrier'; "
+            "$3 = ?applies_to."
         ),
     ),
 )
@@ -652,11 +663,20 @@ def _rda_entries(graph: Graph, objects: Iterable[Node], *, scheme: str) -> tuple
             continue
         seen.add(obj)
         label = next(graph.objects(obj, RDFS.label), None)
+        # Read bffi:appliesTo/rdfs:label for $3 (materials specified).
+        applies_to: str | None = None
+        for applies in graph.objects(obj, BFFI.appliesTo):
+            if isinstance(applies, BNode):
+                applies_label = next(graph.objects(applies, RDFS.label), None)
+                if isinstance(applies_label, Literal):
+                    applies_to = str(applies_label)
+                    break
         entries.append(
             _RdaEntry(
                 label=str(label) if isinstance(label, Literal) else None,
                 code=local_name(obj),
                 scheme=scheme,
+                applies_to=applies_to,
             )
         )
     return tuple(sorted(entries, key=lambda e: (e.code, e.label or "")))
@@ -4698,8 +4718,9 @@ def _append_rda_datafields(
     record: etree._Element, tag: str, entries: tuple[_RdaEntry, ...]
 ) -> None:
     """Append one MARC datafield per RDA descriptor: ``$a`` label (when
-    present), ``$b`` 3-letter code, ``$2`` scheme name. Multiple values
-    on one BFFI predicate produce multiple datafields per MARC convention."""
+    present), ``$b`` 3-letter code, ``$2`` scheme name, ``$3`` materials
+    specified (when ``bffi:appliesTo`` is present). Multiple values on one
+    BFFI predicate produce multiple datafields per MARC convention."""
     for entry in entries:
         df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=" ", ind2=" ")
         if entry.label is not None:
@@ -4709,6 +4730,9 @@ def _append_rda_datafields(
         sf_b.text = entry.code
         sf_2 = etree.SubElement(df, f"{_MARC}subfield", code="2")
         sf_2.text = entry.scheme
+        if entry.applies_to is not None:
+            sf_3 = etree.SubElement(df, f"{_MARC}subfield", code="3")
+            sf_3.text = entry.applies_to
 
 
 def _append_title_datafield(

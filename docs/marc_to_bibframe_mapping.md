@@ -368,9 +368,9 @@ Verdict legend:
 | `310` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` | — | `$a` | — | — |
 | `321` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` | — | `$a` | — | — |
 | `334` | ≠ asymmetric | `instance` | ✓ | `$2` `$3` `$6` `$b` | — | `$a` | — | — |
-| `336` | ≠ asymmetric | `work` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
-| `337` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
-| `338` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
+| `336` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$2` `$3` `$a` `$b` | — | — |
+| `337` | ≠ asymmetric | `instance` | ✓ | `$6` | — | `$2` `$3` `$a` `$b` | — | — |
+| `338` | ≠ asymmetric | `instance` | ✓ | `$6` | — | `$2` `$3` `$a` `$b` | — | — |
 | `351` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$3` `$a` `$b` `$c` | — | — |
 | `353` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$0` `$2` `$a` `$b` | — | — |
 | `370` | ≠ asymmetric | `work` | ✓ | `$6` `$c` | `$2` | `$g` | — | — |

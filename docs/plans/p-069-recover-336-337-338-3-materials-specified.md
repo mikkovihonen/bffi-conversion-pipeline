@@ -1,11 +1,10 @@
 # p-069 — Recover MARC 336/337/338 `$3` (materials specified) subfield
 
-**Status: proposed.** The 336/337/338 emit rules currently declare only
-`$a` (term), `$b` (RDA code), `$2` (scheme). The source MARC also has
-`$3` (materials specified), which marc2bibframe2 converts to
-`bflc:appliesTo` → `bflc:AppliesTo` → `rdfs:label`. The BFFI routing
-converts `bflc:appliesTo` to `bffi:appliesTo`. The reverse converter
-doesn't currently emit it.
+**Status: implemented.** 336/337/338 `$3` (materials specified) recovered
+by extending `_RdaEntry` with optional `applies_to` field, updating
+`_rda_entries` to read `bffi:appliesTo`/`rdfs:label`, adding `$3` to
+`_RDA_SUBFIELDS`, updating emit rule `source=` declarations, and updating
+`_append_rda_datafields` to include `$3` in the output.
 
 This plan adds `$3` to the 336/337/338 emit rules by extending the
 `_RdaEntry` dataclass and `_rda_entries` helper to read
