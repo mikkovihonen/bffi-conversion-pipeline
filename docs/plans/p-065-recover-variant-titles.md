@@ -1,11 +1,11 @@
 # p-065 — Recover MARC 246 variant-title fields the XSLT leaves discriminator-less
 
-**Status: implemented.** `route_title_variants` in `routings.py` now attaches
+**Status: implemented.** `route_title_variants` in `routings.py` attaches
 `bffi:marcKey` literals to untyped VariantTitle / ParallelTitle blocks before
 overwriting the type with `bffi:Title`. The reverse side parses the marcKey
-and emits the corresponding MARC 246 datafield.
+and emits the corresponding MARC 246 datafield with verbatim ind1/ind2.
 
-**Results**: 5 of 6 records recovered (2339093, 2616222, 2602288, 2394080, 2484550). 1 record (1109760) not recovered due to pre-existing multi-manifestation issue — 246 titles are on the third manifestation, not the first.
+**Results**: All 6 records recovered (2339093, 2616222, 2602288, 2394080, 2484550, 1109760). Multi-manifestation merge in `bffi_to_marc` fixes 1109760. All ind2 values reconstruct verbatim.
 
 ---
 
