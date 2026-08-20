@@ -296,17 +296,19 @@ def _extract_change_date(graph: Graph, manifestation: URIRef) -> str | None:
 
 @dataclass(frozen=True)
 class _PublicationEmit:
-    """One MARC 260 datafield's content, split into structured subfields.
+    """One MARC 260/264 datafield's content, split into structured subfields.
 
-    Any combination of place / agent / date can be absent (or all three —
-    in which case the fallback ``statement`` carries the flat transcribed
-    string from ``bffi:publicationStatement``). ISBD trailing punctuation
-    is applied at emit time, not stored here."""
+    ``ind1`` distinguishes the MARC source tag: ``"1"`` → 260 (publication),
+    ``"4"`` → 264 (copyright). Any combination of place / agent / date can be
+    absent (or all three — in which case the fallback ``statement`` carries
+    the flat transcribed string from ``bffi:publicationStatement``). ISBD
+    trailing punctuation is applied at emit time, not stored here."""
 
     place: str | None
     agent: str | None
     date: str | None
     statement: str | None
+    ind1: str = " "
 
 
 @marc_emit(
@@ -348,33 +350,71 @@ def _extract_edition_statement(graph: Graph, manifestation: URIRef) -> str | Non
     return str(value) if isinstance(value, Literal) else None
 
 
-def _extract_publication(graph: Graph, manifestation: URIRef) -> _PublicationEmit | None:
-    """Walk the Manifestation's ``bffi:provisionActivity`` blocks for the
-    first Publication-typed activity and return its structured place /
-    agent / date. Falls back to ``bffi:publicationStatement`` when no
-    structured parts are present."""
-    place: str | None = None
-    agent: str | None = None
-    date: str | None = None
+def _extract_publications(graph: Graph, manifestation: URIRef) -> list[_PublicationEmit]:
+    """Walk the Manifestation's ``bffi:provisionActivity`` blocks and return
+    one ``_PublicationEmit`` per Publication-typed activity, plus an
+    additional 264 ``ind1=4`` emit when ``bffi:copyrightDate`` is present.
+
+    Discriminate MARC source tag by ind1:
+
+    - ``ind1="1"`` (260) when the activity has structured place / agent /
+      date (``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``).
+    - ``ind1="4"`` (264) when ``bffi:copyrightDate`` is present on the
+      manifestation — copyright date only, no place / agent.
+    - ``ind1=" "`` (260) for the flat ``bffi:publicationStatement`` fallback.
+    """
+    emits: list[_PublicationEmit] = []
+    seen: set[tuple[str | None, str | None, str | None]] = set()
+
+    # Publication activities from provisionActivity blocks.
     for pa in graph.objects(manifestation, BFFI.provisionActivity):
         if (pa, RDF.type, BFFI.Publication) not in graph:
             continue
-        if place is None:
-            place = _first_literal(graph, pa, BFFI.simplePlace)
-        if agent is None:
-            agent = _first_literal(graph, pa, BFFI.simpleAgent)
-        if date is None:
-            date = _first_literal(graph, pa, BFFI.simpleDate)
-        if place and agent and date:
-            break
-    statement: str | None = None
-    if place is None and agent is None and date is None:
+        place = _first_literal(graph, pa, BFFI.simplePlace)
+        agent = _first_literal(graph, pa, BFFI.simpleAgent)
+        date = _first_literal(graph, pa, BFFI.simpleDate)
+        emit = _PublicationEmit(
+            place=place,
+            agent=agent,
+            date=date,
+            statement=None,
+            ind1="1",
+        )
+        key = (emit.place, emit.agent, emit.date)
+        if key not in seen:
+            seen.add(key)
+            emits.append(emit)
+
+    # Copyright date as separate 264 ind1=4.
+    copyright_date = next(graph.objects(manifestation, BFFI.copyrightDate), None)
+    if isinstance(copyright_date, Literal):
+        emit = _PublicationEmit(
+            place=None,
+            agent=None,
+            date=str(copyright_date),
+            statement=None,
+            ind1="4",
+        )
+        key = (emit.place, emit.agent, emit.date)
+        if key not in seen:
+            seen.add(key)
+            emits.append(emit)
+
+    # Flat statement fallback when no structured activity was found.
+    if not emits:
         value = next(graph.objects(manifestation, BFFI.publicationStatement), None)
         if isinstance(value, Literal):
-            statement = str(value)
-    if place is None and agent is None and date is None and statement is None:
-        return None
-    return _PublicationEmit(place=place, agent=agent, date=date, statement=statement)
+            emits.append(
+                _PublicationEmit(
+                    place=None,
+                    agent=None,
+                    date=None,
+                    statement=str(value),
+                    ind1=" ",
+                )
+            )
+
+    return sorted(emits, key=lambda e: (e.ind1, e.date or "", e.agent or ""))
 
 
 def _first_literal(graph: Graph, subject: Node, predicate: URIRef) -> str | None:
@@ -4791,17 +4831,19 @@ def _append_title_datafield(
 
 
 def _append_publication_datafield(record: etree._Element, publication: _PublicationEmit) -> None:
-    """Append the MARC 260 datafield with structured ``$a`` / ``$b`` / ``$c``
+    """Append the MARC 260/264 datafield with structured ``$a`` / ``$b`` / ``$c``
     when ``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``
     are present on the Publication-typed provisionActivity. Falls back to
     a single ``$a`` carrying the flat ``bffi:publicationStatement`` literal
     when the structured parts are absent.
 
-    ISBD trailing punctuation is added per the MARC 260 convention:
-    ``$a "Place :"`` precedes ``$b``; ``$b "Publisher,"`` precedes ``$c``.
-    No trailing punctuation on the last present subfield.
+    ``publication.ind1`` determines the MARC source tag: ``"1"`` → 260,
+    ``"4"`` → 264 (copyright). ISBD trailing punctuation is added per the
+    MARC convention: ``$a "Place :"`` precedes ``$b``; ``$b "Publisher,"``
+    precedes ``$c``. No trailing punctuation on the last present subfield.
     """
-    df = etree.SubElement(record, f"{_MARC}datafield", tag="260", ind1=" ", ind2=" ")
+    tag = "260" if publication.ind1 in (" ", "1") else "264"
+    df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=publication.ind1, ind2=" ")
     if publication.place is None and publication.agent is None and publication.date is None:
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = publication.statement
@@ -4944,7 +4986,7 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     uniform_main_entry: _AddedTitleEmit | None,
     responsibility: str | None,
     edition_statement: str | None,
-    publication: _PublicationEmit | None,
+    publications: list[_PublicationEmit],
     identifiers: list[_IdentifierEmit],
     language_codes: list[str],
     language_components: list[tuple[str, str]],
@@ -5045,8 +5087,8 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         sf_a = etree.SubElement(df250, f"{_MARC}subfield", code="a")
         sf_a.text = edition_statement
 
-    if publication is not None:
-        _append_publication_datafield(record, publication)
+    for pub in publications:
+        _append_publication_datafield(record, pub)
 
     if physical is not None:
         _append_physical_description_datafield(record, physical)
@@ -5134,7 +5176,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
     uniform_main_entry = _extract_uniform_main_entry(graph, manifestation)
     responsibility = _extract_responsibility_statement(graph, manifestation)
     edition_statement = _extract_edition_statement(graph, manifestation)
-    publication = _extract_publication(graph, manifestation)
+    publications = _extract_publications(graph, manifestation)
     identifiers = _extract_identifier_datafields(graph, manifestation)
     language_codes = _extract_language_codes(graph, manifestation)
     language_components = _extract_language_components(graph, manifestation)
@@ -5173,7 +5215,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         uniform_main_entry=uniform_main_entry,
         responsibility=responsibility,
         edition_statement=edition_statement,
-        publication=publication,
+        publications=publications,
         identifiers=identifiers,
         language_codes=language_codes,
         language_components=language_components,
