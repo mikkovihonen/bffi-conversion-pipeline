@@ -41,14 +41,14 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1020` | `020` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `022` | `022` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1022` | `022` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$l` `$m` `$q` `$y` `$z` | asymmetric |
-| `023` | `023` | minimal | datafield | `##` | `$a` | forward_only |
-| `1023` | `023` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | forward_only |
+| `023` | `023` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1023` | `023` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `024` | `024` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1024` | `024` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `025` | `025` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1025` | `025` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
-| `026` | `026` | minimal | datafield | `##` | `$a` | forward_only |
-| `1026` | `026` | maximal | datafield | `##` | `$2` `$5` `$a` `$b` `$c` `$d` `$e` | forward_only |
+| `026` | `026` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1026` | `026` | maximal | datafield | `##` | `$2` `$5` `$a` `$b` `$c` `$d` `$e` | asymmetric |
 | `027` | `027` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1027` | `027` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `028` | `028` | minimal | datafield | `##` | `$a` | asymmetric |
@@ -73,12 +73,12 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `041` | `041` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1041` | `041` | maximal | datafield | `##` | `$2` `$3` `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | asymmetric |
 | `042` | `042` | minimal | datafield | `##` | `$a` | forward_only |
-| `043` | `043` | minimal | datafield | `##` | `$a` | forward_only |
-| `1043` | `043` | maximal | datafield | `##` | `$0` `$a` `$b` `$c` | forward_only |
-| `045` | `045` | minimal | datafield | `2#` | `$a` | forward_only |
-| `1045` | `045` | maximal | datafield | `2#` | `$a` `$b` | forward_only |
-| `046` | `046` | minimal | datafield | `##` | `$k` | forward_only |
-| `1046` | `046` | maximal | datafield | `##` | `$k` `$l` `$m` `$n` | forward_only |
+| `043` | `043` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1043` | `043` | maximal | datafield | `##` | `$0` `$a` `$b` `$c` | asymmetric |
+| `045` | `045` | minimal | datafield | `2#` | `$a` | asymmetric |
+| `1045` | `045` | maximal | datafield | `2#` | `$a` `$b` | asymmetric |
+| `046` | `046` | minimal | datafield | `##` | `$k` | asymmetric |
+| `1046` | `046` | maximal | datafield | `##` | `$k` `$l` `$m` `$n` | asymmetric |
 | `047` | `047` | minimal | datafield | `##` | `$a` | forward_only |
 | `1047` | `047` | maximal | datafield | `##` | `$2` `$a` | forward_only |
 | `048` | `048` | minimal | datafield | `##` | `$a` | forward_only |
@@ -105,8 +105,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1082` | `082` | maximal | datafield | `0#` | `$1` `$2` `$a` `$b` `$q` | asymmetric |
 | `084` | `084` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1084` | `084` | maximal | datafield | `##` | `$2` `$a` `$b` `$q` | asymmetric |
-| `086` | `086` | minimal | datafield | `0#` | `$a` | forward_only |
-| `1086` | `086` | maximal | datafield | `0#` | `$2` `$a` `$b` `$z` | forward_only |
+| `086` | `086` | minimal | datafield | `0#` | `$a` | asymmetric |
+| `1086` | `086` | maximal | datafield | `0#` | `$2` `$a` `$b` `$z` | asymmetric |
 | `088` | `088` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1088` | `088` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `100` | `100` | minimal | datafield | `##` | `$a` | asymmetric |
@@ -136,8 +136,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `255` | `255` | minimal | datafield | `##` | `$a` | forward_only |
 | `1255` | `255` | maximal | datafield | `##` | `$a` `$b` `$c` `$d` `$e` `$f` `$g` | forward_only |
 | `256` | `256` | minimal | datafield | `##` | `$a` | forward_only |
-| `257` | `257` | minimal | datafield | `##` | `$a` | forward_only |
-| `1257` | `257` | maximal | datafield | `##` | `$2` `$a` | forward_only |
+| `257` | `257` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1257` | `257` | maximal | datafield | `##` | `$2` `$a` | asymmetric |
 | `260` | `260` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1260` | `260` | maximal | datafield | `##` | `$a` `$b` `$c` | asymmetric |
 | `263` | `263` | minimal | datafield | `##` | `$a` | forward_only |

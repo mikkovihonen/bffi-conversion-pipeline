@@ -1511,6 +1511,92 @@ def _extract_origin_place_datafields(graph: Graph, manifestation: URIRef) -> lis
 
 @marc_emit(
     MarcEmitMeta(
+        tag="257",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "producing or filming place"),
+            ("2", "source code (local part of the place's bffi:source)"),
+        ),
+        source=(
+            "?i bffi:originPlace ?place — bnode on the bf:Instance, "
+            "not the bf:Work (which carries 370). ?place a bffi:Place ; "
+            "rdfs:label ?a ; [bffi:source [bffi:code ?2]]? ."
+        ),
+        notes=(
+            "Discriminated from MARC 370 by origin: ``bf:Instance`` carries the "
+            "MARC 257 (country of producing or filming place), ``bf:Work`` carries "
+            "MARC 370 (associated place). Both emit ``bffi:originPlace`` as a "
+            "``bffi:Place`` bnode with ``rdfs:label``. The XSLT does not attach "
+            "``bffi:marcKey`` to these fields, so axis is the only discriminator."
+        ),
+    ),
+)
+def _extract_producing_place_datafields(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
+    """Walk ``?instance bffi:originPlace`` and emit one MARC 257 datafield per place.
+
+    Discriminated from 370 by axis: 257 lives on the ``bf:Instance``, 370 on
+    the ``bf:Work``.
+    """
+    emits: list[_NoteEmit] = []
+    for place in graph.objects(manifestation, BFFI.originPlace):
+        if not isinstance(place, BNode):
+            continue
+        label = next((x for x in graph.objects(place, RDFS.label) if isinstance(x, Literal)), None)
+        if label is None:
+            continue
+        subs: list[tuple[str, str]] = [("a", str(label))]
+        source = next(graph.objects(place, BFFI.source), None)
+        if isinstance(source, URIRef):
+            subs.append(("2", _scheme_code(source)))
+        emits.append(_NoteEmit(tag="257", text="", subfield_code="a", extra_subfields=tuple(subs)))
+    return sorted(emits, key=lambda e: e.extra_subfields)
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="043",
+        indicators=(" ", " "),
+        subfields=(("a", "geographic area code identifier"),),
+        source=(
+            "?w bffi:geographicCoverage <URI> — URI reference on the same predicate "
+            "as 522 bnode discriminates 043 from 522. The URI is "
+            "``http://id.loc.gov/vocabulary/geographicAreas/{code}"
+            "."
+        ),
+        notes=(
+            "Discriminated from MARC 522 by shape: ``043`` produces a ``bffi:geographicCoverage`` "
+            "URI reference (LoC geographic areas vocabulary), ``522`` produces a "
+            "``bffi:GeographicCoverage`` bnode with ``rdfs:label``. The XSLT emits "
+            "043 ``$a`` as a vocabulary URI and 522 ``$a`` as a bnode value."
+        ),
+    ),
+)
+def _extract_geographic_area_codes(graph: Graph, manifestation: URIRef) -> list[str]:
+    """Walk ``bffi:geographicCoverage`` URI references and emit MARC 043 ``$a``.
+
+    Discriminated from 522 by object shape: URI reference = 043, bnode = 522.
+    """
+    GEOGRAPHIC_AREAS_PREFIX = "http://id.loc.gov/vocabulary/geographicAreas/"
+    emits: list[str] = []
+    for geo in graph.objects(manifestation, BFFI.geographicCoverage):
+        if not isinstance(geo, URIRef):
+            continue
+        uri_str = str(geo)
+        if uri_str.startswith(GEOGRAPHIC_AREAS_PREFIX):
+            emits.append(uri_str[len(GEOGRAPHIC_AREAS_PREFIX) :])
+    work = _find_work_for_manifestation(graph, manifestation)
+    work_anchor = work if work is not None else manifestation
+    for geo in graph.objects(work_anchor, BFFI.geographicCoverage):
+        if not isinstance(geo, URIRef):
+            continue
+        uri_str = str(geo)
+        if uri_str.startswith(GEOGRAPHIC_AREAS_PREFIX):
+            emits.append(uri_str[len(GEOGRAPHIC_AREAS_PREFIX) :])
+    return sorted(set(emits))
+
+
+@marc_emit(
+    MarcEmitMeta(
         tag="502",
         indicators=(" ", " "),
         subfields=(("a", "dissertation note text"),),
@@ -3526,6 +3612,88 @@ def _extract_language_components(graph: Graph, manifestation: URIRef) -> list[tu
                 if isinstance(language, URIRef):
                     pairs.add((code, local_name(language)))
     return sorted(pairs)
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="045",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "time period code"),
+            ("b", "additional time period information"),
+        ),
+        source=(
+            "?w bffi:temporalCoverage ?literal (plain EDTF string) — no "
+            "discriminator needed, ``bffi:temporalCoverage`` is unique to MARC 045."
+        ),
+        notes=(
+            "Plain literal emit. The XSLT produces ``bf:temporalCoverage`` as "
+            "an EDTF-typed literal for both ``$a`` and ``$b``. No other MARC "
+            "tag maps to this predicate, so every literal is a 045 subfield. "
+            "``$a`` is the primary time period; ``$b`` is additional information "
+            "(when ind1=2, two ``$b`` subfields may appear as two separate "
+            "literals)."
+        ),
+    ),
+)
+def _extract_temporal_coverage(graph: Graph, manifestation: URIRef) -> list[str]:
+    """Walk ``bffi:temporalCoverage`` literals and emit MARC 045 ``$a``/``$b``."""
+    work = _find_work_for_manifestation(graph, manifestation)
+    anchors = [manifestation]
+    if work is not None:
+        anchors.append(work)
+    emits: list[str] = []
+    for anchor in anchors:
+        for literal in graph.objects(anchor, BFFI.temporalCoverage):
+            if isinstance(literal, Literal):
+                emits.append(str(literal))
+    return sorted(set(emits))
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="046",
+        indicators=(" ", " "),
+        subfields=(
+            ("k", "origin date"),
+            ("l", "valid date"),
+            ("m", "death date"),
+            ("n", "birth date"),
+        ),
+        source=(
+            "?w bffi:originDate ?k / bffi:validDate ?l (EDTF literals). "
+            "Each literal becomes one MARC 046 subfield; ``$m`` and ``$n`` "
+            "are not produced by the XSLT (no ``bf:deathDate``/``bf:birthDate`` "
+            "templates)."
+        ),
+        notes=(
+            "Two BFFI predicates from one MARC field: ``bffi:originDate`` → ``$k``, "
+            "``bffi:validDate`` → ``$l``. Each is a plain EDTF literal. The XSLT "
+            "does not emit ``bf:deathDate`` or ``bf:birthDate``, so ``$m`` and ``$n`` "
+            "are never produced. No discriminator needed — the predicates are unique "
+            "to MARC 046."
+        ),
+    ),
+)
+def _extract_special_coded_dates(graph: Graph, manifestation: URIRef) -> list[tuple[str, str]]:
+    """Walk ``bffi:originDate`` and ``bffi:validDate`` literals and emit MARC 046.
+
+    Returns ``[(subfield_code, value), ...]`` — each literal becomes one
+    subfield: ``originDate`` → ``$k``, ``validDate`` → ``$l``.
+    """
+    work = _find_work_for_manifestation(graph, manifestation)
+    anchors = [manifestation]
+    if work is not None:
+        anchors.append(work)
+    emits: list[tuple[str, str]] = []
+    for anchor in anchors:
+        for literal in graph.objects(anchor, BFFI.originDate):
+            if isinstance(literal, Literal):
+                emits.append(("k", str(literal)))
+        for literal in graph.objects(anchor, BFFI.validDate):
+            if isinstance(literal, Literal):
+                emits.append(("l", str(literal)))
+    return sorted(set(emits))
 
 
 #: Matches ``#<Type><tag>-<n>`` in subject-node URI fragments emitted

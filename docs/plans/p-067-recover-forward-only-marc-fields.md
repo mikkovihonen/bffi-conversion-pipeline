@@ -94,16 +94,27 @@ These all have simple literal or bnode-bearing predicates in `lkd.rdf`.
 
 | MARC | BFFI carrier | Subfields | Notes |
 |---|---|---|---|
-| `043` | `bffi:geographicCoverage` (`bffi:GeographicCoverage`) | `$a, $b, $c, $0` | Same predicate as 522; discriminate via marcKey prefix `043` vs. 522's lack thereof |
-| `045` | `bffi:temporalCoverage` | `$a, $b` | Plain literal emit |
-| `046` | `bffi:originDate`, `bffi:validDate` | `$k, $l, $m, $n` | Two predicates from one MARC field; each subfield maps to one |
-| `257` | `bffi:originPlace` (`bffi:Place`) | `$a, $2` | Same predicate as 370 `$g`; discriminate by marcKey `257` vs. `370` |
-| `377` | `bffi:language` (`bffi:Language`) | `$a, $2, $3, $l` | Same predicate as 041 `$a`; discriminate by marcKey `377` vs. `041` |
+| `043` | `bffi:geographicCoverage` (URI reference) | `$a` | Same predicate as 522; discriminate by shape — URI reference = `043`, bnode with `bffi:GeographicCoverage` = `522` |
+| `045` | `bffi:temporalCoverage` (literal) | `$a, $b` | Plain literal emit, no discriminator |
+| `046` | `bffi:originDate`, `bffi:validDate` (literals) | `$k`, `$l`, `$m`, `$n` | Two predicates from one MARC field; each subfield maps to one literal |
+| `257` | `bffi:originPlace` (bnode) | `$a, $2` | Same predicate as 370; discriminate by origin — `Instance` = `257`, `Work` = `370` |
+| `377` | — | — | **Skip**: shares `bffi:language` with 041 on the Work axis with no discriminator. Document as out-of-scope. |
 
-**Discrimination concern.** `043`/`522` and `257`/`370` and `377`/`041`
-share predicates. The XSLT tags them with marcKey so the reverse path
-dispatches via `_MARCKEY_TAGS_CLAIMED_ELSEWHERE`. This is the same
-discriminator pattern already proven on 730/740 and 130/240.
+**Discrimination approach.** None of these tags carry `marcKey` in the XSLT
+output (marcKey is only set on titles/names/series, not on geographic/temporal/
+place/language fields). The reverse converter discriminates by:
+
+- **Shape:** `043` produces a `bffi:geographicCoverage` URI reference; `522` produces
+  a `bffi:GeographicCoverage` bnode.
+- **Origin:** `257`'s `bffi:originPlace` lives on the `bf:Instance`; `370`'s lives
+  on the `bf:Work`.
+- **No discriminator needed:** `045` and `046` produce plain literals on unique
+  predicates (`bffi:temporalCoverage`, `bffi:originDate`, `bffi:validDate`) with no
+  collision.
+
+`377` shares `bffi:language` on the Work axis with 041 and carries no
+marcKey discriminator. It is skipped — same situation as the `bflc:` terms
+in Phase A's out-of-scope list.
 
 ### Phase C — Music tags (PMO terms)
 
