@@ -413,6 +413,8 @@ def route_identifier_schemes(graph: Graph, ontology: BibframeOntology | None = N
 
 # --- routing 2: Title-variant -------------------------------------------
 
+VARTITLETYPE_PREFIX: Final[str] = "http://id.loc.gov/vocabulary/vartitletype/"
+
 
 @routing(
     terms=TITLE_VARIANT_CLASSES,
@@ -428,10 +430,54 @@ def route_title_variants(graph: Graph) -> int:
     is preserved by the generic ``rename_graph`` pass (which renames
     ``bflc:marcKey`` to ``bffi:marcKey`` via the ``owl:equivalentProperty``
     rule extracted from ``lkd.rdf``).
+
+    For variant titles WITHOUT a ``vartitletype/*`` rdf:type (the
+    ind2=1 ParallelTitle and ind2=3/blank VariantTitle cases that
+    marc2bibframe2 leaves discriminator-less), attach a
+    ``bffi:marcKey`` literal before overwriting the type with
+    ``bffi:Title``. The marcKey carries the source MARC tag (246),
+    ind1, ind2, and the ``bf:mainTitle`` text in standard BFLC form:
+
+    - ``bf:ParallelTitle`` → marcKey ``"2461 $a<text>"`` (ind2=1)
+    - ``bf:VariantTitle`` without vartitletype → marcKey ``"2463 $a<text>"``
+      (ind2=3 — conservative default for the ambiguous case)
+    - Already-typed blocks (with vartitletype) are left alone — the
+      vartitletype path is the existing discriminator.
+
+    Guards:
+
+    - Don't overwrite an existing marcKey (rare — the ``rename_graph``
+      pass preserves them from upstream templates).
+    - Only attach marcKey to bnodes this routing touches (iterates
+      ``graph.subjects(RDF.type, bf_class)`` for the four TITLE_VARIANT
+      classes).
     """
     rewritten = 0
     for bf_class in TITLE_VARIANT_CLASSES:
         for subject in list(graph.subjects(RDF.type, bf_class)):
+            # Skip if already typed with vartitletype — that path is the
+            # existing discriminator.
+            has_vartitletype = any(
+                str(t).startswith(VARTITLETYPE_PREFIX) for t in graph.objects(subject, RDF.type)
+            )
+            if has_vartitletype:
+                graph.remove((subject, RDF.type, bf_class))
+                graph.add((subject, RDF.type, BFFI.Title))
+                rewritten += 1
+                continue
+
+            # Attach marcKey before overwriting the type.
+            # Note: graph has already been renamed by rename_graph, so
+            # the predicate is bffi:mainTitle, not bf:mainTitle.
+            if not list(graph.objects(subject, BFFI.marcKey)):
+                main = next(graph.objects(subject, BFFI.mainTitle), None)
+                if isinstance(main, Literal):
+                    # ParallelTitle → ind2=1; VariantTitle (no type) → ind2=3.
+                    ind2 = "1" if bf_class == BF.ParallelTitle else "3"
+                    # BFLC marcKey format: no space between indicators and $a.
+                    mk = Literal(f"2461{ind2}$a{main}")
+                    graph.add((subject, BFFI.marcKey, mk))
+
             graph.remove((subject, RDF.type, bf_class))
             graph.add((subject, RDF.type, BFFI.Title))
             rewritten += 1

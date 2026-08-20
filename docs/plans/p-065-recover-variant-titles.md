@@ -1,6 +1,15 @@
 # p-065 — Recover MARC 246 variant-title fields the XSLT leaves discriminator-less
 
-**Status: proposed.** Three families of variant-title blocks arrive in the
+**Status: implemented.** `route_title_variants` in `routings.py` now attaches
+`bffi:marcKey` literals to untyped VariantTitle / ParallelTitle blocks before
+overwriting the type with `bffi:Title`. The reverse side parses the marcKey
+and emits the corresponding MARC 246 datafield.
+
+**Results**: 5 of 6 records recovered (2339093, 2616222, 2602288, 2394080, 2484550). 1 record (1109760) not recovered due to pre-existing multi-manifestation issue — 246 titles are on the third manifestation, not the first.
+
+---
+
+Three families of variant-title blocks arrive in the
 BFFI graph without any discriminator the reverse extractor can fire on:
 `bf:ParallelTitle` (ind2=1), `bf:VariantTitle` with no vartitletype (ind2=3
 or blank). All three vanish at hop 3 (BFFI conversion). The fix lives in the
