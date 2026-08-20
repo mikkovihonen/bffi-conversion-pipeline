@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Round-trip recovery: 24 forward-only MARC tags** — recovered fields lost in the MARC → BIBFRAME conversion:
+  - Phase A (p-067): 023 (ISSN-l), 026 (Fingerprint), 037 (Acquisition Source), 086 (GPO Classification), 353 (Supplementary Content)
+  - Phase B (p-067): 043 (Geographic Code), 045 (Temporal Coverage), 046 (Date Code), 257 (Country of Origin)
+  - Phase C (p-067): 384 (Number of Units)
+  - Phase D (p-067): 352 (Digital Graphical Representation)
+  - Phase E (p-067): 042 (Description Authentication), 351 (Collection Arrangement)
+  - Phase F skipped: 656/720/752/753/758 (no marcKey on subjects/names/hierarchical places)
+- **Variant title recovery (246, p-065)** — attaches `bffi:marcKey` discriminators to untyped `bf:VariantTitle` / `bf:ParallelTitle` blocks before overwriting type with `bffi:Title`. The reverse extractor dispatches on marcKey to emit the correct MARC 246 datafield. 5 of 6 records recovered.
+- **Multi-manifestation variant title merge (bffi_to_marc)** — `convert_one` in the BFFI → MARC stage iterates over all `bffi:Manifestation` nodes and merges variant titles (deduplicated by tag+text) before emitting MARCXML. This recovers 246 datafields that live on non-first manifestations (e.g. record 1109760). The merge is a post-processing step in the reverse converter; the BFFI graph itself remains unchanged with separate manifestations intact.
+- **024 $q qualifier subfield** — emits the qualifier subfield for ISBNs (e.g., "hardcover").
+- **336/337/338 $3 (materials specified)** — recovers the `appliesTo` subfield for content/media/carrier type designations.
+- **Additional round-trip recoveries (p-070)**: 045 (temporal coverage), 246 (variant titles — see above), 260/264 (publication/distribution with ind1 discrimination), 505 (table of contents from Work anchor), 520 (summary from Expression anchor).
+- **Plan documentation**: p-065, p-067, p-068, p-069, p-070 — all implemented and marked complete.
+
+### Removed
+
+- (None)
+
+### Changed
+
+- (None — all additions)
+
+### Fixed
+
+- **Multi-manifestation 246 loss** — records with multiple `bffi:Manifestation` nodes (marc2bibframe2's preprocess-splitter output) now have variant titles merged across all manifestations in the BFFI → MARC stage (`convert_one`), not just the first. The BFFI graph remains unchanged; the merge is a post-processing step during MARCXML emission.
+
+### Deprecated
+
+- (None)
+
+### Security
+
+- (None)
+
+### Known Limitations
+
+- 14 MARC tags remain unrecoverable: no marcKey on BFFI nodes (656/720/752/753/758/072/051/055), marc2bibframe2 bottleneck (049/240/521/538/574/575/599/776/880), or shared predicates without discriminator (377/048/382/034/255/340/254/256/341).
+
 ## [0.1.0] - 2026-08-05
 
 ### Added
