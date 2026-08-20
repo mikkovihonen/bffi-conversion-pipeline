@@ -2234,12 +2234,22 @@ def _extract_policies(graph: Graph, manifestation: URIRef) -> _PolicyEmits:
 def _extract_table_of_contents(graph: Graph, manifestation: URIRef) -> list[str]:
     """Return every ``bffi:tableOfContents`` block's ``rdfs:label`` —
     each emits as a MARC 505 datafield carrying the formatted contents
-    note text in ``$a``."""
+    note text in ``$a``.
+
+    ``tableOfContents`` may live on the Manifestation or on the Work; walk
+    both anchors so we recover the field whether marc2bibframe2 attached
+    it to the Instance- or Work-side predicate.
+    """
     texts: list[str] = []
-    for toc in graph.objects(manifestation, BFFI.tableOfContents):
-        label = next(graph.objects(toc, RDFS.label), None)
-        if isinstance(label, Literal):
-            texts.append(str(label))
+    anchors = [manifestation]
+    work = _find_work_for_manifestation(graph, manifestation)
+    if work is not None:
+        anchors.append(work)
+    for anchor in anchors:
+        for toc in graph.objects(anchor, BFFI.tableOfContents):
+            label = next(graph.objects(toc, RDFS.label), None)
+            if isinstance(label, Literal):
+                texts.append(str(label))
     return sorted(texts)
 
 
