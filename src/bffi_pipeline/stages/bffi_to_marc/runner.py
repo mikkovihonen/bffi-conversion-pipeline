@@ -4204,11 +4204,15 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
     MarcEmitMeta(
         tag="024",
         indicators=("0-3", " "),
-        subfields=(("a", "EAN / UPC / ISMN value"),),
+        subfields=(
+            ("a", "EAN / UPC / ISMN value"),
+            ("q", "qualifier (binding / format, e.g. 'pelipakkaus')"),
+        ),
         source=(
             "?m bffi:identifiedBy [a bffi:Identifier ; "
             "bffi:source <…/identifiers/upc \\| ismn \\| ean> ; "
-            "rdf:value ?value] — ind1 selects the scheme (1=UPC, 2=ISMN, 3=EAN)."
+            "rdf:value ?value ; bffi:qualifier ?qualifier] — "
+            "ind1 selects the scheme (1=UPC, 2=ISMN, 3=EAN)."
         ),
     ),
     MarcEmitMeta(
@@ -4217,11 +4221,13 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
         subfields=(
             ("a", "publisher / distributor number value"),
             ("b", "issuing publisher / distributor name"),
+            ("q", "qualifier (binding / format)"),
         ),
         source=(
             "?m bffi:identifiedBy [a bffi:Identifier ; "
             "bffi:source <…/identifiers/audio-issue-number> ; rdf:value ?value ; "
-            "bffi:assigner [a bffi:Organization ; rdfs:label ?name]] — "
+            "bffi:assigner [a bffi:Organization ; rdfs:label ?name] ; "
+            "bffi:qualifier ?qualifier] — "
             "ind1=0 for audio issue numbers; ind2=1 = note maker / no added "
             "entry (the HELMET corpus default)."
         ),

@@ -365,6 +365,41 @@ def test_emit_marcxml_emits_022_issn_datafield() -> None:
     assert sf_a.text == "0028-0836"
 
 
+def test_emit_marcxml_emits_024_isbn_with_qualifier() -> None:
+    """MARC 024 $$q (qualifier) comes from ``bffi:qualifier`` literal on the
+    ``bffi:Identifier`` block. ind1=3 selects EAN."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b2088800#Instance",
+        bib_id="b2088800",
+        title="Race for the galaxy",
+    )
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    ean_block = URIRef("http://example.org/ean-1")
+    g.add((ean_block, RDF.type, BFFI.Identifier))
+    g.add(
+        (
+            ean_block,
+            BFFI.source,
+            URIRef("http://id.loc.gov/vocabulary/identifiers/ean"),
+        )
+    )
+    g.add((ean_block, RDF.value, Literal("655132003018")))
+    g.add((ean_block, BFFI.qualifier, Literal("pelipakkaus")))
+    g.add((manifestation, BFFI.identifiedBy, ean_block))
+
+    marcxml = emit_marcxml(g, manifestation=manifestation)
+    root = etree.fromstring(marcxml)
+    df024 = root.find(f"{{{MARC21_NS}}}datafield[@tag='024']")
+    assert df024 is not None
+    assert df024.get("ind1") == "3"  # type: ignore[union-attr]
+    sf_a = df024.find(f"{{{MARC21_NS}}}subfield[@code='a']")
+    assert sf_a is not None
+    assert sf_a.text == "655132003018"
+    sf_q = df024.find(f"{{{MARC21_NS}}}subfield[@code='q']")
+    assert sf_q is not None
+    assert sf_q.text == "pelipakkaus"
+
+
 def test_emit_marcxml_emits_300_physical_description() -> None:
     """bffi:extent → bffi:Extent → rdfs:label produces MARC 300 \\$a;
     bffi:dimensions on the Manifestation produces \\$c. ISBD trailing

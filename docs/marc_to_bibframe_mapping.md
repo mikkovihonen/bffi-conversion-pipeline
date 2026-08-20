@@ -324,11 +324,11 @@ Verdict legend:
 | `020` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$y` `$z` | — | `$a` `$q` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `022` | ≠ asymmetric | `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$l` `$m` `$q` `$y` `$z` | — | `$a` | reverse only: ind2=`#` | — |
 | `023` | ≠ asymmetric | `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`<br>reverse only: ind2=`#` | — |
-| `024` | ≠ asymmetric | `instance`, `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-3`, ind2=`#` | — |
+| `024` | ≠ asymmetric | `instance`, `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$y` `$z` | — | `$a` `$q` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-3`, ind2=`#` | — |
 | `025` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `026` | ≠ asymmetric | `instance` | ✓ | `$2` `$5` `$6` `$b` `$c` `$d` `$e` | — | `$a` | — | — |
 | `027` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
-| `028` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-6`, ind2=`0-3` | — |
+| `028` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$y` `$z` | — | `$a` `$b` `$q` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-6`, ind2=`0-3` | — |
 | `030` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `032` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `035` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
