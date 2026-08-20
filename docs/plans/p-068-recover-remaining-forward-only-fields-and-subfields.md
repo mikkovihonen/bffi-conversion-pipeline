@@ -1,9 +1,8 @@
 # p-068 — Recover remaining forward-only MARC fields and subfields
 
-**Status: proposed.** Three forward-only MARC fields from p-067 Phase A
-remain unimplemented (051, 055, 072) due to unresolved discriminator
-questions. Plus a set of subfields across existing tags that are missing
-from the reconstruction but whose BFFI carriers may already exist.
+**Status: active.** Phase 1 shipped: 024 `$q` qualifier recovered (emit
+rule registry declaration updated). Phases 2 (051/055/072) and 3
+(verification) pending.
 
 This plan picks up where p-067 left off: the easy wins first (subfields
 with clear BFFI predicates), then the three Phase A tags once their
