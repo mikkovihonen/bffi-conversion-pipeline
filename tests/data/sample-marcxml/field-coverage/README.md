@@ -72,7 +72,7 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1040` | `040` | maximal | datafield | `##` | `$b` `$e` | asymmetric |
 | `041` | `041` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1041` | `041` | maximal | datafield | `##` | `$2` `$3` `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | asymmetric |
-| `042` | `042` | minimal | datafield | `##` | `$a` | forward_only |
+| `042` | `042` | minimal | datafield | `##` | `$a` | asymmetric |
 | `043` | `043` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1043` | `043` | maximal | datafield | `##` | `$0` `$a` `$b` `$c` | asymmetric |
 | `045` | `045` | minimal | datafield | `2#` | `$a` | asymmetric |
@@ -166,8 +166,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `346` | `346` | minimal | datafield | `##` | `$a` | forward_only |
 | `347` | `347` | minimal | datafield | `##` | `$a` | forward_only |
 | `348` | `348` | minimal | datafield | `##` | `$a` | forward_only |
-| `351` | `351` | minimal | datafield | `##` | `$a` | forward_only |
-| `1351` | `351` | maximal | datafield | `##` | `$3` `$a` `$b` `$c` | forward_only |
+| `351` | `351` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1351` | `351` | maximal | datafield | `##` | `$3` `$a` `$b` `$c` | asymmetric |
 | `352` | `352` | minimal | datafield | `##` | `$a` | round_trippable |
 | `1352` | `352` | maximal | datafield | `##` | `$a` `$b` `$q` | round_trippable |
 | `353` | `353` | minimal | datafield | `##` | `$a` | asymmetric |

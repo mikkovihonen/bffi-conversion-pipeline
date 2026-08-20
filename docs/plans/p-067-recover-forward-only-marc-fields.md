@@ -165,15 +165,37 @@ MARC fields: **352** (034, 255, 340 skipped).
 
 ### Phase E — Archival, admin & content
 
-MARC fields: **042, 254, 256, 341, 351**.
+MARC fields: **042, 351** (254, 256, 341 skipped).
 
 | MARC | BFFI carrier | Subfields | Notes |
 |---|---|---|---|
-| `042` | `bffi:DescriptionAuthentication` | `$a` | Single literal emit |
-| `254` | `bffi:editionStatement` | `$a` | Same predicate as 250 `$a`; discriminate by marcKey `254` |
-| `256` | `bffi:Note` | `$a` | Generic note; discriminate by marcKey prefix `256` (the XSLT wraps it in a plain `bf:Note`) |
-| `341` | `bffi:contentAccessibility` | `$a–$e, $2, $3` | Same predicate as 532; discriminate by marcKey |
-| `351` | `bffi:collectionArrangement` | `$a, $b, $c, $3` | New predicate, no existing consumer |
+| `042` | `bffi:DescriptionAuthentication` | `$a` | URI reference with marcauthen vocabulary, unique predicate |
+| `351` | `bffi:collectionArrangement` (`bffi:CollectionArrangement`) | `$a, $b, $c, $3` | Unique predicate, no existing consumer |
+
+`254` skipped: shares `bffi:editionStatement` with 250 `$a`. The XSLT does
+not set marcKey on 254, so there is no discriminator in the BFFI graph.
+Implementing 254 without being able to discriminate from 250 would emit
+data without knowing which source MARC tag it came from.
+
+`256` skipped: produces `bffi:Note` bnode with `rdfs:label`. This is a
+generic note that collides with many other note families (500, 501, 502,
+504, 505, 506, 507, 511, 513, 515, 516, 518, 520, 521, 524, 525, 530,
+532, 533, 534, 536, 538, 540, 544, 545, 546, 547, 550, 555, 556, 561,
+563, 580, 581, 583, 585, 586, 587, 588). The XSLT does not set marcKey
+on 256, so there is no discriminator. Implementing 256 would emit
+fabricated data — the same `bffi:Note` bnode could have come from any
+of 30+ MARC tags.
+
+`341` skipped: shares `bffi:contentAccessibility` with 532 (same predicate,
+same `bffi:ContentAccessibility` class, same `rdfs:label` shape). The
+XSLT does not set marcKey on 341, so there is no discriminator. Same
+situation as 034/255 — cannot implement one without the other.
+
+| MARC | Reason for skipping |
+|---|---|
+| `254` | No discriminator from 250 — same predicate, same shape |
+| `256` | No discriminator — generic `bffi:Note` could be any of 30+ note tags |
+| `341` | No discriminator from 532 — same predicate, same shape |
 
 ### Phase F — Subject / name tags with rich subfield sets
 

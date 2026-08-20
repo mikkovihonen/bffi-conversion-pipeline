@@ -3725,6 +3725,91 @@ def _extract_music_key(graph: Graph, manifestation: URIRef) -> list[str]:
 
 @marc_emit(
     MarcEmitMeta(
+        tag="042",
+        indicators=(" ", " "),
+        subfields=(("a", "authentication code"),),
+        source=(
+            "?m bffi:DescriptionAuthentication <http://id.loc.gov/vocabulary/marcauthen/{code}> "
+            "— URI reference with marcauthen vocabulary. The URI local name is the MARC code."
+        ),
+        notes=(
+            "Plain URI reference emit. The XSLT produces ``bf:authentication`` "
+            "with a marcauthen vocabulary URI; the BFFI routing renames it to "
+            "``bffi:DescriptionAuthentication``. The URI's local name is the MARC "
+            "authentication code (e.g. ``fdo`` for 'full down to original', "
+            "``aacr`` for 'AACR')."
+        ),
+    ),
+)
+def _extract_description_authentication(graph: Graph, manifestation: URIRef) -> list[str]:
+    """Walk ``bffi:DescriptionAuthentication`` URI references and emit MARC 042 ``$a``.
+
+    Returns the local name of each URI reference (the MARC authentication code).
+    """
+    MARCAUTHEN_PREFIX = "http://id.loc.gov/vocabulary/marcauthen/"
+    emits: list[str] = []
+    for auth in graph.objects(manifestation, BFFI.descriptionAuthentication):
+        if not isinstance(auth, URIRef):
+            continue
+        uri_str = str(auth)
+        if uri_str.startswith(MARCAUTHEN_PREFIX):
+            emits.append(uri_str[len(MARCAUTHEN_PREFIX) :])
+    return sorted(set(emits))
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="351",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "classification/call number"),
+            ("b", "unit ID"),
+            ("c", "general group designation"),
+            ("3", "materials specified"),
+        ),
+        source=(
+            "?m bffi:collectionArrangement [a bffi:CollectionArrangement ; "
+            "rdfs:label ?a] — unique predicate, no discriminator needed."
+        ),
+        notes=(
+            "Bnode emit from ``bffi:CollectionArrangement``. ``$a`` is the "
+            "``rdfs:label`` on the bnode (the general group designation); "
+            "``$b`` is ``bffi:unitID`` literal when present; ``$c`` is ``bffi:classMark`` "
+            "literal when present; ``$3`` is ``bffi:appliesTo`` literal when present. "
+            "The XSLT emits 351 ``$a`` as the ``rdfs:label`` on ``bf:CollectionArrangement``."
+        ),
+    ),
+)
+def _extract_collection_arrangement(graph: Graph, manifestation: URIRef) -> list[tuple[str, str]]:
+    """Walk ``bffi:collectionArrangement`` bnodes and emit MARC 351.
+
+    Returns ``[(subfield_code, value), ...]`` for each subfield.
+    """
+    emits: list[tuple[str, str]] = []
+    for arr in graph.objects(manifestation, BFFI.collectionArrangement):
+        if not isinstance(arr, BNode):
+            continue
+        # Label → $a (general group designation)
+        label = next(graph.objects(arr, RDFS.label), None)
+        if isinstance(label, Literal):
+            emits.append(("a", str(label)))
+        # Unit ID → $b
+        unit_id = next(graph.objects(arr, BFFI.unitID), None)
+        if isinstance(unit_id, Literal):
+            emits.append(("b", str(unit_id)))
+        # Class mark → $c
+        class_mark = next(graph.objects(arr, BFFI.classMark), None)
+        if isinstance(class_mark, Literal):
+            emits.append(("c", str(class_mark)))
+        # Materials specified → $3
+        applies_to = next(graph.objects(arr, BFFI.appliesTo), None)
+        if isinstance(applies_to, Literal):
+            emits.append(("3", str(applies_to)))
+    return sorted(set(emits))
+
+
+@marc_emit(
+    MarcEmitMeta(
         tag="352",
         indicators=(" ", " "),
         subfields=(

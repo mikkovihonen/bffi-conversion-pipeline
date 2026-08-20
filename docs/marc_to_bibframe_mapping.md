@@ -335,6 +335,7 @@ Verdict legend:
 | `037` | ≠ asymmetric | `instance` | ✓ | `$3` `$5` `$6` | — | `$a` `$b` `$c` `$f` `$g` `$n` | forward only: ind1=`2`, ind1=`3`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `040` | ≠ asymmetric | `adminmetadata` | ✓ | `$6` | — | `$b` `$e` | — | — |
 | `041` | ≠ asymmetric | `work` | ✓ | `$2` `$3` `$6` | `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | — | forward only: ind2=`7`<br>reverse only: ind1=`#` | — |
+| `042` | ≠ asymmetric | `adminmetadata` | ✓ | `$6` | — | `$a` | — | — |
 | `043` | ≠ asymmetric | `work` | ✓ | `$0` `$6` `$b` `$c` | — | `$a` | — | — |
 | `045` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$a` `$b` | forward only: ind1=`2`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `046` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$k` `$l` `$m` `$n` | — | — |
@@ -370,6 +371,7 @@ Verdict legend:
 | `336` | ≠ asymmetric | `work` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `337` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `338` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
+| `351` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$3` `$a` `$b` `$c` | — | — |
 | `353` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$0` `$2` `$a` `$b` | — | — |
 | `370` | ≠ asymmetric | `work` | ✓ | `$6` `$c` | `$2` | `$g` | — | — |
 | `384` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$3` `$a` | — | — |
@@ -448,7 +450,6 @@ Verdict legend:
 | `034` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` `$d` `$e` `$f` `$g` | — | — | — | — |
 | `036` | → forward only | `instance` | — | `$0` `$2` `$6` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | — | — | — | — |
 | `038` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
-| `042` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
 | `047` | → forward only | `work` | — | `$2` `$6` `$a` | — | — | — | — |
 | `048` | → forward only | `work` | — | `$6` `$a` `$b` | — | — | — | — |
 | `051` | → forward only | `item` | — | `$a` `$b` `$c` | — | — | — | — |
@@ -467,7 +468,6 @@ Verdict legend:
 | `346` | → forward only | `instance` | — | `$6` | — | — | — | — |
 | `347` | → forward only | `instance` | — | `$6` | — | — | — | — |
 | `348` | → forward only | `work` | — | `$6` | — | — | — | — |
-| `351` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` | — | — | — | — |
 | `362` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
 | `377` | → forward only | `work` | — | `$2` `$3` `$6` `$a` `$l` | — | — | — | — |
 | `380` | → forward only | `work` | — | `$6` `$a` | — | — | — | — |
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 3 round-trippable, 125 asymmetric, 40 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 3 round-trippable, 127 asymmetric, 38 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 
