@@ -5158,8 +5158,18 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     return record
 
 
-def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
+def emit_marcxml(
+    graph: Graph,
+    *,
+    manifestation: URIRef,
+    variant_titles: list[_VariantTitleEmit] | None = None,
+) -> bytes:
     """Build a MARCXML document (root: ``<record>``) for one Manifestation.
+
+    ``variant_titles`` is optional — when provided, it overrides the
+    titles extracted from ``manifestation``. This is used by
+    :func:`convert_one` to merge variant titles from all manifestations
+    in a multi-manifestation graph.
 
     Returns the serialised bytes, pretty-printed, with UTF-8 declaration.
     Raises :exc:`BffiToMarcError` if the bib ID can't be determined (no
@@ -5172,7 +5182,11 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         raise BffiToMarcError(f"no bib ID found for manifestation {manifestation}")
     change_date = _extract_change_date(graph, manifestation)
     title_parts = _extract_main_title_parts(graph, manifestation)
-    variant_titles = _extract_variant_titles(graph, manifestation)
+    variant_titles = (
+        variant_titles
+        if variant_titles is not None
+        else _extract_variant_titles(graph, manifestation)
+    )
     uniform_main_entry = _extract_uniform_main_entry(graph, manifestation)
     responsibility = _extract_responsibility_statement(graph, manifestation)
     edition_statement = _extract_edition_statement(graph, manifestation)
@@ -5272,10 +5286,29 @@ def convert_one(bffi_path: Path, *, options: ConversionOptions) -> Path:
     if not manifestations:
         raise BffiToMarcError(f"no bffi:Manifestation entity in {bffi_path} — nothing to emit")
 
+    # Merge variant titles from all manifestations — a single MARC source
+    # record may produce multiple bf:Manifestation nodes (marc2bibframe2's
+    # preprocess-splitter), and variant titles (246) can live on the Work
+    # of any one of them. Collecting them all ensures we recover the data
+    # regardless of which manifestation happens to be "first".
+    merged_variant_titles: list[_VariantTitleEmit] = []
+    seen_titles: set[tuple[str, str]] = set()
+    for manifest in manifestations:
+        for vt in _extract_variant_titles(graph, manifest):
+            key = (vt.tag, vt.text)
+            if key not in seen_titles:
+                seen_titles.add(key)
+                merged_variant_titles.append(vt)
+    merged_variant_titles.sort(key=lambda e: (e.tag, e.text))
+
     # v0: one MARCXML record for the first Manifestation. Multi-Manifestation
     # graphs (marc2bibframe2's preprocess-splitter output) are a follow-on
     # concern.
-    marcxml_bytes = emit_marcxml(graph, manifestation=manifestations[0])
+    marcxml_bytes = emit_marcxml(
+        graph,
+        manifestation=manifestations[0],
+        variant_titles=merged_variant_titles,
+    )
     output_path.write_bytes(marcxml_bytes)
     return output_path
 
