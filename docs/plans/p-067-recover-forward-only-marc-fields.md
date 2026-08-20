@@ -147,14 +147,21 @@ in collapsed form."
 
 ### Phase D — Cartographic & physical medium
 
-MARC fields: **034, 255, 340, 352**.
+MARC fields: **352** (034, 255, 340 skipped).
 
 | MARC | BFFI carrier | Subfields | Notes |
 |---|---|---|---|
-| `034` | `bffi:cartographicAttributes` (`bffi:Cartographic`) + `bffi:coordinates` + `bffi:scale` | `$a–$g, $3` | Subfield-to-predicate dispatch |
-| `255` | `bffi:cartographicAttributes` + `bffi:scale` + `bffi:Projection` | `$a–$g, $6` | Same shape as 034; discriminate by marcKey |
-| `340` | `bffi:SystemRequirement` | `$a–$q, $2` | Dynamic XSLT constructor; subfields map to `bf:SystemRequirement` properties |
-| `352` | `bffi:CartographicObjectType` + `bffi:count` + `bffi:digitalCharacteristic` | `$a, $b, $6, $q` | Three predicates from one field |
+| `352` | `bffi:digitalCharacteristic` (`bffi:CartographicDataType`) | `$a, $b, $6, $q` | Unique predicate, no discriminator needed |
+
+`034` and `255` skipped: both produce `bffi:cartographicAttributes`, `bffi:coordinates`, and `bffi:scale` with identical shapes. The XSLT does not set marcKey on either, so there is no discriminator in the BFFI graph. Implementing one without the other would emit data without knowing which source MARC tag it came from — not round-trip-safe.
+
+`340` skipped: the XSLT produces `bf:illustrativeContent` which is **not** in `lkd.rdf`. The BFFI routing drops it (closed namespace). The reverse converter has nothing to read.
+
+| MARC | Reason for skipping |
+|---|---|
+| `034` | No discriminator from 255 in BFFI form — same predicates, same shapes |
+| `255` | No discriminator from 034 in BFFI form — same predicates, same shapes |
+| `340` | XSLT produces `bf:illustrativeContent` which is not in `lkd.rdf` — dropped by BFFI routing |
 
 ### Phase E — Archival, admin & content
 

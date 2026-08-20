@@ -168,8 +168,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `348` | `348` | minimal | datafield | `##` | `$a` | forward_only |
 | `351` | `351` | minimal | datafield | `##` | `$a` | forward_only |
 | `1351` | `351` | maximal | datafield | `##` | `$3` `$a` `$b` `$c` | forward_only |
-| `352` | `352` | minimal | datafield | `##` | `$a` | forward_only |
-| `1352` | `352` | maximal | datafield | `##` | `$a` `$b` `$q` | forward_only |
+| `352` | `352` | minimal | datafield | `##` | `$a` | round_trippable |
+| `1352` | `352` | maximal | datafield | `##` | `$a` `$b` `$q` | round_trippable |
 | `353` | `353` | minimal | datafield | `##` | `$a` | asymmetric |
 | `1353` | `353` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` | asymmetric |
 | `362` | `362` | minimal | datafield | `0#` | `$a` | forward_only |

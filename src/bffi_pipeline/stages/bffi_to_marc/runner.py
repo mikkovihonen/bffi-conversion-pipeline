@@ -3723,6 +3723,53 @@ def _extract_music_key(graph: Graph, manifestation: URIRef) -> list[str]:
     return sorted(set(emits))
 
 
+@marc_emit(
+    MarcEmitMeta(
+        tag="352",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "original use of title (literal)"),
+            ("b", "other title information (literal)"),
+            ("q", "file format (literal)"),
+            ("6", "occurrence identifier (literal)"),
+        ),
+        source=(
+            "?m bffi:digitalCharacteristic [a bffi:CartographicDataType ; rdfs:label ?a] "
+            "— unique predicate, no discriminator needed."
+        ),
+        notes=(
+            "Plain literal emit from ``bffi:CartographicDataType`` bnode. The ``$a`` "
+            "subfield becomes ``rdfs:label`` on the bnode; ``$b`` is not produced by "
+            "the XSLT (no ``bf:title`` on the CartographicDataType). ``$q`` becomes "
+            "``bffi:fileFormat`` literal when present. ``$6`` becomes ``bffi:occurrenceId`` "
+            "when present."
+        ),
+    ),
+)
+def _extract_digital_characteristic(graph: Graph, manifestation: URIRef) -> list[tuple[str, str]]:
+    """Walk ``bffi:digitalCharacteristic`` bnodes and emit MARC 352.
+
+    Returns ``[(subfield_code, value), ...]`` for each subfield.
+    """
+    emits: list[tuple[str, str]] = []
+    for char in graph.objects(manifestation, BFFI.digitalCharacteristic):
+        if not isinstance(char, BNode):
+            continue
+        # Label → $a
+        label = next(graph.objects(char, RDFS.label), None)
+        if isinstance(label, Literal):
+            emits.append(("a", str(label)))
+        # File format → $q
+        file_format = next(graph.objects(char, BFFI.fileFormat), None)
+        if isinstance(file_format, Literal):
+            emits.append(("q", str(file_format)))
+        # Occurrence ID → $6
+        occ_id = next(graph.objects(char, BFFI.occurrenceId), None)
+        if isinstance(occ_id, Literal):
+            emits.append(("6", str(occ_id)))
+    return sorted(set(emits))
+
+
 #: Matches ``#<Type><tag>-<n>`` in subject-node URI fragments emitted
 #: by marc2bibframe2 (e.g. ``#Agent600-28`` / ``#Topic650-12`` /
 #: ``#Place651-30`` / ``#Temporal648-29``). Capture group 1 is the

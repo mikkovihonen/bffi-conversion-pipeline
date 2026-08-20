@@ -468,7 +468,6 @@ Verdict legend:
 | `347` | → forward only | `instance` | — | `$6` | — | — | — | — |
 | `348` | → forward only | `work` | — | `$6` | — | — | — | — |
 | `351` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` | — | — | — | — |
-| `352` | → forward only | `instance` | — | `$6` `$a` `$b` `$q` | — | — | — | — |
 | `362` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
 | `377` | → forward only | `work` | — | `$2` `$3` `$6` `$a` `$l` | — | — | — | — |
 | `380` | → forward only | `work` | — | `$6` `$a` | — | — | — | — |
@@ -492,6 +491,7 @@ Verdict legend:
 | `830` | ← reverse only | — | ✓ | — | `$a` `$n` `$v` | — | — | — |
 | `001` | ✓ round-trippable | `adminmetadata` | ✓ | — | — | — | — | — |
 | `leader` | ✓ round-trippable | `instance`, `mMaterialType008` | ✓ | — | — | — | — | — |
+| `352` | ✓ round-trippable | `instance` | ✓ | — | — | `$6` `$a` `$b` `$q` | — | — |
 
 <!-- END AUTO: roundtrip -->
 
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 125 asymmetric, 41 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 3 round-trippable, 125 asymmetric, 40 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 
