@@ -2256,14 +2256,33 @@ def _extract_table_of_contents(graph: Graph, manifestation: URIRef) -> list[str]
 def _extract_labelled_block_texts(
     graph: Graph, manifestation: URIRef, predicate: URIRef
 ) -> list[str]:
-    """Walk ``?m <predicate> ?block . ?block rdfs:label ?text`` and
+    """Walk ``?<anchor> <predicate> ?block . ?block rdfs:label ?text`` and
     return the labels sorted for determinism. The common shape for
-    several simple-$a-note MARC emits (520 / 310 / 521)."""
+    several simple-$a-note MARC emits (520 / 310 / 521).
+
+    ``predicate`` may live on the Manifestation, the Work, or an
+    Expression (``bffi:expressionOf ?manifestation``); walk all three
+    anchor types so we recover the field regardless of where marc2bibframe2
+    attached it.
+    """
     texts: list[str] = []
-    for block in graph.objects(manifestation, predicate):
-        label = next(graph.objects(block, RDFS.label), None)
-        if isinstance(label, Literal):
-            texts.append(str(label))
+    anchors: list[Node] = [manifestation]
+    # Work anchor.
+    work = _find_work_for_manifestation(graph, manifestation)
+    if work is not None:
+        anchors.append(work)
+    # Expression anchors (one per Expression that manifests this Instance).
+    expr_anchors = [
+        expr
+        for (expr, m) in graph.subject_objects(BFFI.manifestationOfExpression)
+        if m == manifestation
+    ]
+    anchors.extend(expr_anchors)
+    for anchor in anchors:
+        for block in graph.objects(anchor, predicate):
+            label = next(graph.objects(block, RDFS.label), None)
+            if isinstance(label, Literal):
+                texts.append(str(label))
     return sorted(texts)
 
 
