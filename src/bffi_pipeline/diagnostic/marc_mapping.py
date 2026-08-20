@@ -69,7 +69,16 @@ def _render_notes_table(rows: Iterable[MarcEmitMeta]) -> str:
     extra commentary stay out of this table."""
     with_notes = [row for row in rows if row.notes]
     header = "| MARC tag | Notes |\n|---|---|\n"
-    body = "".join(f"| `{row.tag}` | {row.notes} |\n" for row in with_notes)
+
+    def _escape_notes(text: str) -> str:
+        # Notes may contain ``\n\n`` paragraph breaks (human-readable in
+        # the Python source). Inside a single-line Markdown table cell
+        # those become actual blank lines, which terminate the table. Convert
+        # them to ``<br><br>`` so paragraphs render on the output side while
+        # the cell stays on one line.
+        return text.replace("\n\n", "<br><br>")
+
+    body = "".join(f"| `{row.tag}` | {_escape_notes(row.notes)} |\n" for row in with_notes)
     return header + body
 
 
