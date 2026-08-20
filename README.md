@@ -21,7 +21,7 @@ Built for the [National Library of Finland](https://www.kansalliskirjasto.fi/en/
 ## Highlights
 
 - **Three-way conversion**
-  - MARCXML to BIBFRAME (via LoC [marc2bibframe2](https://github.com/loccolorado/marc2bibframe2) XSLT)
+  - MARCXML to BIBFRAME (via LoC [marc2bibframe2](https://github.com/lcnetdev/marc2bibframe2) XSLT)
   - BIBFRAME to BFFI canonical Turtle (31 routings in `stages/bibframe_to_bffi/routings.py`)
   - The reverse direction reconstructing MARCXML from the BFFI graph.
 - **Hard namespace boundary**
