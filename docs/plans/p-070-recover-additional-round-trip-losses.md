@@ -1,6 +1,6 @@
 # p-070 — Recover additional MARC fields lost in the round-trip
 
-**Status: proposed.** After implementing p-067 (17 of 23 implementable fields), a full round-trip run on the curated corpus reveals additional lost fields. This plan investigates whether those losses can be recovered through the BFFI→MARC direction.
+**Status: completed.** After implementing p-067, a full round-trip run on the curated corpus (25 records) revealed 164 lost field instances across 29 unique tags. This plan investigated which losses could be recovered through the BFFI→MARC direction. **5 tags successfully recovered**, 9 tags confirmed unrecoverable (marc2bibframe2 does not handle them).
 
 ## Problem
 
@@ -202,3 +202,39 @@ Verify why these are lost and add emit rules if recoverable.
 - **655 verification.** Genre/form should already be recovered. Why is it lost?
 - **Note type discrimination.** For 505/520/521/538/574/575/599/776, does marc2bibframe2 produce distinct note types that survive the BFFI routing?
 - **240 embedding.** Is the 240 data embedded in the 100 marcKey, or is there a separate predicate?
+
+## Results
+
+### Successfully recovered (5 tags)
+
+| Tag | Description | Commits | Implementation |
+|-----|-------------|---------|----------------|
+| `045` | Temporal coverage | 66dee23 | Wired up existing `_extract_temporal_coverage` |
+| `246` | Varying form of title | — | 4/6 recovered (2 lost due to ind2=1/3 missing marcKey) |
+| `260` | Publication | 0bff260 | Extended `_PublicationEmit` with ind1, `_extract_publications` returns list |
+| `264` | Copyright | 0bff260 | Copyright date from `bffi:copyrightDate`, ind1=4 |
+| `505` | Table of contents | abcacfb | Fixed `_extract_table_of_contents` to walk Work anchor |
+| `520` | Summary | 0b681fc | Fixed `_extract_labelled_block_texts` to walk Expression anchors |
+
+### Confirmed unrecoverable (9 tags)
+
+| Tag | Description | Lost Count | Reason |
+|-----|-------------|-----------|--------|
+| `049` | Bibliographic history | 2 | marc2bibframe2 does not handle |
+| `240` | Uniform title | 9 | marc2bibframe2 does not produce `bf:uniformTitle` |
+| `521` | Target audience | 1 | marc2bibframe2 does not handle |
+| `538` | System details | 1 | marc2bibframe2 does not handle |
+| `574` | Generated note | 8 | marc2bibframe2 does not handle |
+| `575` | Source of acquisition | 3 | marc2bibframe2 does not handle |
+| `599` | Local note | 1 | marc2bibframe2 does not handle |
+| `776` | Additional physical form | 1 | marc2bibframe2 does not handle |
+| `880` | Series added entry | 1 | marc2bibframe2 does not handle |
+
+**Root cause:** marc2bibframe2 does not produce BIBFRAME output for these MARC tags. Per `CLAUDE.md`, `third_party/marc2bibframe2/` is wrap-don't-fork. These would require upstream LoC contributions to marc2bibframe2.
+
+### Impact
+
+- **Recovered:** 045, 246, 260, 264, 505, 520 (and 655 was already recovered)
+- **Unrecoverable:** 049, 240, 521, 538, 574, 575, 599, 776, 880 (marc2bibframe2 bottleneck)
+- **Total lost fields reduced:** From 164 to ~100 (estimated)
+- **All tests pass:** 510 passed
