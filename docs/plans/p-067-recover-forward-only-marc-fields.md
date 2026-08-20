@@ -1,11 +1,12 @@
 # p-067 — Recover MARC fields the XSLT reads but the reverse converter does not emit
 
-**Status: proposed.** Fifty-one MARC tags pass through the forward XSLT but
-never reach the reconstructed MARCXML. This plan recovers the fields whose
-data survives to the BFFI graph and for which `lkd.rdf` already provides a
-carrier. The nine fields that the XSLT drops silently, the eleven
-already-documented losses (040 `$a`/`$d`, 09X, 388, …), and the
-`bflc:`-namespace terms are recorded as out-of-scope with a reason.
+**Status: implemented (17 of 23 implementable fields).** Recovered MARC fields
+whose data survives to the BFFI graph and for which `lkd.rdf` already provides a
+carrier, using shape-based or origin-based discrimination where marcKey is not
+available. The nine fields that the XSLT drops silently, the eleven
+already-documented losses (040 `$a`/`$d`, 09X, 388, …), the
+`bflc:`-namespace terms, and the six fields without discriminators are
+recorded as out-of-scope with a reason.
 
 ## Problem
 
@@ -197,12 +198,31 @@ situation as 034/255 — cannot implement one without the other.
 | `256` | No discriminator — generic `bffi:Note` could be any of 30+ note tags |
 | `341` | No discriminator from 532 — same predicate, same shape |
 
-### Phase F — Subject / name tags with rich subfield sets
+### Phase F — Subject / name tags
 
-MARC fields: **656, 720, 752, 753, 758**.
+MARC fields: **656, 720, 752, 753, 758** — **all skipped**.
 
-These all use marcKey-driven dispatch and follow the pattern proven by
-730/740/130/240.
+These tags produce structured data in BIBFRAME (e.g. `bf:subject/bf:Topic`,
+`bf:contributor/bf:Agent`, hierarchical places, identifier schemes) but the
+XSLT does not set `bffi:marcKey` on the resulting BFFI nodes. Without
+marcKey, the reverse converter cannot discriminate which MARC tag a given
+BFFI node came from — the same `bffi:subject` triple could have come from
+650, 651, 653, 655, 656, 700, 710, 711, 720, 730, 740, 752, 753, 758, or
+any other subject/contributor tag.
+
+Implementing any of these without marcKey would emit fabricated MARC
+fields — the same BFFI data could have come from many different source
+tags. Documented as out-of-scope with reason: "no marcKey discriminator;
+BFFI nodes for subjects/contributors/hierarchical places carry no
+tag-origin marker."
+
+| MARC | Reason for skipping |
+|---|---|
+| `656` | No marcKey on `bffi:subject` — could be 650/651/653/655/656/7XX |
+| `720` | No marcKey on contributor nodes |
+| `752` | No marcKey on hierarchical place nodes |
+| `753` | Shares `bffi:descriptionConventions` with 040 `$e` — no discriminator |
+| `758` | No marcKey on identifier nodes |
 
 | MARC | BFFI carrier | Subfields | Notes |
 |---|---|---|---|
