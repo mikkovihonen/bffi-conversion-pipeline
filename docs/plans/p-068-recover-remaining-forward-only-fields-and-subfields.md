@@ -1,6 +1,6 @@
 # p-068 — Recover remaining forward-only MARC fields and subfields
 
-**Status: active.** Phase 1 shipped: 024 `$q` recovered. Phase 2 complete: 051/055/072 all skipped (no discriminators). Phase 3 pending.
+**Status: active.** Phase 1 shipped: 024 `$q` recovered. Phase 2 complete: 051/055/072 all skipped (no discriminators). Phase 3 complete: all docs up to date, 024 coverage 100% (was 88%).
 
 This plan picks up where p-067 left off: the easy wins first (subfields
 with clear BFFI predicates), then the three Phase A tags once their
