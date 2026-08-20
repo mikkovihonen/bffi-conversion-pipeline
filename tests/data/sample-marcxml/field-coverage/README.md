@@ -182,8 +182,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1382` | `382` | maximal | datafield | `1#` | `$2` `$3` | forward_only |
 | `383` | `383` | minimal | datafield | `##` | `$a` | forward_only |
 | `1383` | `383` | maximal | datafield | `##` | `$3` `$a` `$b` `$c` `$d` `$e` | forward_only |
-| `384` | `384` | minimal | datafield | `##` | `$a` | forward_only |
-| `1384` | `384` | maximal | datafield | `##` | `$3` `$a` | forward_only |
+| `384` | `384` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1384` | `384` | maximal | datafield | `##` | `$3` `$a` | asymmetric |
 | `385` | `385` | minimal | datafield | `##` | `$a` | forward_only |
 | `1385` | `385` | maximal | datafield | `##` | `$0` `$2` `$3` `$a` `$b` `$m` `$n` | forward_only |
 | `386` | `386` | minimal | datafield | `##` | `$a` | forward_only |

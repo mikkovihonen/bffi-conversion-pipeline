@@ -372,6 +372,7 @@ Verdict legend:
 | `338` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `353` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$0` `$2` `$a` `$b` | — | — |
 | `370` | ≠ asymmetric | `work` | ✓ | `$6` `$c` | `$2` | `$g` | — | — |
+| `384` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$3` `$a` | — | — |
 | `500` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `501` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `502` | ≠ asymmetric | `work` | ✓ | `$6` `$b` `$c` `$d` `$g` `$o` | — | `$a` | — | — |
@@ -473,7 +474,6 @@ Verdict legend:
 | `380` | → forward only | `work` | — | `$6` `$a` | — | — | — | — |
 | `382` | → forward only | `work` | — | `$2` `$3` `$6` | — | — | — | — |
 | `383` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` `$d` `$e` | — | — | — | forward template uses dynamic `xsl:element` — comparison partial |
-| `384` | → forward only | `work` | — | `$3` `$6` `$a` | — | — | — | — |
 | `385` | → forward only | `work` | — | `$0` `$2` `$3` `$6` `$a` `$b` `$m` `$n` | — | — | — | forward template uses dynamic `xsl:element` — comparison partial |
 | `386` | → forward only | `work` | — | `$0` `$2` `$3` `$6` `$a` `$b` `$m` `$n` | — | — | — | forward template uses dynamic `xsl:element` — comparison partial |
 | `656` | → forward only | `work` | — | `$0` `$2` `$3` `$6` `$a` `$k` `$v` `$w` `$x` `$y` `$z` | — | — | — | — |
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 124 asymmetric, 42 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 125 asymmetric, 41 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 

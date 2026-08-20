@@ -86,6 +86,7 @@ def test_marc_emit_registry_includes_expected_tags() -> None:
         "338",
         "353",
         "370",
+        "384",
         "490",
         "500",
         "501",

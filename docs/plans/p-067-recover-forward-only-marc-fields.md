@@ -118,22 +118,32 @@ in Phase A's out-of-scope list.
 
 ### Phase C — Music tags (PMO terms)
 
-MARC fields: **048, 382, 384**.
+MARC fields: **384** (048 and 382 skipped).
 
-BFFI 1.0.0 predates BIBFRAME 3.0.1's PMO absorption; these terms are
-`GAP` in the auto-table but the routing already collapses them to literal
-carriers (`bffi:MusicMedium`, `bffi:musicKey`). The reverse path only needs
-to read the literals and reassemble the MARC subfields.
+BFFI 1.0.0 predates BIBFRAME 3.0.1's PMO absorption. The routing collapses
+the structured PMO trees to literal carriers (`bffi:MusicMedium`, `bffi:musicKey`).
 
 | MARC | BFFI carrier | Subfields | Notes |
 |---|---|---|---|
-| `048` | `bffi:MusicMedium` (literal) | `$a, $b` | `bffi:readMarc048` literal; parse count + ensemble from semicolon |
-| `382` | `bffi:MusicMedium` (literal) + `bffi:readMarc382` | `$2, $3` | Same literal carrier as 048; discriminator is marcKey |
-| `384` | `bffi:musicKey` (literal) | `$a, $3` | Single literal value |
+| `384` | `bffi:musicKey` (literal) | `$a, $3` | Single literal value, no discriminator |
 
-The `route_music_medium` and `route_music_key` routings in
-`bibframe_to_bffi/routings.py` already collapse the structured PMO trees
-to literals. The reverse path reads those literals back.
+`048` and `382` skipped: the `route_music_medium` routing collapses the
+structured `bf:ensemble` tree into a single `bffi:readMarc382` literal
+(see `_synthesise_mop_string` in `routings.py`). The original structured
+properties (`mediumComponent`, `mediumOfPerformance`, `count`, etc.) are
+gone — only the synthesised string survives. There is no discriminator
+between 048 and 382 in the collapsed form: both produce a
+`bffi:musicMedium` bnode, and the `readMarc382` literal is a best-effort
+human-readable summary, not the source MARC verbatim. Implementing these
+would require reconstructing MARC from the summary string, which is not
+round-trip-safe. Documented as out-of-scope with reason: "structured
+PMO data collapsed to opaque literal; no discriminator between 048/382
+in collapsed form."
+
+| MARC | Reason for skipping |
+|---|---|
+| `048` | No discriminator from 382 in collapsed BFFI form; `readMarc382` is a summary, not source |
+| `382` | Same as 048 — structured data gone, only summary literal remains |
 
 ### Phase D — Cartographic & physical medium
 

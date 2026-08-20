@@ -3696,6 +3696,33 @@ def _extract_special_coded_dates(graph: Graph, manifestation: URIRef) -> list[tu
     return sorted(set(emits))
 
 
+@marc_emit(
+    MarcEmitMeta(
+        tag="384",
+        indicators=(" ", " "),
+        subfields=(("a", "key"), ("3", "materials specified")),
+        source=("?w bffi:musicKey ?literal (plain literal) — single literal value."),
+        notes=(
+            "Plain literal emit. The XSLT produces ``bf:keyMode`` (a bnode with "
+            "``rdfs:label``), the BFFI routing collapses it to ``bffi:musicKey`` "
+            "literal. The literal value becomes MARC 384 ``$a``."
+        ),
+    ),
+)
+def _extract_music_key(graph: Graph, manifestation: URIRef) -> list[str]:
+    """Walk ``bffi:musicKey`` literals and emit MARC 384 ``$a``."""
+    work = _find_work_for_manifestation(graph, manifestation)
+    anchors = [manifestation]
+    if work is not None:
+        anchors.append(work)
+    emits: list[str] = []
+    for anchor in anchors:
+        for literal in graph.objects(anchor, BFFI.musicKey):
+            if isinstance(literal, Literal):
+                emits.append(str(literal))
+    return sorted(set(emits))
+
+
 #: Matches ``#<Type><tag>-<n>`` in subject-node URI fragments emitted
 #: by marc2bibframe2 (e.g. ``#Agent600-28`` / ``#Topic650-12`` /
 #: ``#Place651-30`` / ``#Temporal648-29``). Capture group 1 is the
