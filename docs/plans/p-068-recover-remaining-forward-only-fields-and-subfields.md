@@ -1,8 +1,6 @@
 # p-068 — Recover remaining forward-only MARC fields and subfields
 
-**Status: active.** Phase 1 shipped: 024 `$q` qualifier recovered (emit
-rule registry declaration updated). Phases 2 (051/055/072) and 3
-(verification) pending.
+**Status: active.** Phase 1 shipped: 024 `$q` recovered. Phase 2 complete: 051/055/072 all skipped (no discriminators). Phase 3 pending.
 
 This plan picks up where p-067 left off: the easy wins first (subfields
 with clear BFFI predicates), then the three Phase A tags once their
@@ -113,79 +111,44 @@ grep -A30 'tag="<tag>"' src/bffi_pipeline/stages/bffi_to_marc/runner.py
 
 If the predicate exists in all three places, extend the emit rule.
 
-## Phase 2 — Phase A remainder (051, 055, 072)
+## Phase 2 — Phase A remainder (051, 055, 072) — **all skipped**
 
-Once Phase 1 is complete, investigate the three deferred Phase A tags.
+Investigation complete. All three tags are unfixable due to lack of
+discriminators in the BFFI form.
 
-### 051 / 055 — Item-level classification
+### 051 / 055 — Item-level classification — **skipped**
 
-**Problem:** MARC 051 (`$a` call number, `$b` client number, `$c` location)
-attaches classification to the Item (BIBFRAME `bf:Item`), not the Work.
-The reverse converter walks `?m bffi:workManifested ?work` and would miss
-item-level predicates.
+**Finding:** `bffi:Item` IS modeled in BFFI and IS reachable from
+Manifestation via `bffi:hasItem`. Item-level classification survives the
+forward conversion (confirmed by running the XSLT + bibframe→bffi on a
+MARC 051 probe).
 
-**Investigation:**
+**But:** 051 and 055 produce **identical** `bffi:classification` structure
+on the Item. Both emit `bf:ClassificationLcc` with `bf:classificationPortion`
+($a) and `bf:itemPortion` ($b). The BFFI graph has no way to distinguish
+which MARC tag produced it.
 
-1. Check if `bffi:Item` is modeled in the BFFI graph for the test corpus.
-   Run `bffi-pipeline bibframe-to-bffi` and grep for `bffi:Item` in the
-   output.
+**Outcome: Skip with reason.** "051 and 055 produce identical
+`bffi:classification` structure on the Item; no discriminator to
+distinguish them. Implementing one without the other would emit fabricated
+data."
 
-2. If `bffi:Item` exists, check whether it is reachable from the
-   Manifestation. The current code uses `_find_work_for_manifestation()`
-   which returns the Work, not the Item. Need to also walk
-   `?m bffi:hasItem ?item` (or whatever the BFFI equivalent is).
+### 072 — Subject/genre from non-vocabulary sources — **skipped**
 
-3. If Items are not modeled separately in BFFI (per the 541 note in the
-   mapping doc), then 051/055 classification may already be lost at the
-   BFFI conversion step and these tags are effectively unrecoverable.
+**Finding:** The XSLT does NOT set marcKey on 072's BFFI nodes. 072
+produces `bffi:subject` on the Work with `bffi:Topic` class — identical
+structure to 650, 651, 653, 655, 656, and 7XX subject tags.
 
-**Possible outcomes:**
+**Outcome: Skip with reason.** "No discriminator in BFFI form — 072
+produces the same `bffi:subject` structure as 650/651/653/655/656/7XX.
+Implementing 072 without being able to discriminate would emit fabricated
+MARC fields."
 
-- **Items are modeled and reachable**: Implement 051/055 with an additional
-  walk over `?m bffi:hasItem ?item` and read `bffi:classification` from
-  the Item. Discriminate from Work-level 050/060/070/080/082/084/088 by
-  origin (Item vs Work).
-
-- **Items are not modeled**: Skip with reason: "BFFI does not model
-  `bffi:Item` separately from `bffi:Manifestation` — item-level
-  classification from MARC 051 is lost at the forward conversion step."
-
-### 072 — Subject/genre from non-vocabulary sources
-
-**Problem:** MARC 072 produces `bffi:subject` / `bffi:genreForm` with
-`bffi:Topic` class, but the XSLT does not set marcKey on these nodes.
-The reverse converter cannot discriminate 072 from other subject tags
-(650, 651, 653, 655, 656, 7XX).
-
-**Investigation:**
-
-1. Check if marcKey is set on 072's BFFI nodes in the test corpus:
-   ```sh
-   grep 'marcKey' runs/*/bffi/*72*.bffi.ttl
-   ```
-
-2. If marcKey is not set, check if there's another discriminator:
-   - Does 072 produce a different `rdf:type` than 650/651/653/655?
-   - Does 072 produce a different predicate structure?
-   - Does 072 have any unique property that other subject tags don't?
-
-3. If no discriminator exists, check if the XSLT *should* set marcKey
-   but doesn't (a bug in the XSLT that could be fixed upstream):
-   ```sh
-   grep -A20 'match="marc:datafield[@tag='"'"'072'"'"']' \
-       third_party/marc2bibframe2/xsl/*.xsl
-   ```
-
-**Possible outcomes:**
-
-- **marcKey is set**: Implement with marcKey-driven dispatch (same pattern
-  as 730/740/130/240).
-- **No discriminator but XSLT bug**: Document as out of scope (requires
-  upstream XSLT fix; wrap-don't-fork policy).
-- **No discriminator and no XSLT bug**: Skip with reason: "No discriminator
-  in BFFI form — 072 produces the same `bffi:subject` structure as 650/651/
-  653/655/656/7XX. Implementing 072 without being able to discriminate would
-  emit fabricated MARC fields."
+| MARC | Reason for skipping |
+|---|---|
+| `051` | Identical BFFI structure to 055 on Item; no discriminator |
+| `055` | Identical BFFI structure to 051 on Item; no discriminator |
+| `072` | Identical `bffi:subject` structure to 650/651/653/655/656/7XX; no discriminator |
 
 ## Phase 3 — Verification and documentation
 
