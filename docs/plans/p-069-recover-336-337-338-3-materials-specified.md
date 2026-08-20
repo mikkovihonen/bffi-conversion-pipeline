@@ -1,6 +1,6 @@
 # p-069 — Recover MARC 336/337/338 `$3` (materials specified) subfield
 
-**Status: implemented.** 336/337/338 `$3` (materials specified) recovered
+**Status: completed.** 336/337/338 `$3` (materials specified) recovered
 by extending `_RdaEntry` with optional `applies_to` field, updating
 `_rda_entries` to read `bffi:appliesTo`/`rdfs:label`, adding `$3` to
 `_RDA_SUBFIELDS`, updating emit rule `source=` declarations, and updating
