@@ -3008,12 +3008,15 @@ class _VariantTitleEmit:
     """One variant-title datafield's worth of content.
 
     ``tag`` is the source MARC tag (210, 222, 242, 243, 246, 247);
-    indicators default to the per-tag convention (210 ind1=' ', the
-    rest ind1='1') and ``$a`` carries the title text.
+    ``text`` carries the ``$a`` title text. ``ind1`` / ``ind2`` come
+    from ``bffi:marcKey`` when present (Phase C of p-065); otherwise
+    they fall back to :data:`_VARIANT_TITLE_INDICATORS`.
     """
 
     tag: str
     text: str
+    ind1: str = "1"
+    ind2: str = " "
 
 
 _VARIANT_TITLE_INDICATORS: Final[dict[str, tuple[str, str]]] = {
@@ -3110,6 +3113,9 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
     :class:`_VariantTitleEmit` per block, dispatched to the right MARC
     tag.
 
+    ``ind1`` / ``ind2`` come from ``bffi:marcKey`` when present (Phase C
+    of p-065); otherwise they fall back to :data:`_VARIANT_TITLE_INDICATORS`.
+
     Walks title blocks from both the Manifestation and its Work — 222
     (key title) lives on the Work in BIBFRAME, while 246 sits on the
     Instance / Manifestation.
@@ -3130,7 +3136,27 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
             if key in seen:
                 continue
             seen.add(key)
-            emits.append(_VariantTitleEmit(tag=tag, text=str(main)))
+
+            # Phase C: extract ind1/ind2 from marcKey when present.
+            marc_key = next(
+                (
+                    str(k)
+                    for k in graph.objects(title_block, BFFI.marcKey)
+                    if isinstance(k, Literal)
+                ),
+                None,
+            )
+            ind1 = ind2 = ""
+            if marc_key is not None:
+                parsed = _parse_marc_key(marc_key)
+                if parsed is not None:
+                    ind1, ind2 = parsed[1], parsed[2]
+            if not ind1 or not ind2:
+                # Fall back to the per-tag convention when marcKey is
+                # absent or doesn't carry indicators.
+                ind1, ind2 = _VARIANT_TITLE_INDICATORS.get(tag, ("1", " "))
+
+            emits.append(_VariantTitleEmit(tag=tag, text=str(main), ind1=ind1, ind2=ind2))
     return sorted(emits, key=lambda e: (e.tag, e.text))
 
 
@@ -5075,10 +5101,16 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         _append_title_datafield(record, title_parts, responsibility)
 
     # 2XX variant titles immediately follow 245. Each emits at its own
-    # tag (210 / 222 / 242 / 243 / 246 / 247) with per-tag indicators.
+    # tag (210 / 222 / 242 / 243 / 246 / 247) with indicators from
+    # bffi:marcKey (Phase C of p-065) or the per-tag convention.
     for variant in variant_titles:
-        ind1, ind2 = _VARIANT_TITLE_INDICATORS.get(variant.tag, ("1", " "))
-        df = etree.SubElement(record, f"{_MARC}datafield", tag=variant.tag, ind1=ind1, ind2=ind2)
+        df = etree.SubElement(
+            record,
+            f"{_MARC}datafield",
+            tag=variant.tag,
+            ind1=variant.ind1,
+            ind2=variant.ind2,
+        )
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = variant.text
 
