@@ -65,8 +65,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1035` | `035` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | asymmetric |
 | `036` | `036` | minimal | datafield | `##` | `$a` | forward_only |
 | `1036` | `036` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | forward_only |
-| `037` | `037` | minimal | datafield | `2#` | `$a` | forward_only |
-| `1037` | `037` | maximal | datafield | `2#` | `$3` `$5` `$a` `$b` `$c` `$f` `$g` `$n` | forward_only |
+| `037` | `037` | minimal | datafield | `2#` | `$a` | asymmetric |
+| `1037` | `037` | maximal | datafield | `2#` | `$3` `$5` `$a` `$b` `$c` `$f` `$g` `$n` | asymmetric |
 | `038` | `038` | minimal | datafield | `##` | `$a` | forward_only |
 | `040` | `040` | minimal | datafield | `##` | `$b` | asymmetric |
 | `1040` | `040` | maximal | datafield | `##` | `$b` `$e` | asymmetric |
@@ -170,8 +170,8 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1351` | `351` | maximal | datafield | `##` | `$3` `$a` `$b` `$c` | forward_only |
 | `352` | `352` | minimal | datafield | `##` | `$a` | forward_only |
 | `1352` | `352` | maximal | datafield | `##` | `$a` `$b` `$q` | forward_only |
-| `353` | `353` | minimal | datafield | `##` | `$a` | forward_only |
-| `1353` | `353` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` | forward_only |
+| `353` | `353` | minimal | datafield | `##` | `$a` | asymmetric |
+| `1353` | `353` | maximal | datafield | `##` | `$0` `$2` `$a` `$b` | asymmetric |
 | `362` | `362` | minimal | datafield | `0#` | `$a` | forward_only |
 | `370` | `370` | minimal | datafield | `##` | `$g` | asymmetric |
 | `1370` | `370` | maximal | datafield | `##` | `$2` `$c` `$g` | asymmetric |

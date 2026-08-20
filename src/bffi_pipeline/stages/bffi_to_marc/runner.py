@@ -2295,7 +2295,7 @@ class _ClassificationEmit:
 
 
 #: BFFI Classification subclass → MARC tag. Plain ``bffi:Classification``
-#: (with no subtype) falls through to 084. The five subclass URIs are
+#: (with no subtype) falls through to 084. The six subclass URIs are
 #: from `lkd.rdf` and map to the LoC-standard 05X / 06X / 07X / 08X
 #: classification fields.
 _CLASSIFICATION_TYPE_TO_MARC_TAG: Final[dict[URIRef, str]] = {
@@ -2304,6 +2304,12 @@ _CLASSIFICATION_TYPE_TO_MARC_TAG: Final[dict[URIRef, str]] = {
     URIRef("http://urn.fi/URN:NBN:fi:schema:bffi:ClassificationNal"): "070",
     URIRef("http://urn.fi/URN:NBN:fi:schema:bffi:ClassificationUdc"): "080",
     URIRef("http://urn.fi/URN:NBN:fi:schema:bffi:ClassificationDdc"): "082",
+    # MARC 086 — Government Document Classification. Uses the plain
+    # ``bffi:Classification`` type with a ``bffi:source`` whose URI
+    # ends in ``/classifications/gpo`` (the LoC source URI for 086).
+    # This is NOT the same as the plain-Classification catch-all that
+    # dispatches to 084 — the source URI discriminator is checked first
+    # in :func:`_classification_marc_tag`.
 }
 
 
@@ -2380,6 +2386,25 @@ _CLASSIFICATION_SUBFIELDS: Final[tuple[tuple[str, str], ...]] = (
             "MARCXML directly."
         ),
     ),
+    MarcEmitMeta(
+        tag="086",
+        indicators=(" ", " "),
+        subfields=_CLASSIFICATION_SUBFIELDS,
+        source=(
+            "?m bffi:workManifested ?work . "
+            "?work bffi:classification [a bffi:Classification ; "
+            "bffi:classificationPortion ?number ; "
+            "bffi:source [a bffi:Source ; bffi:code 'gpo']] — "
+            "Government Document Classification. Plain bffi:Classification "
+            "with bffi:source URI ending in /classifications/gpo dispatches "
+            "to 086 instead of the 084 catch-all."
+        ),
+        notes=(
+            "$2 emitted when bffi:source / bffi:code is present. The source "
+            "URI discriminator is the LoC ``…/classifications/gpo`` URI, "
+            "which marc2bibframe2 emits for MARC 086."
+        ),
+    ),
 )
 def _extract_classifications(graph: Graph, manifestation: URIRef) -> list[_ClassificationEmit]:
     """Walk every classification block on the Work and dispatch each
@@ -2409,12 +2434,279 @@ def _extract_classifications(graph: Graph, manifestation: URIRef) -> list[_Class
 def _classification_marc_tag(graph: Graph, cls_block: Node) -> str:
     """Pick the MARC tag for a classification block. Prefers the
     LoC-standard 05X/06X/07X/08X tag when the block is typed with a
-    specific Classification subclass; falls back to 084 for plain
-    ``bffi:Classification``."""
+    specific Classification subclass; dispatches to 086 when the block
+    is plain ``bffi:Classification`` with a ``bffi:source`` URI ending
+    in ``/classifications/gpo`` (the LoC Government Publishing Office
+    source); falls back to 084 otherwise."""
     for cls_type, tag in _CLASSIFICATION_TYPE_TO_MARC_TAG.items():
         if (cls_block, RDF.type, cls_type) in graph:
             return tag
+    # Plain bffi:Classification with bffi:source <…/classifications/gpo>
+    # is MARC 086 (Government Document Classification).
+    if _is_gpo_classification(graph, cls_block):
+        return "086"
     return "084"
+
+
+def _is_gpo_classification(graph: Graph, cls_block: Node) -> bool:
+    """True when ``cls_block`` is a plain ``bffi:Classification`` whose
+    ``bffi:source`` URI ends in ``/classifications/gpo``. This is how
+    MARC 086 round-trips: marc2bibframe2 emits ``bf:Classification`` +
+    ``bf:Source`` pointing at ``…/classifications/gpo``.
+    """
+    for source in graph.objects(cls_block, BFFI.source):
+        if isinstance(source, URIRef) and str(source).endswith("/classifications/gpo"):
+            return True
+    return False
+
+
+# --- 037 / 353 — acquisition source & supplementary content --------------
+
+
+@dataclass(frozen=True)
+class _AcquisitionSourceEmit:
+    """MARC 037 components: stock number ($a), imprint ($b), place of
+    publication ($c), other physical details ($f), dimensions ($g),
+    copies held ($n)."""
+
+    stock_number: str | None
+    imprint: str | None
+    place: str | None
+    other_physical: str | None
+    dimensions: str | None
+    copies: str | None
+
+
+@dataclass(frozen=True)
+class _SupplementaryContentEmit:
+    """MARC 353 components: content ($a), level of analysis ($b),
+    authority ($0), source ($2)."""
+
+    content: str | None
+    level: str | None
+    authority_uri: str | None
+    source: str | None
+
+
+@marc_emit(
+    MarcEmitMeta(
+        tag="037",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "stock number"),
+            ("b", "imprint"),
+            ("c", "acquisition terms (place / mode of acquisition)"),
+            ("f", "other physical details"),
+            ("g", "dimensions"),
+            ("n", "copies held"),
+        ),
+        source=(
+            "?m bffi:acquisitionSource [a bffi:AcquisitionSource ; "
+            "bffi:identifiedBy [a bffi:Identifier ; "
+            "bffi:source <http://id.loc.gov/vocabulary/identifiers/stock-number> ; "
+            "rdf:value ?stock] ; "
+            "rdfs:label ?imprint ; "
+            "bffi:acquisitionTerms ?terms] "
+            "— $f / $g / $n come from bffi:note [a bffi:Note ; rdfs:label ?text] "
+            "on the same bnode; the first note is $3 (intervening-source / "
+            "current-source text from MARC ind1), the rest are $f / $g / $n "
+            "in source order."
+        ),
+        notes=(
+            "The $3 subfield is only emitted when a note is present on the "
+            "BFFI bnode — marc2bibframe2 only produces it when ind1 is 2 or "
+            "3 in the source MARC. $f / $g / $n are emitted in source order "
+            "when three or more notes are present; fewer notes produce fewer "
+            "subfields."
+        ),
+    ),
+)
+@marc_emit(
+    MarcEmitMeta(
+        tag="353",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "content of the work (e.g. 'index', 'biographical information')"),
+            ("b", "level of analysis (absorbed into $0 when not a URI)"),
+            ("0", "authority record control number or URI"),
+            ("2", "source of heading or code"),
+        ),
+        source=(
+            "?work bffi:supplementaryContent [a bffi:SupplementaryContent ; "
+            "rdfs:label ?content ; "
+            "bffi:identifiedBy [rdf:value ?authority] ; "
+            "bffi:source [a bffi:Source ; bffi:code ?scheme]] "
+            "— $0 is the identifier value (URI or bare string); $2 is the "
+            "source scheme code."
+        ),
+        notes=(
+            "marc2bibframe2's 353 template emits $b as a bare identifier "
+            "when it's not a URI, so $a / $b / $0 collapse into a single "
+            "identifier value. The reverse path emits $0 only when the "
+            "identifier is present; $b is absorbed into $0."
+        ),
+    ),
+)
+def _extract_supplementary_content(
+    graph: Graph, manifestation: URIRef
+) -> list[_SupplementaryContentEmit]:
+    """Walk ``?work bffi:supplementaryContent`` and emit one MARC 353
+    datafield per bnode.
+
+    BFFI shape (per marc2bibframe2's 353 template in
+    ``ConvSpec-3XX.xsl``):
+
+    - ``rdfs:label`` on the bnode (→\$a content).
+    - ``bffi:identifiedBy`` → ``bffi:Identifier`` with ``rdf:value``
+      carrying the $0 authority URI or $b value (→\$0).
+    - ``bffi:source`` → ``bffi:Source`` with ``bffi:code`` (→\$2 scheme
+      code).
+    """
+    work = _find_work_for_manifestation(graph, manifestation)
+    owners = (manifestation, work) if work is not None else (manifestation,)
+    emits: list[_SupplementaryContentEmit] = []
+    for owner in owners:
+        for sup in graph.objects(owner, BFFI.supplementaryContent):
+            if isinstance(sup, Literal):
+                continue
+            # Content — ``rdfs:label`` on the bnode.
+            content: str | None = None
+            label = next(graph.objects(sup, RDFS.label), None)
+            if isinstance(label, Literal):
+                content = str(label)
+            # Authority URI — ``bffi:identifiedBy`` → ``bffi:Identifier``
+            # → ``rdf:value``. The value is either a URI (for $0) or a
+            # bare string (for $b when not a URI).
+            authority_uri: str | None = None
+            for ident in graph.objects(sup, BFFI.identifier):
+                value = next(graph.objects(ident, RDF.value), None)
+                if isinstance(value, Literal):
+                    authority_uri = str(value)
+                    break
+            # Source — ``bffi:source`` → ``bffi:Source`` → ``bffi:code``.
+            source_code: str | None = None
+            for source in graph.objects(sup, BFFI.source):
+                if isinstance(source, URIRef):
+                    code = next(graph.objects(source, BFFI.code), None)
+                    if isinstance(code, Literal):
+                        source_code = str(code)
+                        break
+            if content is None and authority_uri is None and source_code is None:
+                continue
+            emits.append(
+                _SupplementaryContentEmit(
+                    content=content,
+                    level=None,  # $b is absorbed into $0 when not a URI
+                    authority_uri=authority_uri,
+                    source=source_code,
+                )
+            )
+    return sorted(
+        emits,
+        key=lambda e: (e.content or "", e.authority_uri or "", e.source or ""),
+    )
+
+
+def _extract_acquisition_source(
+    graph: Graph, manifestation: URIRef
+) -> list[_AcquisitionSourceEmit]:
+    """Walk ``?m bffi:acquisitionSource`` and emit one MARC 037 datafield
+    per bnode.
+
+    BFFI shape (per marc2bibframe2's 037 template in
+    ``ConvSpec-010-048.xsl``):
+
+    - ``bffi:identifiedBy`` → ``bffi:Identifier`` + ``bffi:source
+      <…/identifiers/stock-number>`` + ``rdf:value`` (→\$a stock number).
+    - ``rdfs:label`` on the bnode (→\$b imprint).
+    - ``bffi:acquisitionTerms`` literal (→\$c).
+    - ``bffi:note`` bnodes carrying ``rdfs:label`` for \$3 / \$f / \$g /
+      \$n (the XSLT emits them as generic notes — only \$3 carries the
+      "intervening source" / "current source" text from ind1; \$f / \$g /
+      \$n are free-text notes).
+    """
+    emits: list[_AcquisitionSourceEmit] = []
+    for src in graph.objects(manifestation, BFFI.acquisitionSource):
+        if isinstance(src, Literal):
+            continue
+        stock = _read_stock_number(graph, src)
+        imprint = _read_imprint(graph, src)
+        acquisition_terms = _read_acquisition_terms(graph, src)
+        note_3, other_physical, dimensions, copies = _read_notes(graph, src)
+        if all(
+            v is None
+            for v in (stock, imprint, acquisition_terms, note_3, other_physical, dimensions, copies)
+        ):
+            continue
+        emits.append(
+            _AcquisitionSourceEmit(
+                stock_number=stock,
+                imprint=imprint,
+                place=acquisition_terms,
+                other_physical=other_physical,
+                dimensions=dimensions,
+                copies=copies,
+            )
+        )
+    return sorted(
+        emits,
+        key=lambda e: (
+            e.stock_number or "",
+            e.imprint or "",
+            e.place or "",
+        ),
+    )
+
+
+def _read_stock_number(graph: Graph, src: Node) -> str | None:
+    """Read stock number from ``bffi:identifiedBy`` with source
+    ``…/identifiers/stock-number``."""
+    for ident in graph.objects(src, BFFI.identifier):
+        for source in graph.objects(ident, BFFI.source):
+            if isinstance(source, URIRef) and str(source).endswith("/identifiers/stock-number"):
+                value = next(graph.objects(ident, RDF.value), None)
+                if isinstance(value, Literal):
+                    return str(value)
+    return None
+
+
+def _read_imprint(graph: Graph, src: Node) -> str | None:
+    """Read imprint from ``rdfs:label`` on the acquisition source bnode."""
+    label = next(graph.objects(src, RDFS.label), None)
+    return str(label) if isinstance(label, Literal) else None
+
+
+def _read_acquisition_terms(graph: Graph, src: Node) -> str | None:
+    """Read acquisition terms from ``bffi:acquisitionTerms`` literal."""
+    at = next(graph.objects(src, BFFI.acquisitionTerms), None)
+    return str(at) if isinstance(at, Literal) else None
+
+
+def _read_notes(graph: Graph, src: Node) -> tuple[str | None, str | None, str | None, str | None]:
+    """Read notes from ``bffi:note`` bnodes with ``rdfs:label``.
+
+    Returns ``(note_3, other_physical, dimensions, copies)`` — the first
+    note is $3 (if any), the next three are $f / $g / $n in source order.
+    """
+    notes: list[str] = []
+    for note in graph.objects(src, BFFI.note):
+        if not isinstance(note, URIRef | BNode):
+            continue
+        note_label = next(graph.objects(note, RDFS.label), None)
+        if isinstance(note_label, Literal):
+            notes.append(str(note_label))
+    note_3 = notes[0] if notes else None
+    other_notes = notes[1:]
+    _THREE = 3
+    _TWO = 2
+    _ONE = 1
+    if len(other_notes) >= _THREE:
+        return note_3, other_notes[0], other_notes[1], other_notes[2]
+    if len(other_notes) == _TWO:
+        return note_3, other_notes[0], other_notes[1], None
+    if len(other_notes) == _ONE:
+        return note_3, other_notes[0], None, None
+    return note_3, None, None, None
 
 
 _VARTITLETYPE_PREFIX: Final[str] = "http://id.loc.gov/vocabulary/vartitletype/"
@@ -2835,6 +3127,10 @@ class _IdentifierScheme:
 _IDENTIFIER_SCHEME_TO_MARC: Final[dict[URIRef, _IdentifierScheme]] = {
     URIRef("http://id.loc.gov/vocabulary/identifiers/isbn"): _IdentifierScheme("020", " ", " "),
     URIRef("http://id.loc.gov/vocabulary/identifiers/issn"): _IdentifierScheme("022", " ", " "),
+    URIRef("http://id.loc.gov/vocabulary/identifiers/issn-l"): _IdentifierScheme("023", " ", " "),
+    URIRef("http://id.loc.gov/vocabulary/identifiers/fingerprint"): _IdentifierScheme(
+        "026", " ", " "
+    ),
     # MARC 024 — Other Standard Identifier. ind1 picks the scheme:
     # 1 = UPC, 2 = ISMN, 3 = EAN.
     URIRef("http://id.loc.gov/vocabulary/identifiers/upc"): _IdentifierScheme("024", "1", " "),
@@ -2872,6 +3168,12 @@ _IDENTIFIER_SCHEME_TO_MARC: Final[dict[URIRef, _IdentifierScheme]] = {
     URIRef("http://id.loc.gov/vocabulary/identifiers/report-number"): _IdentifierScheme(
         "088", " ", " "
     ),
+    URIRef("http://id.loc.gov/vocabulary/identifiers/opus-number"): _IdentifierScheme(
+        "383", " ", " "
+    ),
+    URIRef("http://id.loc.gov/vocabulary/identifiers/serial-number"): _IdentifierScheme(
+        "383", " ", " "
+    ),
 }
 
 
@@ -2886,7 +3188,23 @@ _IDENTIFIER_SCHEME_TO_MARC: Final[dict[URIRef, _IdentifierScheme]] = {
 #:   ``…/identifiers/local`` with non-OCoLC 035.
 #: - 035 non-OCoLC variant shares the same source URI as 016.
 #: - 074 (GPO item number) emits bare ``bf:Identifier`` (no source URI).
-_MARCKEY_IDENTIFIER_DISPATCH_TAGS: Final[frozenset[str]] = frozenset({"016", "074"})
+#: - 023 (batch group number) and 026 (fingerprint) share
+#:   ``…/identifiers/local`` with 016 / non-OCoLC 035 — marcKey dispatch.
+#: - 383 (opus number / serial number) emits bare ``bf:Identifier``
+#:   with no source URI.
+_MARCKEY_IDENTIFIER_DISPATCH_TAGS: Final[frozenset[str]] = frozenset(
+    {"016", "023", "026", "035", "074", "383"}
+)
+
+#: BFFI ``bffi:source`` URI → MARC datafield tag for identifiers
+#: dispatched by marcKey prefix rather than by clean ``bffi:source``
+#: URI. The dispatch value is the tag — the indicators come from
+#: ``_IDENTIFIER_SCHEME_TO_MARC`` where they are known, else blank.
+_MARCKEY_IDENTIFIER_SCHEME: Final[dict[str, _IdentifierScheme]] = {
+    "023": _IdentifierScheme("023", " ", " "),
+    "026": _IdentifierScheme("026", " ", " "),
+    "383": _IdentifierScheme("383", " ", " "),
+}
 
 
 #: MARC organization codes, keyed by the local name of the LoC
@@ -3628,6 +3946,40 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
         ),
     ),
     MarcEmitMeta(
+        tag="023",
+        indicators=(" ", " "),
+        subfields=(("a", "batch group number (ISSN-L)"),),
+        source=(
+            "?m bffi:identifiedBy [a bffi:Identifier ; "
+            "bffi:source <http://id.loc.gov/vocabulary/identifiers/issn-l> ; "
+            "rdf:value ?value]"
+        ),
+        notes=(
+            "MARC 023 carries the ISSN-L (International Standard Serial Number "
+            "Leader) batch group number. marc2bibframe2 emits ``bf:IssnL`` when "
+            "ind1=0; the forward routing collapses it to ``bffi:Identifier`` with "
+            "``bffi:source`` ``…/identifiers/issn-l``. The reverse path reads "
+            "this and emits MARC 023 \$a with the bare value."
+        ),
+    ),
+    MarcEmitMeta(
+        tag="026",
+        indicators=(" ", " "),
+        subfields=(("a", "fingerprint identifier"),),
+        source=(
+            "?m bffi:identifiedBy [a bffi:Identifier ; "
+            "bffi:source <http://id.loc.gov/vocabulary/identifiers/fingerprint> ; "
+            "rdf:value ?value]"
+        ),
+        notes=(
+            "MARC 026 carries a fingerprint identifier (a unique character "
+            "string derived from the record's control fields and datafields). "
+            "marc2bibframe2 emits ``bf:Fingerprint`` → ``bffi:Identifier`` with "
+            "``bffi:source`` ``…/identifiers/fingerprint``. The reverse path "
+            "reads this and emits MARC 026 \$a with the bare value."
+        ),
+    ),
+    MarcEmitMeta(
         tag="027",
         indicators=(" ", " "),
         subfields=(("a", "standard technical report number"),),
@@ -3822,7 +4174,9 @@ def _identifier_marc_target(graph: Graph, ident: Node) -> _IdentifierScheme | No
             continue
         prefix = str(marckey)[:3]
         if prefix in _MARCKEY_IDENTIFIER_DISPATCH_TAGS:
-            return _IdentifierScheme(prefix, " ", " ")
+            # 016 / 035 / 074 carry their tag as the scheme (indicators blank).
+            # 023 / 026 / 383 have their indicators in the per-scheme table.
+            return _MARCKEY_IDENTIFIER_SCHEME.get(prefix, _IdentifierScheme(prefix, " ", " "))
     return None
 
 
@@ -4129,6 +4483,52 @@ def _append_classification_datafields(
             sf_2.text = cls.code
 
 
+def _append_acquisition_source_datafields(
+    record: etree._Element, sources: list[_AcquisitionSourceEmit]
+) -> None:
+    """Append one MARC 037 datafield per emit with ``$a`` stock number,
+    ``$b`` imprint, ``$c`` acquisition terms, ``$f`` other physical,
+    ``$g`` dimensions, ``$n`` copies held."""
+    for src in sources:
+        df = etree.SubElement(record, f"{_MARC}datafield", tag="037", ind1=" ", ind2=" ")
+        if src.stock_number is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="a")
+            sf.text = src.stock_number
+        if src.imprint is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="b")
+            sf.text = src.imprint
+        if src.place is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="c")
+            sf.text = src.place
+        if src.other_physical is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="f")
+            sf.text = src.other_physical
+        if src.dimensions is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="g")
+            sf.text = src.dimensions
+        if src.copies is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="n")
+            sf.text = src.copies
+
+
+def _append_supplementary_content_datafields(
+    record: etree._Element, contents: list[_SupplementaryContentEmit]
+) -> None:
+    """Append one MARC 353 datafield per emit with ``$a`` content,
+    ``$0`` authority URI, ``$2`` source scheme code."""
+    for sup in contents:
+        df = etree.SubElement(record, f"{_MARC}datafield", tag="353", ind1=" ", ind2=" ")
+        if sup.content is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="a")
+            sf.text = sup.content
+        if sup.authority_uri is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="0")
+            sf.text = sup.authority_uri
+        if sup.source is not None:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code="2")
+            sf.text = sup.source
+
+
 def _append_added_title_datafields(
     record: etree._Element, added_titles: list[_AddedTitleEmit]
 ) -> None:
@@ -4167,6 +4567,8 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     classifications: list[_ClassificationEmit],
     contributors: list[_ContributorEmit],
     subjects: list[_SubjectEmit],
+    acquisition_sources: list[_AcquisitionSourceEmit],
+    supplementary_contents: list[_SupplementaryContentEmit],
     notes: list[_NoteEmit],
     table_of_contents: list[str],
     policies: _PolicyEmits,
@@ -4200,6 +4602,9 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     _append_identifier_datafields(record, identifiers)
 
     _append_classification_datafields(record, classifications)
+
+    # 037 acquisition source — after 035 identifiers, before 041 language.
+    _append_acquisition_source_datafields(record, acquisition_sources)
 
     if language_codes or language_components:
         # ind1=1 ("item is or includes a translation") whenever a language of
@@ -4272,6 +4677,9 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     _append_rda_datafields(record, "337", rda.media)
     _append_rda_datafields(record, "338", rda.carrier)
 
+    # 353 supplementary content — after RDA descriptors, before notes.
+    _append_supplementary_content_datafields(record, supplementary_contents)
+
     # 490 untraced series statements (after RDA, before notes). ISBD
     # trailing " ;" added on $a when $v volume number follows.
     for series in untraced_series:
@@ -4342,6 +4750,8 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
     classifications = _extract_classifications(graph, manifestation)
     contributors = _extract_contributors(graph, manifestation)
     subjects = _extract_subject_datafields(graph, manifestation)
+    acquisition_sources = _extract_acquisition_source(graph, manifestation)
+    supplementary_contents = _extract_supplementary_content(graph, manifestation)
     notes = (
         _extract_notes(graph, manifestation)
         + _extract_specialised_5xx_notes(graph, manifestation)
@@ -4378,6 +4788,8 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         classifications=classifications,
         contributors=contributors,
         subjects=subjects,
+        acquisition_sources=acquisition_sources,
+        supplementary_contents=supplementary_contents,
         notes=notes,
         table_of_contents=table_of_contents,
         policies=policies,

@@ -2158,3 +2158,119 @@ def test_emit_marcxml_keeps_a_summary_language_code_when_it_stands_alone() -> No
     df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
     assert df is not None
     assert [sf.text for sf in df.findall(f"{{{MARC21_NS}}}subfield[@code='a']")] == ["zxx"]
+
+
+def test_emit_marcxml_emits_037_from_acquisition_source() -> None:
+    """MARC 037 — acquisition source. The bnode carries ``bffi:identifiedBy``
+    with a stock-number identifier, ``rdfs:label`` for the imprint, and
+    ``bffi:acquisitionTerms`` for the terms."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, _work = _work_with_manifestation(g)
+    src = URIRef("http://example.org/b1#AcqSrc-1")
+    g.add((src, RDF.type, BFFI.AcquisitionSource))
+    g.add((manifestation, BFFI.acquisitionSource, src))
+    g.add((src, RDFS.label, Literal("Kustannusosakeyhtiö Otava")))
+    g.add((src, BFFI.acquisitionTerms, Literal("osto")))
+    id_node = URIRef("http://example.org/b1#StockId-1")
+    g.add((id_node, RDF.type, BFFI.Identifier))
+    g.add((src, BFFI.identifier, id_node))
+    g.add((id_node, RDF.value, Literal("0001")))
+    source_uri = URIRef("http://id.loc.gov/vocabulary/identifiers/stock-number")
+    g.add((id_node, BFFI.source, source_uri))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='037']")
+    assert df is not None
+    got = {sf.get("code"): sf.text for sf in df}
+    assert got["a"] == "0001"
+    assert got["b"] == "Kustannusosakeyhtiö Otava"
+    assert got["c"] == "osto"
+
+
+def test_emit_marcxml_emits_353_from_supplementary_content() -> None:
+    """MARC 353 — supplementary content. The bnode carries ``rdfs:label``
+    for the content, ``bffi:identifiedBy`` with a value, and
+    ``bffi:source`` with a code."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    sup = URIRef("http://example.org/b1#Suppl-1")
+    g.add((sup, RDF.type, BFFI.SupplementaryContent))
+    g.add((work, BFFI.supplementaryContent, sup))
+    g.add((sup, RDFS.label, Literal("biographical information")))
+    g.add((sup, BFFI.source, URIRef("http://id.loc.gov/vocabulary/relators/bio")))
+    # Source code comes from the local name of the source URI.
+    # bffi:Source with bffi:code "bio" would round-trip the $2.
+    # For this test we skip the source code and just check $a.
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='353']")
+    assert df is not None
+    got = {sf.get("code"): sf.text for sf in df}
+    assert got["a"] == "biographical information"
+
+
+def test_emit_marcxml_emits_086_from_gpo_classification() -> None:
+    """MARC 086 — Government Document Classification. Plain
+    ``bffi:Classification`` with ``bffi:source`` ending in
+    ``/classifications/gpo`` dispatches to 086 instead of the 084
+    catch-all."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work = _work_with_manifestation(g)
+    cls = URIRef("http://example.org/b1#Cls-086")
+    g.add((cls, RDF.type, BFFI.Classification))
+    g.add((work, BFFI.classification, cls))
+    g.add((cls, BFFI.classificationPortion, Literal("U 1.2:34")))
+    src = URIRef("http://id.loc.gov/vocabulary/classifications/gpo")
+    g.add((cls, BFFI.source, src))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='086']")
+    assert df is not None, (
+        f"086 not emitted; got tags: "
+        f"{[df.get('tag') for df in root.findall(f'{{{MARC21_NS}}}datafield')]}"
+    )
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "U 1.2:34"  # type: ignore[union-attr]
+
+
+def test_emit_marcxml_emits_023_from_issn_l_identifier() -> None:
+    """MARC 023 — Batch Group Number. ``bffi:Identifier`` with
+    ``bffi:source <…/identifiers/issn-l>`` dispatches to 023."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, _work = _work_with_manifestation(g)
+    id_node = URIRef("http://example.org/b1#Id-023")
+    g.add((id_node, RDF.type, BFFI.Identifier))
+    g.add((manifestation, BFFI.identifiedBy, id_node))
+    g.add((id_node, RDF.value, Literal("1234-5678")))
+    g.add((id_node, BFFI.source, URIRef("http://id.loc.gov/vocabulary/identifiers/issn-l")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='023']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "1234-5678"  # type: ignore[union-attr]
+
+
+def test_emit_marcxml_emits_026_from_fingerprint_identifier() -> None:
+    """MARC 026 — Fingerprint Identifier. ``bffi:Identifier`` with
+    ``bffi:source <…/identifiers/fingerprint>`` dispatches to 026."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, _work = _work_with_manifestation(g)
+    id_node = URIRef("http://example.org/b1#Id-026")
+    g.add((id_node, RDF.type, BFFI.Identifier))
+    g.add((manifestation, BFFI.identifiedBy, id_node))
+    g.add((id_node, RDF.value, Literal("Z026a")))
+    g.add((id_node, BFFI.source, URIRef("http://id.loc.gov/vocabulary/identifiers/fingerprint")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='026']")
+    assert df is not None
+    assert df.find(f"{{{MARC21_NS}}}subfield[@code='a']").text == "Z026a"  # type: ignore[union-attr]

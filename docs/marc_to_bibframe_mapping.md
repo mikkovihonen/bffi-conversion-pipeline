@@ -323,13 +323,16 @@ Verdict legend:
 | `017` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `020` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$y` `$z` | — | `$a` `$q` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `022` | ≠ asymmetric | `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$l` `$m` `$q` `$y` `$z` | — | `$a` | reverse only: ind2=`#` | — |
+| `023` | ≠ asymmetric | `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`<br>reverse only: ind2=`#` | — |
 | `024` | ≠ asymmetric | `instance`, `work` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-3`, ind2=`#` | — |
 | `025` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
+| `026` | ≠ asymmetric | `instance` | ✓ | `$2` `$5` `$6` `$b` `$c` `$d` `$e` | — | `$a` | — | — |
 | `027` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `028` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`#`, ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind1=`0-6`, ind2=`0-3` | — |
 | `030` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `032` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$c` `$d` `$q` `$y` `$z` | — | `$a` `$b` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `035` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
+| `037` | ≠ asymmetric | `instance` | ✓ | `$3` `$5` `$6` | — | `$a` `$b` `$c` `$f` `$g` `$n` | forward only: ind1=`2`, ind1=`3`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `040` | ≠ asymmetric | `adminmetadata` | ✓ | `$6` | — | `$b` `$e` | — | — |
 | `041` | ≠ asymmetric | `work` | ✓ | `$2` `$3` `$6` | `$a` `$h` `$i` `$j` `$k` `$m` `$n` `$p` `$q` `$r` | — | forward only: ind2=`7`<br>reverse only: ind1=`#` | — |
 | `050` | ≠ asymmetric | `work` | ✓ | `$6` `$b` | `$2` | `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
@@ -339,6 +342,7 @@ Verdict legend:
 | `080` | ≠ asymmetric | `work` | ✓ | `$6` `$b` `$x` | — | `$2` `$a` | forward only: ind1=`0`, ind1=`1`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `082` | ≠ asymmetric | `work` | ✓ | `$1` `$6` `$b` `$q` | — | `$2` `$a` | forward only: ind1=`0`, ind1=`1`, ind2=`0`<br>reverse only: ind1=`#` | — |
 | `084` | ≠ asymmetric | `work` | ✓ | `$6` `$b` `$q` | — | `$2` `$a` | — | — |
+| `086` | ≠ asymmetric | `work` | ✓ | `$6` `$b` `$z` | — | `$2` `$a` | forward only: ind1=`0`, ind1=`1`<br>reverse only: ind1=`#`, ind2=`#` | — |
 | `088` | ≠ asymmetric | `instance` | ✓ | `$0` `$2` `$6` `$b` `$c` `$d` `$q` `$y` `$z` | — | `$a` | forward only: ind1=`0`, ind1=`1`, ind1=`2`, ind1=`3`, ind1=`4`, ind1=`6`, ind1=`7`<br>reverse only: ind2=`#` | — |
 | `100` | ≠ asymmetric | `work` | ✓ | `$1` `$6` `$k` | `$4` `$a` `$b` `$c` `$d` `$e` `$g` `$t` | `$0` | — | — |
 | `110` | ≠ asymmetric | `work` | ✓ | `$1` `$6` `$k` | `$4` `$a` `$b` `$c` `$d` `$e` `$g` `$t` | `$0` | — | — |
@@ -362,6 +366,7 @@ Verdict legend:
 | `336` | ≠ asymmetric | `work` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `337` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
 | `338` | ≠ asymmetric | `instance` | ✓ | `$3` `$6` | — | `$2` `$a` `$b` | — | — |
+| `353` | ≠ asymmetric | `work` | ✓ | `$6` | — | `$0` `$2` `$a` `$b` | — | — |
 | `370` | ≠ asymmetric | `work` | ✓ | `$6` `$c` | `$2` | `$g` | — | — |
 | `500` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
 | `501` | ≠ asymmetric | `instance` | ✓ | `$5` `$6` | `$a` | — | — | — |
@@ -434,12 +439,9 @@ Verdict legend:
 | `856` | ≠ asymmetric | `hasItem` | ✓ | `$6` | `$u` | — | — | — |
 | `007` | → forward only | `instance` | — | `$c` | — | — | — | — |
 | `008` | → forward only | `instance` | — | — | — | — | — | — |
-| `023` | → forward only | `work` | — | `$0` `$2` `$6` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | — | — | — | — |
-| `026` | → forward only | `instance` | — | `$2` `$5` `$6` `$a` `$b` `$c` `$d` `$e` | — | — | — | — |
 | `033` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$p` | — | — | — | — |
 | `034` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` `$d` `$e` `$f` `$g` | — | — | — | — |
 | `036` | → forward only | `instance` | — | `$0` `$2` `$6` `$a` `$b` `$c` `$d` `$q` `$y` `$z` | — | — | — | — |
-| `037` | → forward only | `instance` | — | `$3` `$5` `$6` `$a` `$b` `$c` `$f` `$g` `$n` | — | — | — | — |
 | `038` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
 | `042` | → forward only | `adminmetadata` | — | `$6` `$a` | — | — | — | — |
 | `043` | → forward only | `work` | — | `$0` `$6` `$a` `$b` `$c` | — | — | — | — |
@@ -451,7 +453,6 @@ Verdict legend:
 | `052` | → forward only | `work` | — | `$6` `$a` `$b` | — | — | — | — |
 | `055` | → forward only | `work` | — | `$6` `$a` `$b` | — | — | — | — |
 | `072` | → forward only | `work` | — | `$2` `$6` `$a` `$x` | — | — | — | — |
-| `086` | → forward only | `work` | — | `$2` `$6` `$a` `$b` `$z` | — | — | — | — |
 | `254` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
 | `255` | → forward only | `work` | — | `$6` `$a` `$b` `$c` `$d` `$e` `$f` `$g` | — | — | — | — |
 | `256` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
@@ -467,7 +468,6 @@ Verdict legend:
 | `348` | → forward only | `work` | — | `$6` | — | — | — | — |
 | `351` | → forward only | `work` | — | `$3` `$6` `$a` `$b` `$c` | — | — | — | — |
 | `352` | → forward only | `instance` | — | `$6` `$a` `$b` `$q` | — | — | — | — |
-| `353` | → forward only | `work` | — | `$0` `$2` `$6` `$a` `$b` | — | — | — | — |
 | `362` | → forward only | `instance` | — | `$6` `$a` | — | — | — | — |
 | `377` | → forward only | `work` | — | `$2` `$3` `$6` `$a` `$l` | — | — | — | — |
 | `380` | → forward only | `work` | — | `$6` `$a` | — | — | — | — |
@@ -499,7 +499,7 @@ Verdict legend:
 
 <!-- BEGIN AUTO: metadata -->
 
-_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 115 asymmetric, 51 forward-only, 7 reverse-only._
+_Generated from `third_party/marc2bibframe2/xsl/marc2bibframe2.xsl` at commit `ed9abb038214474e8fc8ba4035d01c42fe0246de`. Parsed 24 modules, 333 templates, 168 unique MARC tags. 25 dynamic `xsl:element` constructor sites. Round-trip tallies: 2 round-trippable, 120 asymmetric, 46 forward-only, 7 reverse-only._
 
 <!-- END AUTO: metadata -->
 
