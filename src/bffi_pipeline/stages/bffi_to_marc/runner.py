@@ -4919,6 +4919,7 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     identifiers: list[_IdentifierEmit],
     language_codes: list[str],
     language_components: list[tuple[str, str]],
+    temporal_coverage: list[str],
     physical: _PhysicalDescription | None,
     rda: _RdaDescriptors,
     classifications: list[_ClassificationEmit],
@@ -4984,6 +4985,12 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         for subfield_code, language_code in language_components:
             sf = etree.SubElement(df041, f"{_MARC}subfield", code=subfield_code)
             sf.text = language_code
+
+    # 045 temporal coverage — simple literal emit.
+    for value in temporal_coverage:
+        df045 = etree.SubElement(record, f"{_MARC}datafield", tag="045", ind1=" ", ind2=" ")
+        sf_a = etree.SubElement(df045, f"{_MARC}subfield", code="a")
+        sf_a.text = value
 
     # Primary contributors (MARC 100/110/111) come before 130 in MARC
     # tag order.
@@ -5102,6 +5109,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
     identifiers = _extract_identifier_datafields(graph, manifestation)
     language_codes = _extract_language_codes(graph, manifestation)
     language_components = _extract_language_components(graph, manifestation)
+    temporal_coverage = _extract_temporal_coverage(graph, manifestation)
     physical = _extract_physical_description(graph, manifestation)
     rda = _extract_rda_descriptors(graph, manifestation)
     classifications = _extract_classifications(graph, manifestation)
@@ -5140,6 +5148,7 @@ def emit_marcxml(graph: Graph, *, manifestation: URIRef) -> bytes:
         identifiers=identifiers,
         language_codes=language_codes,
         language_components=language_components,
+        temporal_coverage=temporal_coverage,
         physical=physical,
         rda=rda,
         classifications=classifications,
