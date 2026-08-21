@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-21
+
+### Added
+
+- **Alt-script 880 field reconstruction (p-071)** — detects language-tagged duplicate literals in the BFFI graph and emits MARC 880 fields after the main field with dynamic occurrence numbering and `$6` linkage. Covers 7 tag families:
+  - Contributors (100, 110, 111, 700, 710, 711) with `$a` name + `$e` relator
+  - Titles (245) with `$a` mainTitle + `$b` subtitle
+  - Variant titles (210, 222, 242, 243, 246, 247) with `$a` mainTitle
+  - Publications (260, 264) with `$a` place + `$b` agent + `$c` date
+  - Notes (500, 504, 511, 534, 546, etc.) with `$a` label
+  - Subjects (600, 610, 611, 630, 650, 651, 653, 655, 656) with `$a` label
+  - Series (490) with `$a` mainTitle
+- **Alt-script detection utility** (`src/bffi_pipeline/stages/bffi_to_marc/alt_script.py`) — Unicode script detection for 30+ scripts (Cyrillic=`/(N`, Greek=`/(G`, Hebrew=`/(I`, Arabic=`/(R`, etc.) per MARC Code Lists for Script Codes.
+- **Unit tests** for alt-script detection (14 tests) and **integration tests** for round-trip reconstruction on real curated samples (6 tests).
+
+### Changed
+
+- (None)
+
+### Fixed
+
+- (None)
+
 ## [0.2.0] - 2026-08-20
 
 ### Added
