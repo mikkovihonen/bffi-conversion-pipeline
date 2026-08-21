@@ -43,6 +43,10 @@ from rdflib.term import Node
 from bffi_pipeline.observability.events import emit_if_active
 from bffi_pipeline.provenance.vocab import BFFI
 from bffi_pipeline.rdf_utils import local_name
+from bffi_pipeline.stages.bffi_to_marc.alt_script import (
+    AltScriptInfo,
+    detect_alt_scripts,
+)
 
 STAGE: Final[str] = "bffi2marc"
 
@@ -302,13 +306,19 @@ class _PublicationEmit:
     ``"4"`` → 264 (copyright). Any combination of place / agent / date can be
     absent (or all three — in which case the fallback ``statement`` carries
     the flat transcribed string from ``bffi:publicationStatement``). ISBD
-    trailing punctuation is applied at emit time, not stored here."""
+    trailing punctuation is applied at emit time, not stored here.
+
+    ``alt_scripts`` carries language-tagged duplicate values detected on
+    ``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``.
+    Each entry becomes a separate MARC 880 field appended after the main
+    publication field."""
 
     place: str | None
     agent: str | None
     date: str | None
     statement: str | None
     ind1: str = " "
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 @marc_emit(
@@ -373,12 +383,38 @@ def _extract_publications(graph: Graph, manifestation: URIRef) -> list[_Publicat
         place = _first_literal(graph, pa, BFFI.simplePlace)
         agent = _first_literal(graph, pa, BFFI.simpleAgent)
         date = _first_literal(graph, pa, BFFI.simpleDate)
+        # Detect alt-script values on simplePlace / simpleAgent / simpleDate
+        # pa can be URIRef or BNode; detect_alt_scripts accepts both
+        # Include agent ($b) and date ($c) as extra_subfields for each alt-script
+        base_alt_scripts = tuple(
+            detect_alt_scripts(graph, pa, BFFI.simplePlace)
+            + detect_alt_scripts(graph, pa, BFFI.simpleAgent)
+            + detect_alt_scripts(graph, pa, BFFI.simpleDate)
+        )
+        # Build extra_subfields: ($b, agent) and ($c, date) if present
+        pub_extra: tuple[tuple[str, str], ...] = ()
+        if agent:
+            pub_extra = (("b", agent),)
+            if date:
+                pub_extra = (("b", agent), ("c", date))
+        elif date:
+            pub_extra = (("c", date),)
+        alt_scripts = tuple(
+            AltScriptInfo(
+                lang=alt.lang,
+                value=alt.value,
+                script_indicator=alt.script_indicator,
+                extra_subfields=pub_extra,
+            )
+            for alt in base_alt_scripts
+        )
         emit = _PublicationEmit(
             place=place,
             agent=agent,
             date=date,
             statement=None,
             ind1="1",
+            alt_scripts=alt_scripts,
         )
         key = (emit.place, emit.agent, emit.date)
         if key not in seen:
@@ -730,6 +766,7 @@ class _TitleParts:
     subtitle: str | None = None
     part_number: str | None = None
     part_name: str | None = None
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 #: Maps a BFFI agent class to a ``(primary_tag, added_tag)`` MARC pair.
@@ -762,7 +799,11 @@ class _ContributorEmit:
     ``$a`` / ``$e`` / ``$4`` (e.g. ``$t`` analytical title, ``$c``
     qualification, ``$d`` dates). These are parsed from the agent's
     ``bffi:marcKey`` and emitted in marcKey order between ``$e`` and
-    ``$4`` per MARC X00 subfield convention."""
+    ``$4`` per MARC X00 subfield convention.
+
+    ``alt_scripts`` carries language-tagged duplicate values detected
+    on the agent's ``rdfs:label``. Each entry becomes a separate MARC
+    880 field appended after the main contributor field."""
 
     tag: str
     label: str
@@ -771,6 +812,7 @@ class _ContributorEmit:
     ind1: str
     ind2: str
     extra_subfields: tuple[tuple[str, str], ...]
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 def _agent_marc_tag(graph: Graph, agent: URIRef, *, is_primary: bool) -> str | None:
@@ -905,6 +947,19 @@ def _build_contributor_emit(graph: Graph, contrib: Node) -> _ContributorEmit | N
         return None
     relator, relator_term = _extract_role_codes(graph, contrib)
     ind1, ind2, extras = _contributor_marckey_extras(graph, agent)
+    # Detect alt-script values on the agent's rdfs:label
+    # Include relator term in extra_subfields for 880 reconstruction
+    base_alt_scripts = tuple(detect_alt_scripts(graph, agent, RDFS.label))
+    relator_extra: tuple[tuple[str, str], ...] = (("e", relator_term),) if relator_term else ()
+    alt_scripts = tuple(
+        AltScriptInfo(
+            lang=alt.lang,
+            value=alt.value,
+            script_indicator=alt.script_indicator,
+            extra_subfields=relator_extra,
+        )
+        for alt in base_alt_scripts
+    )
     return _ContributorEmit(
         tag=tag,
         label=str(label),
@@ -913,6 +968,7 @@ def _build_contributor_emit(graph: Graph, contrib: Node) -> _ContributorEmit | N
         ind1=ind1,
         ind2=ind2,
         extra_subfields=extras,
+        alt_scripts=alt_scripts,
     )
 
 
@@ -1203,7 +1259,10 @@ class _NoteEmit:
     to ``"c"`` (Publication, distribution, etc. of original).
     Indicators default to blank; ``587`` overrides ``ind1`` per the
     datasource / datanf mnotetype tail.
-    """
+
+    ``alt_scripts`` carries language-tagged duplicate values detected
+    on the note's ``rdfs:label``. Each entry becomes a separate MARC
+    880 field appended after the main note field."""
 
     tag: str
     text: str
@@ -1215,6 +1274,7 @@ class _NoteEmit:
     #: source carries ``$o``/``$d``/``$p``/``$3`` rather than a single
     #: ``$a``. When ``text`` is empty the primary subfield is skipped.
     extra_subfields: tuple[tuple[str, str], ...] = ()
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 @marc_emit(
@@ -1407,6 +1467,8 @@ def _extract_notes(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
         if not isinstance(label, Literal):
             continue
         target = _note_marc_target(graph, note)
+        # Detect alt-script values on the note's rdfs:label
+        alt_scripts = tuple(detect_alt_scripts(graph, note, RDFS.label))
         emits.append(
             _NoteEmit(
                 tag=target.tag,
@@ -1414,6 +1476,7 @@ def _extract_notes(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
                 subfield_code=target.subfield_code,
                 ind1=target.ind1,
                 ind2=target.ind2,
+                alt_scripts=alt_scripts,
             )
         )
     return sorted(emits, key=lambda e: (e.tag, e.ind1, e.ind2, e.subfield_code, e.text))
@@ -2149,6 +2212,7 @@ class _UntracedSeriesEmit:
 
     title: str
     volume: str | None
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 @marc_emit(
@@ -2202,7 +2266,15 @@ def _extract_untraced_series(graph: Graph, manifestation: URIRef) -> list[_Untra
                 for title_block in graph.objects(target, BFFI.title):
                     main = next(graph.objects(title_block, BFFI.mainTitle), None)
                     if isinstance(main, Literal):
-                        emits.append(_UntracedSeriesEmit(title=str(main), volume=volume))
+                        # Detect alt-script values on the title block's mainTitle
+                        alt_scripts = tuple(detect_alt_scripts(graph, title_block, BFFI.mainTitle))
+                        emits.append(
+                            _UntracedSeriesEmit(
+                                title=str(main),
+                                volume=volume,
+                                alt_scripts=alt_scripts,
+                            )
+                        )
                         break
     return sorted(emits, key=lambda e: (e.title, e.volume or ""))
 
@@ -2994,11 +3066,40 @@ def _extract_main_title_parts(graph: Graph, manifestation: URIRef) -> _TitlePart
         subtitle = next(graph.objects(title_block, BFFI.subtitle), None)
         part_number = next(graph.objects(title_block, BFFI.partNumber), None)
         part_name = next(graph.objects(title_block, BFFI.partName), None)
+        # Detect alt-script values on mainTitle and subtitle
+        # title_block can be URIRef or BNode; detect_alt_scripts accepts both
+        main_alt_scripts = tuple(detect_alt_scripts(graph, title_block, BFFI.mainTitle))
+        subtitle_alt_scripts = (
+            tuple(detect_alt_scripts(graph, title_block, BFFI.subtitle))
+            if isinstance(subtitle, Literal)
+            else ()
+        )
+        # Merge alt-scripts from both predicates, deduplicating by (lang, value)
+        # Include subtitle as $b extra_subfield for each alt-script
+        seen = set()
+        alt_scripts: list[AltScriptInfo] = []
+        for alt in main_alt_scripts + subtitle_alt_scripts:
+            key = (alt.lang, alt.value)
+            if key not in seen:
+                seen.add(key)
+                # Add $b (subtitle) as extra_subfield if subtitle exists
+                extra: tuple[tuple[str, str], ...] = ()
+                if isinstance(subtitle, Literal):
+                    extra = (("b", str(subtitle)),)
+                alt_scripts.append(
+                    AltScriptInfo(
+                        lang=alt.lang,
+                        value=alt.value,
+                        script_indicator=alt.script_indicator,
+                        extra_subfields=extra,
+                    )
+                )
         return _TitleParts(
             main=str(main),
             subtitle=str(subtitle) if isinstance(subtitle, Literal) else None,
             part_number=str(part_number) if isinstance(part_number, Literal) else None,
             part_name=str(part_name) if isinstance(part_name, Literal) else None,
+            alt_scripts=tuple(alt_scripts),
         )
     return None
 
@@ -3011,12 +3112,17 @@ class _VariantTitleEmit:
     ``text`` carries the ``$a`` title text. ``ind1`` / ``ind2`` come
     from ``bffi:marcKey`` when present (Phase C of p-065); otherwise
     they fall back to :data:`_VARIANT_TITLE_INDICATORS`.
+
+    ``alt_scripts`` carries language-tagged duplicate values detected
+    on the title block's ``bffi:mainTitle``. Each entry becomes a
+    separate MARC 880 field appended after the variant-title datafield.
     """
 
     tag: str
     text: str
     ind1: str = "1"
     ind2: str = " "
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 _VARIANT_TITLE_INDICATORS: Final[dict[str, tuple[str, str]]] = {
@@ -3156,7 +3262,18 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
                 # absent or doesn't carry indicators.
                 ind1, ind2 = _VARIANT_TITLE_INDICATORS.get(tag, ("1", " "))
 
-            emits.append(_VariantTitleEmit(tag=tag, text=str(main), ind1=ind1, ind2=ind2))
+            # Detect alt-script values on the title block's mainTitle
+            alt_scripts = tuple(detect_alt_scripts(graph, title_block, BFFI.mainTitle))
+
+            emits.append(
+                _VariantTitleEmit(
+                    tag=tag,
+                    text=str(main),
+                    ind1=ind1,
+                    ind2=ind2,
+                    alt_scripts=alt_scripts,
+                )
+            )
     return sorted(emits, key=lambda e: (e.tag, e.text))
 
 
@@ -4021,13 +4138,17 @@ class _SubjectEmit:
     had beyond ``$a`` (e.g. ``$t`` analytical title on a name-title
     subject 600 1 4 \\$a Bond, James \\$t Casino Royale). Parsed
     verbatim from the subject node's ``bffi:marcKey`` when present.
-    """
+
+    ``alt_scripts`` carries language-tagged duplicate values detected
+    on the subject's ``rdfs:label``. Each entry becomes a separate MARC
+    880 field appended after the main subject field."""
 
     tag: str
     label: str
     vocab_code: str | None
     authority_uri: str | None
-    extra_subfields: tuple[tuple[str, str], ...]
+    extra_subfields: tuple[tuple[str, str], ...] = ()
+    alt_scripts: tuple[AltScriptInfo, ...] = ()
 
 
 def _find_work_for_manifestation(graph: Graph, manifestation: URIRef) -> URIRef | None:
@@ -4221,12 +4342,16 @@ def _build_subject_emit(graph: Graph, subj_node: URIRef | BNode) -> _SubjectEmit
     else:
         authority_uri = None
     extras = _subject_marckey_extras(graph, subj_node)
+    # Detect alt-script values on the subject's rdfs:label
+    subj_uri = URIRef(subj_node) if isinstance(subj_node, Node) else subj_node
+    alt_scripts = tuple(detect_alt_scripts(graph, subj_uri, RDFS.label))
     return _SubjectEmit(
         tag=tag,
         label=label,
         vocab_code=vocab_code,
         authority_uri=authority_uri,
         extra_subfields=extras,
+        alt_scripts=alt_scripts,
     )
 
 
@@ -4677,15 +4802,65 @@ def _append_simple_a_datafields(record: etree._Element, tag: str, values: tuple[
         sf_a.text = value
 
 
+def _append_alt_script_datafields(
+    record: etree._Element,
+    main_tag: str,
+    main_ind1: str,
+    main_ind2: str,
+    main_label: str,
+    alt_scripts: tuple[AltScriptInfo, ...],
+    alt_script_counter: dict[str, int],
+) -> None:
+    """Append MARC 880 fields for alt-script duplicates.
+
+    Emits one 880 field per alt-script value, with occurrence-numbered
+    ``$6`` qualifiers. The main field's ``$6`` is not set (it's
+    generated dynamically); only the 880 fields carry the ``$6``
+    linkage.
+
+    ``alt_script_counter`` is updated in-place to track occurrence
+    numbers per tag.
+    """
+    if main_tag not in alt_script_counter:
+        alt_script_counter[main_tag] = 0
+    alt_script_counter[main_tag] += 1
+    occurrence = alt_script_counter[main_tag]
+
+    # Main field $6 (dynamically generated)
+    # Note: The main field doesn't carry $6 in our reconstruction;
+    # only the 880 fields carry the linkage.
+
+    for alt in alt_scripts:
+        df = etree.SubElement(
+            record, f"{_MARC}datafield", tag="880", ind1=main_ind1, ind2=main_ind2
+        )
+        # $6 linkage: main_tag-occurrence/script_indicator
+        sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+        sf_6.text = f"{main_tag}-{occurrence:02d}{alt.script_indicator}"
+        # $a alt-script value
+        sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
+        sf_a.text = alt.value
+        # Extra subfields (e.g., $e relator for contributors)
+        for code, value in alt.extra_subfields:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
+            sf.text = value
+
+
 def _append_contributor_datafields(
-    record: etree._Element, contributors: Iterable[_ContributorEmit]
+    record: etree._Element,
+    contributors: Iterable[_ContributorEmit],
+    alt_script_counter: dict[str, int],
 ) -> None:
     """Append one MARC contributor datafield per emit. Subfield order
     follows the MARC X00 spec: ``$a`` (name) → ``$e`` (relator term,
     free text) → extras from marcKey (``$t`` analytical title, ``$c``
     qualifier, ``$d`` dates, …) → ``$4`` (LoC relator code). Each is
     optional except ``$a``. Indicators come from the agent's marcKey
-    when present, else default to blank."""
+    when present, else default to blank.
+
+    If the contributor has alt-script duplicates (non-Latin script
+    versions detected in BFFI), emits MARC 880 fields after the main
+    field with occurrence-numbered ``$6`` qualifiers."""
     for c in contributors:
         df = etree.SubElement(record, f"{_MARC}datafield", tag=c.tag, ind1=c.ind1, ind2=c.ind2)
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
@@ -4699,6 +4874,18 @@ def _append_contributor_datafields(
         if c.relator:
             sf_4 = etree.SubElement(df, f"{_MARC}subfield", code="4")
             sf_4.text = c.relator
+
+        # Emit 880 fields for alt-script duplicates
+        if c.alt_scripts:
+            _append_alt_script_datafields(
+                record=record,
+                main_tag=c.tag,
+                main_ind1=c.ind1,
+                main_ind2=c.ind2,
+                main_label=c.label,
+                alt_scripts=c.alt_scripts,
+                alt_script_counter=alt_script_counter,
+            )
 
 
 def _append_physical_description_datafield(
@@ -4769,11 +4956,12 @@ def _append_note_block(
     policies: _PolicyEmits,
     summaries: list[str],
     intended_audiences: list[str],
+    alt_script_counter: dict[str, int] | None = None,
 ) -> None:
     """Append the 5XX note block in (approximately) MARC tag-numeric
     order: 500-set general notes → 505 contents → 506 access → 520
     summary → 521 intended audience → 540 use."""
-    _append_note_datafields(record, notes)
+    _append_note_datafields(record, notes, alt_script_counter)
     _append_table_of_contents_datafields(record, table_of_contents)
     _append_simple_a_datafields(record, "506", policies.access)
     _append_simple_a_datafields(record, "520", tuple(summaries))
@@ -4781,9 +4969,17 @@ def _append_note_block(
     _append_simple_a_datafields(record, "540", policies.use)
 
 
-def _append_note_datafields(record: etree._Element, notes: list[_NoteEmit]) -> None:
+def _append_note_datafields(
+    record: etree._Element,
+    notes: list[_NoteEmit],
+    alt_script_counter: dict[str, int] | None = None,
+) -> None:
     """Append one MARC 5XX-style datafield per note emit. Indicators
-    default to blank; 587 overrides ind1 from the mnotetype tail."""
+    default to blank; 587 overrides ind1 from the mnotetype tail.
+
+    If ``alt_script_counter`` is provided and a note has
+    alt-script duplicates, emits MARC 880 fields after the note
+    field."""
     for note in notes:
         df = etree.SubElement(
             record, f"{_MARC}datafield", tag=note.tag, ind1=note.ind1, ind2=note.ind2
@@ -4794,6 +4990,18 @@ def _append_note_datafields(record: etree._Element, notes: list[_NoteEmit]) -> N
         for code, value in note.extra_subfields:
             sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
             sf.text = value
+
+        # Emit 880 fields for alt-script duplicates
+        if note.alt_scripts and alt_script_counter is not None:
+            _append_alt_script_datafields(
+                record=record,
+                main_tag=note.tag,
+                main_ind1=note.ind1,
+                main_ind2=note.ind2,
+                main_label=note.text,
+                alt_scripts=note.alt_scripts,
+                alt_script_counter=alt_script_counter,
+            )
 
 
 def _append_table_of_contents_datafields(
@@ -4834,11 +5042,15 @@ def _append_title_datafield(
     record: etree._Element,
     title_parts: _TitleParts,
     responsibility: str | None,
+    alt_script_counter: dict[str, int] | None = None,
 ) -> None:
     """Append the MARC 245 datafield. Subfield order follows MARC 21:
     ``$a`` main title → ``$n`` part number → ``$p`` part name → ``$b``
     subtitle → ``$c`` statement of responsibility. Each is optional
-    except ``$a``."""
+    except ``$a``.
+
+    If ``alt_script_counter`` is provided and the title has
+    alt-script duplicates, emits MARC 880 fields after the 245."""
     df = etree.SubElement(record, f"{_MARC}datafield", tag="245", ind1="0", ind2="0")
     sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
     sf_a.text = title_parts.main
@@ -4855,8 +5067,24 @@ def _append_title_datafield(
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = responsibility
 
+    # Emit 880 fields for alt-script duplicates
+    if title_parts.alt_scripts and alt_script_counter is not None:
+        _append_alt_script_datafields(
+            record=record,
+            main_tag="245",
+            main_ind1="0",
+            main_ind2="0",
+            main_label=title_parts.main,
+            alt_scripts=title_parts.alt_scripts,
+            alt_script_counter=alt_script_counter,
+        )
 
-def _append_publication_datafield(record: etree._Element, publication: _PublicationEmit) -> None:
+
+def _append_publication_datafield(
+    record: etree._Element,
+    publication: _PublicationEmit,
+    alt_script_counter: dict[str, int] | None = None,
+) -> None:
     """Append the MARC 260/264 datafield with structured ``$a`` / ``$b`` / ``$c``
     when ``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``
     are present on the Publication-typed provisionActivity. Falls back to
@@ -4867,7 +5095,10 @@ def _append_publication_datafield(record: etree._Element, publication: _Publicat
     ``"4"`` → 264 (copyright). ISBD trailing punctuation is added per the
     MARC convention: ``$a "Place :"`` precedes ``$b``; ``$b "Publisher,"``
     precedes ``$c``. No trailing punctuation on the last present subfield.
-    """
+
+    If ``alt_script_counter`` is provided and the publication has
+    alt-script duplicates, emits MARC 880 fields after the publication
+    field."""
     tag = "260" if publication.ind1 in (" ", "1") else "264"
     df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=publication.ind1, ind2=" ")
     if publication.place is None and publication.agent is None and publication.date is None:
@@ -4892,8 +5123,24 @@ def _append_publication_datafield(record: etree._Element, publication: _Publicat
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = publication.date
 
+    # Emit 880 fields for alt-script duplicates
+    if publication.alt_scripts and alt_script_counter is not None:
+        _append_alt_script_datafields(
+            record=record,
+            main_tag=tag,
+            main_ind1=publication.ind1,
+            main_ind2="0",
+            main_label=publication.place or publication.statement or "",
+            alt_scripts=publication.alt_scripts,
+            alt_script_counter=alt_script_counter,
+        )
 
-def _append_subject_datafields(record: etree._Element, subjects: list[_SubjectEmit]) -> None:
+
+def _append_subject_datafields(
+    record: etree._Element,
+    subjects: list[_SubjectEmit],
+    alt_script_counter: dict[str, int] | None = None,
+) -> None:
     """Append one MARC 6XX datafield per subject emit.
 
     ``$a`` carries the heading text. ``$0`` (authority URI) and ``$2``
@@ -4901,7 +5148,10 @@ def _append_subject_datafields(record: etree._Element, subjects: list[_SubjectEm
     present in BFFI. When ``$2`` is emitted, ``ind2`` is set to ``"7"``
     per the MARC convention ("source specified in subfield $2");
     otherwise ``ind2`` is blank.
-    """
+
+    If ``alt_script_counter`` is provided and a subject has
+    alt-script duplicates, emits MARC 880 fields after the subject
+    field."""
     for subj in subjects:
         ind2 = "7" if subj.vocab_code else " "
         df = etree.SubElement(record, f"{_MARC}datafield", tag=subj.tag, ind1=" ", ind2=ind2)
@@ -4919,6 +5169,18 @@ def _append_subject_datafields(record: etree._Element, subjects: list[_SubjectEm
         if subj.vocab_code:
             sf_2 = etree.SubElement(df, f"{_MARC}subfield", code="2")
             sf_2.text = subj.vocab_code
+
+        # Emit 880 fields for alt-script duplicates
+        if subj.alt_scripts and alt_script_counter is not None:
+            _append_alt_script_datafields(
+                record=record,
+                main_tag=subj.tag,
+                main_ind1="0",
+                main_ind2=ind2,
+                main_label=subj.label,
+                alt_scripts=subj.alt_scripts,
+                alt_script_counter=alt_script_counter,
+            )
 
 
 def _append_classification_datafields(
@@ -5044,6 +5306,9 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     leader = etree.SubElement(record, f"{_MARC}leader")
     leader.text = leader_text
 
+    # Track occurrence numbers for alt-script 880 fields per tag
+    alt_script_counter: dict[str, int] = {}
+
     cf001 = etree.SubElement(record, f"{_MARC}controlfield", tag="001")
     cf001.text = bib_id
 
@@ -5091,14 +5356,18 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
 
     # Primary contributors (MARC 100/110/111) come before 130 in MARC
     # tag order.
-    _append_contributor_datafields(record, (c for c in contributors if c.tag.startswith("1")))
+    _append_contributor_datafields(
+        record,
+        (c for c in contributors if c.tag.startswith("1")),
+        alt_script_counter,
+    )
 
     # 130 uniform main entry — between 1XX contributors and 245.
     if uniform_main_entry is not None:
         _append_added_title_datafields(record, [uniform_main_entry])
 
     if title_parts is not None:
-        _append_title_datafield(record, title_parts, responsibility)
+        _append_title_datafield(record, title_parts, responsibility, alt_script_counter)
 
     # 2XX variant titles immediately follow 245. Each emits at its own
     # tag (210 / 222 / 242 / 243 / 246 / 247) with indicators from
@@ -5114,13 +5383,25 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = variant.text
 
+        # Emit 880 fields for alt-script duplicates
+        if variant.alt_scripts and alt_script_counter is not None:
+            _append_alt_script_datafields(
+                record=record,
+                main_tag=variant.tag,
+                main_ind1=variant.ind1,
+                main_ind2=variant.ind2,
+                main_label=variant.text,
+                alt_scripts=variant.alt_scripts,
+                alt_script_counter=alt_script_counter,
+            )
+
     if edition_statement is not None:
         df250 = etree.SubElement(record, f"{_MARC}datafield", tag="250", ind1=" ", ind2=" ")
         sf_a = etree.SubElement(df250, f"{_MARC}subfield", code="a")
         sf_a.text = edition_statement
 
     for pub in publications:
-        _append_publication_datafield(record, pub)
+        _append_publication_datafield(record, pub, alt_script_counter)
 
     if physical is not None:
         _append_physical_description_datafield(record, physical)
@@ -5157,6 +5438,18 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
             sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
             sf_v.text = series.volume
 
+        # Emit 880 fields for alt-script duplicates
+        if series.alt_scripts and alt_script_counter is not None:
+            _append_alt_script_datafields(
+                record=record,
+                main_tag="490",
+                main_ind1="0",
+                main_ind2=" ",
+                main_label=series.title,
+                alt_scripts=series.alt_scripts,
+                alt_script_counter=alt_script_counter,
+            )
+
     _append_note_block(
         record,
         notes=notes,
@@ -5164,13 +5457,16 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         policies=policies,
         summaries=summaries,
         intended_audiences=intended_audiences,
+        alt_script_counter=alt_script_counter,
     )
 
     # 6XX subjects come after the bibliographic-description block.
-    _append_subject_datafields(record, subjects)
+    _append_subject_datafields(record, subjects, alt_script_counter)
 
     # Added contributors (MARC 700/710/711) come after 6XX subjects.
-    _append_contributor_datafields(record, (c for c in contributors if c.tag.startswith("7")))
+    _append_contributor_datafields(
+        record, (c for c in contributors if c.tag.startswith("7")), alt_script_counter
+    )
 
     _append_added_title_datafields(record, added_titles)
 
