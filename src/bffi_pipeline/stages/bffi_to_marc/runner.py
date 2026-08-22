@@ -5018,6 +5018,8 @@ def _append_contributor_datafields(
     record: etree._Element,
     contributors: Iterable[_ContributorEmit],
     alt_script_counter: dict[str, int],
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append one MARC contributor datafield per emit. Subfield order
     follows the MARC X00 spec: ``$a`` (name) → ``$e`` (relator term,
@@ -5036,11 +5038,27 @@ def _append_contributor_datafields(
             main_occurrence = _reserve_occurrence(alt_script_counter, c.tag)
 
         df = etree.SubElement(record, f"{_MARC}datafield", tag=c.tag, ind1=c.ind1, ind2=c.ind2)
+        _isbd_enabled = options.apply_isbd_punctuation if options else False
+        # Determine which subfields are present for ISBD punctuation
+        _has_e = c.relator_term is not None
+        _has_4 = c.relator is not None
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = c.label
+        if _isbd_enabled:
+            _next_a = "e" if _has_e else ("4" if _has_4 else None)
+            sf_a.text = c.label + get_isbd_punctuation(
+                tag=c.tag, subfield_code="a", next_subfield_code=_next_a, enabled=True
+            )
+        else:
+            sf_a.text = c.label
         if c.relator_term:
             sf_e = etree.SubElement(df, f"{_MARC}subfield", code="e")
-            sf_e.text = c.relator_term
+            if _isbd_enabled:
+                _next_e = "4" if _has_4 else None
+                sf_e.text = c.relator_term + get_isbd_punctuation(
+                    tag=c.tag, subfield_code="e", next_subfield_code=_next_e, enabled=True
+                )
+            else:
+                sf_e.text = c.relator_term
         # Overwrite marcKey's $6 with reconstructed occurrence linkage
         extra = c.extra_subfields
         if c.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
@@ -5050,7 +5068,12 @@ def _append_contributor_datafields(
             sf.text = value
         if c.relator:
             sf_4 = etree.SubElement(df, f"{_MARC}subfield", code="4")
-            sf_4.text = c.relator
+            if _isbd_enabled:
+                sf_4.text = c.relator + get_isbd_punctuation(
+                    tag=c.tag, subfield_code="4", next_subfield_code=None, enabled=True
+                )
+            else:
+                sf_4.text = c.relator
 
         # Emit 880 fields for alt-script duplicates
         if c.alt_scripts:
@@ -5239,6 +5262,8 @@ def _append_title_datafield(
     title_parts: _TitleParts,
     responsibility: str | None,
     alt_script_counter: dict[str, int] | None = None,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append the MARC 245 datafield. Subfield order follows MARC 21:
     ``$a`` main title → ``$n`` part number → ``$p`` part name → ``$b``
@@ -5253,8 +5278,18 @@ def _append_title_datafield(
         main_occurrence = _reserve_occurrence(alt_script_counter, "245")
 
     df = etree.SubElement(record, f"{_MARC}datafield", tag="245", ind1="0", ind2="0")
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
+    # Determine which subfields are present for ISBD punctuation ($n, $p are ISBD-neutral)
+    _has_b = title_parts.subtitle is not None
+    _has_c = responsibility is not None
     sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-    sf_a.text = title_parts.main
+    if _isbd_enabled:
+        _next_a = "b" if _has_b else ("c" if _has_c else None)
+        sf_a.text = title_parts.main + get_isbd_punctuation(
+            tag="245", subfield_code="a", next_subfield_code=_next_a, enabled=True
+        )
+    else:
+        sf_a.text = title_parts.main
     # Add $6 linkage when alt-script is present
     if title_parts.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
         sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
@@ -5267,10 +5302,21 @@ def _append_title_datafield(
         sf_p.text = title_parts.part_name
     if title_parts.subtitle is not None:
         sf_b = etree.SubElement(df, f"{_MARC}subfield", code="b")
-        sf_b.text = title_parts.subtitle
+        if _isbd_enabled:
+            _next_b = "c" if _has_c else None
+            sf_b.text = title_parts.subtitle + get_isbd_punctuation(
+                tag="245", subfield_code="b", next_subfield_code=_next_b, enabled=True
+            )
+        else:
+            sf_b.text = title_parts.subtitle
     if responsibility is not None:
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
-        sf_c.text = responsibility
+        if _isbd_enabled:
+            sf_c.text = responsibility + get_isbd_punctuation(
+                tag="245", subfield_code="c", next_subfield_code=None, enabled=True
+            )
+        else:
+            sf_c.text = responsibility
 
     # Emit 880 fields for alt-script duplicates
     if title_parts.alt_scripts and alt_script_counter is not None:
@@ -5641,6 +5687,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         record,
         (c for c in contributors if c.tag.startswith("1")),
         alt_script_counter,
+        options=options,
     )
 
     # 130 uniform main entry — between 1XX contributors and 245.
@@ -5648,7 +5695,9 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         _append_added_title_datafields(record, [uniform_main_entry])
 
     if title_parts is not None:
-        _append_title_datafield(record, title_parts, responsibility, alt_script_counter)
+        _append_title_datafield(
+            record, title_parts, responsibility, alt_script_counter, options=options
+        )
 
     # 2XX variant titles immediately follow 245. Each emits at its own
     # tag (210 / 222 / 242 / 243 / 246 / 247) with indicators from
@@ -5766,7 +5815,10 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
 
     # Added contributors (MARC 700/710/711) come after 6XX subjects.
     _append_contributor_datafields(
-        record, (c for c in contributors if c.tag.startswith("7")), alt_script_counter
+        record,
+        (c for c in contributors if c.tag.startswith("7")),
+        alt_script_counter,
+        options=options,
     )
 
     _append_added_title_datafields(record, added_titles)
