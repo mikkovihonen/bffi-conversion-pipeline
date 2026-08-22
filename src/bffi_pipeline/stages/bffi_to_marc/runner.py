@@ -5446,6 +5446,8 @@ def _append_subject_datafields(
     record: etree._Element,
     subjects: list[_SubjectEmit],
     alt_script_counter: dict[str, int] | None = None,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append one MARC 6XX datafield per subject emit.
 
@@ -5466,8 +5468,17 @@ def _append_subject_datafields(
             main_occurrence = _reserve_occurrence(alt_script_counter, subj.tag)
 
         df = etree.SubElement(record, f"{_MARC}datafield", tag=subj.tag, ind1=" ", ind2=ind2)
+        _isbd_enabled = options.apply_isbd_punctuation if options else False
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = subj.label
+        if _isbd_enabled:
+            sf_a.text = subj.label + get_isbd_punctuation(
+                tag=subj.tag,
+                subfield_code="a",
+                next_subfield_code=None,
+                enabled=True,
+            )
+        else:
+            sf_a.text = subj.label
         # marcKey-driven extras ($t, $c, $d, …) come between $a and the
         # structured $0 / $2 — MARC subfield order is alphabetical-ish
         # but $0 / $2 sort after letters per convention.
@@ -5811,7 +5822,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
     )
 
     # 6XX subjects come after the bibliographic-description block.
-    _append_subject_datafields(record, subjects, alt_script_counter)
+    _append_subject_datafields(record, subjects, alt_script_counter, options=options)
 
     # Added contributors (MARC 700/710/711) come after 6XX subjects.
     _append_contributor_datafields(
