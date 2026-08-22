@@ -59,6 +59,17 @@ ISBD_RULES: Final[dict[str, dict[str, Any]]] = {
             "4": {"last": "."},
         },
     },
+    "700": {
+        # Same rules as 100 — ISBD punctuation is tag-agnostic
+        "subfield_order": ["a", "b", "e", "f", "4"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ",", "e": ",", "f": ","}},
+            "b": {"last": ",", "next": {"e": ",", "f": ","}},
+            "e": {"last": ".", "next": {"f": ","}},
+            "f": {"last": ".", "next": {"4": ","}},
+            "4": {"last": "."},
+        },
+    },
     "110": {
         "subfield_order": ["a", "e", "f", "4"],
         "punctuation_after": {
@@ -69,6 +80,26 @@ ISBD_RULES: Final[dict[str, dict[str, Any]]] = {
         },
     },
     "111": {
+        "subfield_order": ["a", "e", "f", "4"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"e": ",", "f": ","}},
+            "e": {"last": ".", "next": {"f": ","}},
+            "f": {"last": ".", "next": {"4": ","}},
+            "4": {"last": "."},
+        },
+    },
+    "710": {
+        # Same rules as 110 — ISBD punctuation is tag-agnostic
+        "subfield_order": ["a", "e", "f", "4"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"e": ",", "f": ","}},
+            "e": {"last": ".", "next": {"f": ","}},
+            "f": {"last": ".", "next": {"4": ","}},
+            "4": {"last": "."},
+        },
+    },
+    "711": {
+        # Same rules as 111 — ISBD punctuation is tag-agnostic
         "subfield_order": ["a", "e", "f", "4"],
         "punctuation_after": {
             "a": {"last": "", "next": {"e": ",", "f": ","}},

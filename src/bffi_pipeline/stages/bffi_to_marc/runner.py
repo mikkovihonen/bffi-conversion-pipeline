@@ -4981,6 +4981,8 @@ def _append_alt_script_datafields(
     alt_scripts: tuple[AltScriptInfo, ...],
     alt_script_counter: dict[str, int],
     main_occurrence: int | None = None,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append MARC 880 fields for alt-script duplicates.
 
@@ -4998,6 +5000,7 @@ def _append_alt_script_datafields(
         alt_script_counter[main_tag] += 1
         main_occurrence = alt_script_counter[main_tag]
 
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
     for alt in alt_scripts:
         df = etree.SubElement(
             record, f"{_MARC}datafield", tag="880", ind1=main_ind1, ind2=main_ind2
@@ -5005,13 +5008,40 @@ def _append_alt_script_datafields(
         # $6 linkage: main_tag-occurrence/script_indicator
         sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
         sf_6.text = f"{main_tag}-{main_occurrence:02d}{alt.script_indicator}"
-        # $a alt-script value
+        # $a alt-script value with ISBD punctuation
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = alt.value
+        if _isbd_enabled and alt.extra_subfields:
+            _next_a = alt.extra_subfields[0][0]
+            sf_a.text = alt.value + get_isbd_punctuation(
+                tag=main_tag,
+                subfield_code="a",
+                next_subfield_code=_next_a,
+                enabled=True,
+            )
+        elif _isbd_enabled:
+            sf_a.text = alt.value + get_isbd_punctuation(
+                tag=main_tag,
+                subfield_code="a",
+                next_subfield_code=None,
+                enabled=True,
+            )
+        else:
+            sf_a.text = alt.value
         # Extra subfields (e.g., $e relator for contributors)
-        for code, value in alt.extra_subfields:
+        for i, (code, value) in enumerate(alt.extra_subfields):
             sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
-            sf.text = value
+            if _isbd_enabled:
+                _next_code = (
+                    alt.extra_subfields[i + 1][0] if i + 1 < len(alt.extra_subfields) else None
+                )
+                sf.text = value + get_isbd_punctuation(
+                    tag=main_tag,
+                    subfield_code=code,
+                    next_subfield_code=_next_code,
+                    enabled=True,
+                )
+            else:
+                sf.text = value
 
 
 def _append_contributor_datafields(
@@ -5086,6 +5116,7 @@ def _append_contributor_datafields(
                 alt_scripts=c.alt_scripts,
                 alt_script_counter=alt_script_counter,
                 main_occurrence=main_occurrence,
+                options=options,
             )
 
 
@@ -5232,6 +5263,7 @@ def _append_note_datafields(
                 alt_scripts=note.alt_scripts,
                 alt_script_counter=alt_script_counter,
                 main_occurrence=main_occurrence,
+                options=options,
             )
 
 
@@ -5341,6 +5373,7 @@ def _append_title_datafield(
             alt_scripts=title_parts.alt_scripts,
             alt_script_counter=alt_script_counter,
             main_occurrence=main_occurrence,
+            options=options,
         )
 
 
@@ -5451,6 +5484,7 @@ def _append_publication_datafield(
             alt_scripts=publication.alt_scripts,
             alt_script_counter=alt_script_counter,
             main_occurrence=main_occurrence,
+            options=options,
         )
 
 
@@ -5529,6 +5563,7 @@ def _append_subject_datafields(
                 alt_scripts=subj.alt_scripts,
                 alt_script_counter=alt_script_counter,
                 main_occurrence=main_occurrence,
+                options=options,
             )
 
 
@@ -5756,6 +5791,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
                 alt_scripts=variant.alt_scripts,
                 alt_script_counter=alt_script_counter,
                 main_occurrence=main_occurrence,
+                options=options,
             )
 
     if edition_statement is not None:
@@ -5831,6 +5867,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
                 alt_scripts=series.alt_scripts,
                 alt_script_counter=alt_script_counter,
                 main_occurrence=series_occurrence,
+                options=options,
             )
 
     _append_note_block(
