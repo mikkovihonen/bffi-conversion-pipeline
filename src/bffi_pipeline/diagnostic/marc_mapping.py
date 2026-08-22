@@ -54,6 +54,11 @@ def _format_subfields(subfields: tuple[tuple[str, str], ...]) -> str:
 
 
 def _render_shipped_table(rows: Iterable[MarcEmitMeta]) -> str:
+    # TODO: Include ``dynamic`` and ``emits_from`` columns when the doc
+    # generator needs to distinguish primary fields (``dynamic=False``)
+    # from conditional reconstruction artifacts like 880 alt-script fields
+    # (``dynamic=True``). The ``emits_from`` field carries the name of
+    # the ``_append_*`` function that emits the conditional tag.
     header = "| MARC tag | Ind1 / Ind2 | Subfields | BFFI source |\n|---|---|---|---|\n"
     body = "".join(
         f"| `{row.tag}` | `{_format_indicators(row.indicators)}` "
@@ -67,6 +72,10 @@ def _render_notes_table(rows: Iterable[MarcEmitMeta]) -> str:
     """Render the companion table of per-tag caveats. Only entries with
     a non-empty ``notes`` value are listed; tags whose mapping needs no
     extra commentary stay out of this table."""
+    # TODO: Optionally include ``emits_from`` in the notes column for
+    # dynamic entries (``dynamic=True``) to show which ``_append_*``
+    # function conditionally emits the tag (e.g., "880 from
+    # _append_alt_script_datafields").
     with_notes = [row for row in rows if row.notes]
     header = "| MARC tag | Notes |\n|---|---|\n"
 

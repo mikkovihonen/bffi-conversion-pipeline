@@ -188,7 +188,7 @@ def _walk_includes(entry: Path) -> list[Path]:
 # --- per-template extraction ------------------------------------------------
 
 
-def _extract_templates_from_module(module_path: Path) -> list[TemplateFact]:  # noqa: PLR0912
+def _extract_templates_from_module(module_path: Path) -> list[TemplateFact]:
 
     tree = etree.parse(str(module_path))
 

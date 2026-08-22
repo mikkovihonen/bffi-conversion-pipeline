@@ -166,8 +166,9 @@ The first column is the MARC tag (or `leader` for the record-level pseudo-tag). 
 | `811` | `2#` | `$a` — meeting-name series statement<br>`$t` — title (marcKey-driven)<br>`$v` — volume number (marcKey-driven) | ?source bffi:relation [bffi:relationship <…/relationship/series> ; bffi:associatedResource ?hub] . ?hub bffi:marcKey ?key (where ?key begins with '811') |
 | `830` | `##` | `$a` — uniform-title series statement<br>`$n` — number of part / section (marcKey-driven)<br>`$v` — volume number (marcKey-driven) | ?source bffi:relation [a bffi:Relation ; bffi:relationship <…/relationship/series> ; bffi:associatedResource ?hub] . ?hub a bffi:SeriesExpression ; bffi:marcKey ?key (where ?key begins with '830') — full subfield set parsed from marcKey verbatim. |
 | `856` | `40` | `$u` — URI to the electronic resource | ?m bffi:electronicLocator ?url — each URI object emits as one MARC 856 datafield with $u carrying the URL string. Indicators default to ind1=4 (HTTP) ind2=0 (Resource) per HELMET corpus convention. |
+| `880` | `##` | `$6` — linkage to main field: {main_tag}-{occurrence}/{script_indicator}<br>`$a` — alt-script value (language-tagged duplicate on main field predicates) | Derived from language-tagged duplicates detected on the main field's BFFI predicates (e.g. agent rdfs:label, title bffi:mainTitle, etc.). One 880 per alt-script value, with occurrence-numbered $6 linkage. |
 
-_137 MARC tags currently emitted._
+_138 MARC tags currently emitted._
 
 ### Per-tag notes
 
@@ -234,5 +235,6 @@ Tags whose mapping carries a caveat worth flagging — known limitations, fallba
 | `775` | MARC linking entry. Per-ind2 sub-dispatch (which 780/785-style splits would require) is not modelled here. $w / $i / $x / $z are only reconstructed via marcKey-driven recovery; the label/title fallback emits just $a and $t. |
 | `776` | MARC linking entry. Per-ind2 sub-dispatch (which 780/785-style splits would require) is not modelled here. $w / $i / $x / $z are only reconstructed via marcKey-driven recovery; the label/title fallback emits just $a and $t. |
 | `856` | $y (link text) and $z (public note) are not yet round-tripped — marc2bibframe2 wraps them on a bf:Note bnode attached to the electronic locator's containing Item; the reverse path emits only the bare URL today. |
+| `880` | **880 is a reconstruction artifact**, not a primary MARC field. It mirrors alt-script content detected on the main field during BFFI → MARC conversion. The $6 field links it to the main field as '{main_tag}-{occurrence:02d}{script_indicator}'. Extra subfields ($e, $b, $c) are copied from the alt-script dataclass when present. |
 
 <!-- END AUTO: shipped -->

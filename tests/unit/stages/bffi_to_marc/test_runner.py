@@ -750,7 +750,7 @@ def _add_publication_activity(
 def test_emit_marcxml_emits_260_split_with_isbd_punctuation() -> None:
     """``bffi:provisionActivity`` (Publication-typed) carrying
     ``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``
-    drives MARC 260 ``$a`` / ``$b`` / ``$c``. ISBD trailing punctuation
+    drives MARC 264 ``$a`` / ``$b`` / ``$c``. ISBD trailing punctuation
     (\" :\" before $b, \",\" before $c) is added on emit so the result
     matches source-MARC cataloguer convention byte-for-byte."""
     g = _build_minimal_bffi_graph(
@@ -763,10 +763,10 @@ def test_emit_marcxml_emits_260_split_with_isbd_punctuation() -> None:
 
     marcxml = emit_marcxml(g, manifestation=m)
     root = etree.fromstring(marcxml)
-    df260 = root.find(f"{{{MARC21_NS}}}datafield[@tag='260']")
-    assert df260 is not None
-    sf_codes = [sf.get("code") for sf in df260.findall(f"{{{MARC21_NS}}}subfield")]
-    sf_values = [sf.text for sf in df260.findall(f"{{{MARC21_NS}}}subfield")]
+    df264 = root.find(f"{{{MARC21_NS}}}datafield[@tag='264']")
+    assert df264 is not None
+    sf_codes = [sf.get("code") for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
+    sf_values = [sf.text for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     assert sf_codes == ["a", "b", "c"]
     assert sf_values == ["Helsinki :", "WSOY,", "2010"]
 
@@ -806,10 +806,10 @@ def test_emit_marcxml_emits_260_with_only_place_and_date() -> None:
 
     marcxml = emit_marcxml(g, manifestation=m)
     root = etree.fromstring(marcxml)
-    df260 = root.find(f"{{{MARC21_NS}}}datafield[@tag='260']")
-    assert df260 is not None
-    sf_codes = [sf.get("code") for sf in df260.findall(f"{{{MARC21_NS}}}subfield")]
-    sf_values = [sf.text for sf in df260.findall(f"{{{MARC21_NS}}}subfield")]
+    df264 = root.find(f"{{{MARC21_NS}}}datafield[@tag='264']")
+    assert df264 is not None
+    sf_codes = [sf.get("code") for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
+    sf_values = [sf.text for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     assert sf_codes == ["a", "c"]
     assert sf_values == ["London,", "1999"]
 

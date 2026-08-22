@@ -83,15 +83,21 @@ def test_2602288_reconstructs_880_for_contributors(tmp_path: Path) -> None:
         f"Expected at least 2 880 fields, got {len(eight_eighty_zeros)}"
     )
 
-    # Check 100-01 880 has cyrillic name
+    # Check 100 alt-script 880 has cyrillic name
+    # ($6 must start with "100-" and end with "/(N" for Cyrillic)
     field_100_880 = None
     for df in eight_eighty_zeros:
         sf6 = df.find(".//m:subfield[@code='6']", ns)
-        if sf6 is not None and sf6.text and "100-01" in sf6.text:
+        if (
+            sf6 is not None
+            and sf6.text
+            and sf6.text.startswith("100-")
+            and sf6.text.endswith("/(N")
+        ):
             field_100_880 = df
             break
 
-    assert field_100_880 is not None, "880 field for 100-01 not found"
+    assert field_100_880 is not None, "880 field for 100 not found"
 
     sf_a = field_100_880.find(".//m:subfield[@code='a']", ns)
     assert sf_a is not None and sf_a.text, "880 $a not found"
@@ -114,15 +120,21 @@ def test_2602288_reconstructs_880_for_titles(tmp_path: Path) -> None:
 
     eight_eighty_zeros = root.findall(".//m:datafield[@tag='880']", ns)
 
-    # Check 245-01 880 has cyrillic title
+    # Check 245 alt-script 880 has cyrillic title
+    # ($6 must start with "245-" and end with "/(N" for Cyrillic)
     field_245_880 = None
     for df in eight_eighty_zeros:
         sf6 = df.find(".//m:subfield[@code='6']", ns)
-        if sf6 is not None and sf6.text and "245-01" in sf6.text:
+        if (
+            sf6 is not None
+            and sf6.text
+            and sf6.text.startswith("245-")
+            and sf6.text.endswith("/(N")
+        ):
             field_245_880 = df
             break
 
-    assert field_245_880 is not None, "880 field for 245-01 not found"
+    assert field_245_880 is not None, "880 field for 245 not found"
 
     sf_a = field_245_880.find(".//m:subfield[@code='a']", ns)
     assert sf_a is not None and sf_a.text, "880 $a not found"
@@ -140,17 +152,23 @@ def test_2602288_reconstructs_880_for_publications(tmp_path: Path) -> None:
 
     eight_eighty_zeros = root.findall(".//m:datafield[@tag='880']", ns)
 
-    # Check 260-01 880 for place (Москва)
-    field_260_place = None
+    # Check 264 alt-script 880 for place (Москва)
+    # ($6 must start with "264-" and end with "/(N" or "/(O")
+    field_264_place = None
     for df in eight_eighty_zeros:
         sf6 = df.find(".//m:subfield[@code='6']", ns)
-        if sf6 is not None and sf6.text and "260-01/(N" in sf6.text:
+        if (
+            sf6 is not None
+            and sf6.text
+            and sf6.text.startswith("264-")
+            and sf6.text.endswith("/(N")
+        ):
             sf_a = df.find(".//m:subfield[@code='a']", ns)
             if sf_a is not None and sf_a.text and "Москва" in sf_a.text:
-                field_260_place = df
+                field_264_place = df
                 break
 
-    assert field_260_place is not None, "880 field for 260 place not found"
+    assert field_264_place is not None, "880 field for 264 place not found"
 
 
 def test_2602288_reconstructs_880_for_series(tmp_path: Path) -> None:
@@ -164,15 +182,21 @@ def test_2602288_reconstructs_880_for_series(tmp_path: Path) -> None:
 
     eight_eighty_zeros = root.findall(".//m:datafield[@tag='880']", ns)
 
-    # Check 490-01 880 has cyrillic series
+    # Check 490 alt-script 880 has cyrillic series
+    # ($6 must start with "490-" and end with "/(N" for Cyrillic)
     field_490_880 = None
     for df in eight_eighty_zeros:
         sf6 = df.find(".//m:subfield[@code='6']", ns)
-        if sf6 is not None and sf6.text and "490-01" in sf6.text:
+        if (
+            sf6 is not None
+            and sf6.text
+            and sf6.text.startswith("490-")
+            and sf6.text.endswith("/(N")
+        ):
             field_490_880 = df
             break
 
-    assert field_490_880 is not None, "880 field for 490-01 not found"
+    assert field_490_880 is not None, "880 field for 490 not found"
 
     sf_a = field_490_880.find(".//m:subfield[@code='a']", ns)
     assert sf_a is not None and sf_a.text, "880 $a not found"

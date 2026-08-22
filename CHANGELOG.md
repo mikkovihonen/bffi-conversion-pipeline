@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Alt-script 880 reconstruction** — extended to include `$c` subfield for titles (245) from Work contributions (author + translator), formatted as `"Name ; role_term"` per contributor, joined with `" ; "`, ending with period. Contributors sorted by MARC tag (100 before 700) to match source order.
+- **Publication tag selection** — now emits 264 (not 260) for structured place/agent/date when ind1 is not `"4"`, matching source MARC. Flat `bffi:publicationStatement` fallback still uses 260.
+- **Doc generator TODOs** — added comments in `marc_mapping.py` noting that `dynamic` and `emits_from` fields from `MarcEmitMeta` should be handled in future iterations.
+
+### Fixed
+
+- **False-positive alt-script 880 emission** — `detect_alt_scripts()` now skips literals whose text is identical to the primary value (e.g., date `[2025]` tagged `@ru` when romanized version is also `[2025]`). Reduces spurious 880 fields.
+- **Alt-script subtitle for titles (245)** — `$b` in reconstructed 880 now uses the alt-script subtitle value (matched by language) instead of always using the romanized primary. Fixed merge logic to treat subtitle as `$b` extra_subfield, not a separate `$a` alt-script.
+- **Alt-script agent/date for publications (260/264)** — `$b` and `$c` in reconstructed 880 now use alt-script agent/date values (matched by language) instead of always using romanized primary values.
+
 ## [0.2.1] - 2026-08-21
 
 ### Added
@@ -19,14 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Series (490) with `$a` mainTitle
 - **Alt-script detection utility** (`src/bffi_pipeline/stages/bffi_to_marc/alt_script.py`) — Unicode script detection for 30+ scripts (Cyrillic=`/(N`, Greek=`/(G`, Hebrew=`/(I`, Arabic=`/(R`, etc.) per MARC Code Lists for Script Codes.
 - **Unit tests** for alt-script detection (14 tests) and **integration tests** for round-trip reconstruction on real curated samples (6 tests).
-
-### Changed
-
-- (None)
-
-### Fixed
-
-- (None)
 
 ## [0.2.0] - 2026-08-20
 

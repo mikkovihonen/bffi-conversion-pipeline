@@ -134,6 +134,10 @@ def detect_alt_scripts(
     without an `xml:lang` tag (or with the record's primary language) is
     considered primary. All other language-tagged values are alt-script.
 
+    Skips literals whose text is identical to the primary value — a date
+    like ``[2025]`` tagged `@ru` is not a true alt-script, just a
+    language-tagged copy of the romanized value.
+
     Args:
         graph: The BFFI graph.
         entity: The BFFI entity (URI or BNode).
@@ -145,21 +149,36 @@ def detect_alt_scripts(
     """
     alt_scripts: list[AltScriptInfo] = []
 
+    # Collect the primary value (no xml:lang) first
+    primary_text: str | None = None
+    for value in graph.objects(entity, predicate):
+        if isinstance(value, Literal) and not value.language:
+            primary_text = str(value)
+            break
+
     for value in graph.objects(entity, predicate):
         if not isinstance(value, Literal):
             continue
 
-        # Skip the primary value (no xml:lang or matches record language)
+        # Skip the primary value (no xml:lang)
         if not value.language:
             continue
 
+        text = str(value)
+
+        # Skip if text is identical to the primary value — not a true
+        # alt-script, just a language-tagged copy (e.g. date "[2025]"
+        # tagged @ru when the romanized version is also "[2025]").
+        if primary_text is not None and text == primary_text:
+            continue
+
         # Detect the script and map to MARC indicator
-        script_indicator = detect_script(str(value))
+        script_indicator = detect_script(text)
 
         alt_scripts.append(
             AltScriptInfo(
                 lang=value.language,
-                value=str(value),
+                value=text,
                 script_indicator=script_indicator,
             )
         )

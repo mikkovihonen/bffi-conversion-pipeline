@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from dataclasses import replace as dataclasses_replace
 from pathlib import Path
 from typing import Any, Final, TypeVar
 
@@ -165,6 +166,11 @@ class MarcEmitMeta:
       - ``source``: human-readable description of the BFFI walk that
         drives the emit (e.g. ``"bffi:title / bffi:Title / bffi:mainTitle"``).
       - ``notes``: optional caveat or limitation.
+      - ``dynamic``: ``True`` when the tag is emitted conditionally by
+        an ``_append_*`` function (e.g. 880 alt-script fields), not by
+        a primary ``_extract_*`` function.
+      - ``emits_from``: name of the function that conditionally emits
+        the tag (used when ``dynamic=True``).
     """
 
     tag: str
@@ -172,6 +178,8 @@ class MarcEmitMeta:
     subfields: tuple[tuple[str, str], ...]
     source: str
     notes: str = ""
+    dynamic: bool = False
+    emits_from: str = ""
 
 
 #: MARC fields the BFFI → MARC reverse converter currently emits.
@@ -204,6 +212,38 @@ def marc_emit(*entries: MarcEmitMeta) -> Callable[[F], F]:
         for entry in entries:
             MARC_EMIT_REGISTRY.append(entry)
         func._marc_emit_meta = entries  # type: ignore[attr-defined]
+        return func
+
+    return decorator
+
+
+def marc_emit_dynamic(*entries: MarcEmitMeta) -> Callable[[F], F]:
+    """Attach :class:`MarcEmitMeta` entries to a function that emits
+    conditionally/dynamically (e.g. alt-script 880 fields appended after
+    main fields).
+
+    Like :func:`marc_emit` but sets ``dynamic=True`` and records the
+    emitting function's name in ``emits_from``. The doc generator
+    distinguishes primary emits (``dynamic=False``) from conditional
+    reconstruction artifacts (``dynamic=True``).
+
+    Since :class:`MarcEmitMeta` is a frozen dataclass, this creates new
+    instances via :func:`dataclasses.replace` rather than mutating the
+    originals.
+    """
+
+    def decorator(func: F) -> F:
+        dynamic_entries: tuple[MarcEmitMeta, ...] = tuple(
+            dataclasses_replace(
+                entry,
+                dynamic=True,
+                emits_from=func.__name__,
+            )
+            for entry in entries
+        )
+        for entry in dynamic_entries:
+            MARC_EMIT_REGISTRY.append(entry)
+        func._marc_emit_meta = dynamic_entries  # type: ignore[attr-defined]
         return func
 
     return decorator
@@ -385,36 +425,39 @@ def _extract_publications(graph: Graph, manifestation: URIRef) -> list[_Publicat
         date = _first_literal(graph, pa, BFFI.simpleDate)
         # Detect alt-script values on simplePlace / simpleAgent / simpleDate
         # pa can be URIRef or BNode; detect_alt_scripts accepts both
-        # Include agent ($b) and date ($c) as extra_subfields for each alt-script
-        base_alt_scripts = tuple(
-            detect_alt_scripts(graph, pa, BFFI.simplePlace)
-            + detect_alt_scripts(graph, pa, BFFI.simpleAgent)
-            + detect_alt_scripts(graph, pa, BFFI.simpleDate)
-        )
-        # Build extra_subfields: ($b, agent) and ($c, date) if present
-        pub_extra: tuple[tuple[str, str], ...] = ()
-        if agent:
-            pub_extra = (("b", agent),)
-            if date:
-                pub_extra = (("b", agent), ("c", date))
-        elif date:
-            pub_extra = (("c", date),)
-        alt_scripts = tuple(
-            AltScriptInfo(
-                lang=alt.lang,
-                value=alt.value,
-                script_indicator=alt.script_indicator,
-                extra_subfields=pub_extra,
+        # Index alt-script agent and date by language for lookup
+        agent_alt_scripts = tuple(detect_alt_scripts(graph, pa, BFFI.simpleAgent))
+        date_alt_scripts = tuple(detect_alt_scripts(graph, pa, BFFI.simpleDate))
+        agent_by_lang = {a.lang: str(a.value) for a in agent_alt_scripts}
+        date_by_lang = {d.lang: str(d.value) for d in date_alt_scripts}
+        # Build extra_subfields: ($b, agent) and ($c, date) if present.
+        # Use the alt-script agent/date value (matched by lang) when
+        # available; fall back to the primary romanized value.
+        base_alt_scripts = tuple(detect_alt_scripts(graph, pa, BFFI.simplePlace))
+        alt_scripts: list[AltScriptInfo] = []
+        for alt in base_alt_scripts:
+            extra: tuple[tuple[str, str], ...] = ()
+            if agent:
+                extra = (("b", agent_by_lang.get(alt.lang, agent)),)
+                if date:
+                    extra = (*extra, ("c", date_by_lang.get(alt.lang, date)))
+            elif date:
+                extra = (("c", date_by_lang.get(alt.lang, date)),)
+            alt_scripts.append(
+                AltScriptInfo(
+                    lang=alt.lang,
+                    value=alt.value,
+                    script_indicator=alt.script_indicator,
+                    extra_subfields=extra,
+                )
             )
-            for alt in base_alt_scripts
-        )
         emit = _PublicationEmit(
             place=place,
             agent=agent,
             date=date,
             statement=None,
             ind1="1",
-            alt_scripts=alt_scripts,
+            alt_scripts=tuple(alt_scripts),
         )
         key = (emit.place, emit.agent, emit.date)
         if key not in seen:
@@ -1789,15 +1832,6 @@ def _extract_geographic_area_codes(graph: Graph, manifestation: URIRef) -> list[
             "there; Items are not modelled separately in BFFI 1.0.0."
         ),
     ),
-    MarcEmitMeta(
-        tag="561",
-        indicators=(" ", " "),
-        subfields=(("a", "ownership / custodial history"),),
-        source=(
-            "?m bffi:custodialHistory ?text (literal-valued predicate "
-            "— no bnode wrapper, mirroring BIBFRAME's bf:custodialHistory)"
-        ),
-    ),
 )
 @marc_emit(
     MarcEmitMeta(
@@ -1855,6 +1889,17 @@ def _extract_cataloging_source(graph: Graph, manifestation: URIRef) -> list[_Not
     return []
 
 
+@marc_emit(
+    MarcEmitMeta(
+        tag="561",
+        indicators=(" ", " "),
+        subfields=(("a", "ownership / custodial history"),),
+        source=(
+            "?m bffi:custodialHistory ?text (literal-valued predicate "
+            "— no bnode wrapper, mirroring BIBFRAME's bf:custodialHistory)"
+        ),
+    ),
+)
 def _extract_specialised_5xx_notes(graph: Graph, manifestation: URIRef) -> list[_NoteEmit]:
     """Walk the seven BFFI properties that produce a non-bf:Note 5XX
     field in MARC. Each :class:`_SpecialisedNoteRule` names the
@@ -2737,39 +2782,6 @@ class _SupplementaryContentEmit:
 
 @marc_emit(
     MarcEmitMeta(
-        tag="037",
-        indicators=(" ", " "),
-        subfields=(
-            ("a", "stock number"),
-            ("b", "imprint"),
-            ("c", "acquisition terms (place / mode of acquisition)"),
-            ("f", "other physical details"),
-            ("g", "dimensions"),
-            ("n", "copies held"),
-        ),
-        source=(
-            "?m bffi:acquisitionSource [a bffi:AcquisitionSource ; "
-            "bffi:identifiedBy [a bffi:Identifier ; "
-            "bffi:source <http://id.loc.gov/vocabulary/identifiers/stock-number> ; "
-            "rdf:value ?stock] ; "
-            "rdfs:label ?imprint ; "
-            "bffi:acquisitionTerms ?terms] "
-            "— $f / $g / $n come from bffi:note [a bffi:Note ; rdfs:label ?text] "
-            "on the same bnode; the first note is $3 (intervening-source / "
-            "current-source text from MARC ind1), the rest are $f / $g / $n "
-            "in source order."
-        ),
-        notes=(
-            "The $3 subfield is only emitted when a note is present on the "
-            "BFFI bnode — marc2bibframe2 only produces it when ind1 is 2 or "
-            "3 in the source MARC. $f / $g / $n are emitted in source order "
-            "when three or more notes are present; fewer notes produce fewer "
-            "subfields."
-        ),
-    ),
-)
-@marc_emit(
-    MarcEmitMeta(
         tag="353",
         indicators=(" ", " "),
         subfields=(
@@ -2854,6 +2866,39 @@ def _extract_supplementary_content(
     )
 
 
+@marc_emit(
+    MarcEmitMeta(
+        tag="037",
+        indicators=(" ", " "),
+        subfields=(
+            ("a", "stock number"),
+            ("b", "imprint"),
+            ("c", "acquisition terms (place / mode of acquisition)"),
+            ("f", "other physical details"),
+            ("g", "dimensions"),
+            ("n", "copies held"),
+        ),
+        source=(
+            "?m bffi:acquisitionSource [a bffi:AcquisitionSource ; "
+            "bffi:identifiedBy [a bffi:Identifier ; "
+            "bffi:source <http://id.loc.gov/vocabulary/identifiers/stock-number> ; "
+            "rdf:value ?stock] ; "
+            "rdfs:label ?imprint ; "
+            "bffi:acquisitionTerms ?terms] "
+            "— $f / $g / $n come from bffi:note [a bffi:Note ; rdfs:label ?text] "
+            "on the same bnode; the first note is $3 (intervening-source / "
+            "current-source text from MARC ind1), the rest are $f / $g / $n "
+            "in source order."
+        ),
+        notes=(
+            "The $3 subfield is only emitted when a note is present on the "
+            "BFFI bnode — marc2bibframe2 only produces it when ind1 is 2 or "
+            "3 in the source MARC. $f / $g / $n are emitted in source order "
+            "when three or more notes are present; fewer notes produce fewer "
+            "subfields."
+        ),
+    ),
+)
 def _extract_acquisition_source(
     graph: Graph, manifestation: URIRef
 ) -> list[_AcquisitionSourceEmit]:
@@ -3066,26 +3111,33 @@ def _extract_main_title_parts(graph: Graph, manifestation: URIRef) -> _TitlePart
         subtitle = next(graph.objects(title_block, BFFI.subtitle), None)
         part_number = next(graph.objects(title_block, BFFI.partNumber), None)
         part_name = next(graph.objects(title_block, BFFI.partName), None)
-        # Detect alt-script values on mainTitle and subtitle
+        # Detect alt-script values on mainTitle only — the subtitle is
+        # emitted as $b extra_subfield, not as a separate $a alt-script
         # title_block can be URIRef or BNode; detect_alt_scripts accepts both
         main_alt_scripts = tuple(detect_alt_scripts(graph, title_block, BFFI.mainTitle))
-        subtitle_alt_scripts = (
-            tuple(detect_alt_scripts(graph, title_block, BFFI.subtitle))
-            if isinstance(subtitle, Literal)
-            else ()
-        )
-        # Merge alt-scripts from both predicates, deduplicating by (lang, value)
-        # Include subtitle as $b extra_subfield for each alt-script
+        # Index alt-script subtitles by language for lookup
+        subtitle_by_lang = {}
+        if isinstance(subtitle, Literal):
+            subtitle_alt_scripts = tuple(detect_alt_scripts(graph, title_block, BFFI.subtitle))
+            subtitle_by_lang = {sa.lang: str(sa.value) for sa in subtitle_alt_scripts}
+        # Index alt-script contributors by language for $c
+        contributor_by_lang = _extract_contributor_labels_by_lang(graph, manifestation)
         seen = set()
         alt_scripts: list[AltScriptInfo] = []
-        for alt in main_alt_scripts + subtitle_alt_scripts:
+        for alt in main_alt_scripts:
             key = (alt.lang, alt.value)
             if key not in seen:
                 seen.add(key)
-                # Add $b (subtitle) as extra_subfield if subtitle exists
+                # Add $b (subtitle) as extra_subfield if subtitle exists.
+                # Use the alt-script subtitle value (matched by lang) when
+                # available; fall back to the primary romanized value.
                 extra: tuple[tuple[str, str], ...] = ()
                 if isinstance(subtitle, Literal):
-                    extra = (("b", str(subtitle)),)
+                    extra = (("b", subtitle_by_lang.get(alt.lang, str(subtitle))),)
+                # Add $c (contributors) as extra_subfield
+                contrib_extra = contributor_by_lang.get(alt.lang)
+                if contrib_extra:
+                    extra = extra + contrib_extra
                 alt_scripts.append(
                     AltScriptInfo(
                         lang=alt.lang,
@@ -3102,6 +3154,65 @@ def _extract_main_title_parts(graph: Graph, manifestation: URIRef) -> _TitlePart
             alt_scripts=tuple(alt_scripts),
         )
     return None
+
+
+def _extract_contributor_labels_by_lang(
+    graph: Graph, manifestation: URIRef
+) -> dict[str, tuple[tuple[str, str], ...]]:
+    """Extract contributor labels and role terms from the Work, indexed by
+    language. Returns a dict mapping ``lang`` → tuple of ``(code, value)``
+    subfields for $c.
+
+    The $c subfield carries the alt-script form of each contributor's name
+    and role term, formatted as "Name ; role_term" per contributor, joined
+    with " ; ", ending with a period.
+    """
+    work = _find_work_for_manifestation(graph, manifestation)
+    if work is None:
+        return {}
+
+    # Collect contributors with their language-tagged labels and role terms
+    # Sort by MARC tag (100 before 700) to match source order
+    contributors_by_lang: dict[str, list[tuple[str, str]]] = {}
+    seen_contribs: set[Node] = set()
+    contrib_entries: list[tuple[str, Node]] = []
+    for anchor in _contribution_anchors(graph, manifestation, work):
+        for contrib in graph.objects(anchor, BFFI.contribution):
+            if contrib in seen_contribs:
+                continue
+            seen_contribs.add(contrib)
+            agent = next(graph.objects(contrib, BFFI.agent), None)
+            if not isinstance(agent, URIRef):
+                continue
+            is_primary = (contrib, RDF.type, BFFI.PrimaryContribution) in graph
+            tag = _agent_marc_tag(graph, agent, is_primary=is_primary)
+            if tag is None:
+                continue
+            contrib_entries.append((tag, contrib))
+    # Sort by tag (100 before 700)
+    contrib_entries.sort(key=lambda x: x[0])
+    for _tag, contrib in contrib_entries:
+        agent = next(graph.objects(contrib, BFFI.agent), None)
+        if not isinstance(agent, URIRef):
+            continue
+        # Get all language-tagged labels for the agent
+        for label in graph.objects(agent, RDFS.label):
+            if not isinstance(label, Literal):
+                continue
+            lang = label.language or ""
+            # Get role term
+            _, relator_term = _extract_role_codes(graph, contrib)
+            if relator_term:
+                # Format: "Name ; role_term" (non-restricted name)
+                contributors_by_lang.setdefault(lang, []).append(("c", f"{label} ; {relator_term}"))
+    # Combine multiple contributors into single $c subfield per language
+    result: dict[str, tuple[tuple[str, str], ...]] = {}
+    for lang, contribs in contributors_by_lang.items():
+        if contribs:
+            # Join multiple contributors with " ; " and add trailing period
+            c_value = " ; ".join(c for _, c in contribs) + "."
+            result[lang] = (("c", c_value),)
+    return result
 
 
 @dataclass(frozen=True)
@@ -4802,6 +4913,63 @@ def _append_simple_a_datafields(record: etree._Element, tag: str, values: tuple[
         sf_a.text = value
 
 
+@marc_emit_dynamic(
+    MarcEmitMeta(
+        tag="880",
+        indicators=(" ", " "),
+        subfields=(
+            ("6", "linkage to main field: {main_tag}-{occurrence}/{script_indicator}"),
+            ("a", "alt-script value (language-tagged duplicate on main field predicates)"),
+        ),
+        source=(
+            "Derived from language-tagged duplicates detected on the main field's "
+            "BFFI predicates (e.g. agent rdfs:label, title bffi:mainTitle, etc.). "
+            "One 880 per alt-script value, with occurrence-numbered $6 linkage."
+        ),
+        notes=(
+            "**880 is a reconstruction artifact**, not a primary MARC field. "
+            "It mirrors alt-script content detected on the main field during "
+            "BFFI → MARC conversion. The $6 field links it to the main field as "
+            "'{main_tag}-{occurrence:02d}{script_indicator}'. Extra subfields "
+            "($e, $b, $c) are copied from the alt-script dataclass when present."
+        ),
+    ),
+)
+def _reserve_occurrence(alt_script_counter: dict[str, int], _main_tag: str) -> int:
+    """Pre-increment the global occurrence counter and return the new value.
+
+    Call this BEFORE emitting the main field so that the main field
+    and the 880 field share the same occurrence number in their ``$6``
+    linkage. The counter is GLOBAL across all tags (not per-tag),
+    matching MARC's sequential 880 occurrence numbering.
+
+    ``_main_tag`` is accepted for API compatibility but not used —
+    the counter is shared across all tags.
+    """
+    global_key = "__global__"
+    if global_key not in alt_script_counter:
+        alt_script_counter[global_key] = 0
+    alt_script_counter[global_key] += 1
+    return alt_script_counter[global_key]
+
+
+def _replace_marckey_six(
+    extra_subfields: tuple[tuple[str, str], ...], occurrence: int
+) -> tuple[tuple[str, str], ...]:
+    """Replace any ``$6`` in ``extra_subfields`` with the reconstructed
+    occurrence linkage.
+
+    The marcKey may carry a ``$6`` from the source MARC, but we must
+    overwrite it with the reconstructed value to ensure consistency
+    with the 880 field's ``$6`` (which uses the same global occurrence
+    counter).
+    """
+    return tuple(
+        ("6", f"880-{occurrence:02d}") if code == "6" else (code, value)
+        for code, value in extra_subfields
+    )
+
+
 def _append_alt_script_datafields(
     record: etree._Element,
     main_tag: str,
@@ -4810,25 +4978,23 @@ def _append_alt_script_datafields(
     main_label: str,
     alt_scripts: tuple[AltScriptInfo, ...],
     alt_script_counter: dict[str, int],
+    main_occurrence: int | None = None,
 ) -> None:
     """Append MARC 880 fields for alt-script duplicates.
 
     Emits one 880 field per alt-script value, with occurrence-numbered
-    ``$6`` qualifiers. The main field's ``$6`` is not set (it's
-    generated dynamically); only the 880 fields carry the ``$6``
-    linkage.
+    ``$6`` qualifiers. The main field's ``$6`` must have been set
+    beforehand via :func:`_reserve_occurrence` +
+    :func:`_append_main_field_with_occurrence`.
 
     ``alt_script_counter`` is updated in-place to track occurrence
     numbers per tag.
     """
-    if main_tag not in alt_script_counter:
-        alt_script_counter[main_tag] = 0
-    alt_script_counter[main_tag] += 1
-    occurrence = alt_script_counter[main_tag]
-
-    # Main field $6 (dynamically generated)
-    # Note: The main field doesn't carry $6 in our reconstruction;
-    # only the 880 fields carry the linkage.
+    if main_occurrence is None:
+        if main_tag not in alt_script_counter:
+            alt_script_counter[main_tag] = 0
+        alt_script_counter[main_tag] += 1
+        main_occurrence = alt_script_counter[main_tag]
 
     for alt in alt_scripts:
         df = etree.SubElement(
@@ -4836,7 +5002,7 @@ def _append_alt_script_datafields(
         )
         # $6 linkage: main_tag-occurrence/script_indicator
         sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
-        sf_6.text = f"{main_tag}-{occurrence:02d}{alt.script_indicator}"
+        sf_6.text = f"{main_tag}-{main_occurrence:02d}{alt.script_indicator}"
         # $a alt-script value
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = alt.value
@@ -4862,13 +5028,22 @@ def _append_contributor_datafields(
     versions detected in BFFI), emits MARC 880 fields after the main
     field with occurrence-numbered ``$6`` qualifiers."""
     for c in contributors:
+        # Pre-reserve occurrence for alt-script linkage
+        main_occurrence: int | None = None
+        if c.alt_scripts:
+            main_occurrence = _reserve_occurrence(alt_script_counter, c.tag)
+
         df = etree.SubElement(record, f"{_MARC}datafield", tag=c.tag, ind1=c.ind1, ind2=c.ind2)
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = c.label
         if c.relator_term:
             sf_e = etree.SubElement(df, f"{_MARC}subfield", code="e")
             sf_e.text = c.relator_term
-        for code, value in c.extra_subfields:
+        # Overwrite marcKey's $6 with reconstructed occurrence linkage
+        extra = c.extra_subfields
+        if c.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+            extra = _replace_marckey_six(extra, main_occurrence)
+        for code, value in extra:
             sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
             sf.text = value
         if c.relator:
@@ -4885,6 +5060,7 @@ def _append_contributor_datafields(
                 main_label=c.label,
                 alt_scripts=c.alt_scripts,
                 alt_script_counter=alt_script_counter,
+                main_occurrence=main_occurrence,
             )
 
 
@@ -4981,15 +5157,32 @@ def _append_note_datafields(
     alt-script duplicates, emits MARC 880 fields after the note
     field."""
     for note in notes:
+        # Pre-reserve occurrence for alt-script linkage
+        main_occurrence: int | None = None
+        if note.alt_scripts and alt_script_counter is not None:
+            main_occurrence = _reserve_occurrence(alt_script_counter, note.tag)
+
         df = etree.SubElement(
             record, f"{_MARC}datafield", tag=note.tag, ind1=note.ind1, ind2=note.ind2
         )
         if note.text:
             sf = etree.SubElement(df, f"{_MARC}subfield", code=note.subfield_code)
             sf.text = note.text
+            # Add $6 linkage when alt-script is present
+            if note.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+                sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+                sf_6.text = f"880-{main_occurrence:02d}"
         for code, value in note.extra_subfields:
-            sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
-            sf.text = value
+            # Overwrite marcKey's $6 with reconstructed occurrence linkage
+            has_alt = (
+                note.alt_scripts and alt_script_counter is not None and main_occurrence is not None
+            )
+            if code == "6" and has_alt:
+                sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+                sf_6.text = f"880-{main_occurrence:02d}"
+            else:
+                sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
+                sf.text = value
 
         # Emit 880 fields for alt-script duplicates
         if note.alt_scripts and alt_script_counter is not None:
@@ -5001,6 +5194,7 @@ def _append_note_datafields(
                 main_label=note.text,
                 alt_scripts=note.alt_scripts,
                 alt_script_counter=alt_script_counter,
+                main_occurrence=main_occurrence,
             )
 
 
@@ -5051,9 +5245,18 @@ def _append_title_datafield(
 
     If ``alt_script_counter`` is provided and the title has
     alt-script duplicates, emits MARC 880 fields after the 245."""
+    # Pre-reserve occurrence for alt-script linkage
+    main_occurrence: int | None = None
+    if title_parts.alt_scripts and alt_script_counter is not None:
+        main_occurrence = _reserve_occurrence(alt_script_counter, "245")
+
     df = etree.SubElement(record, f"{_MARC}datafield", tag="245", ind1="0", ind2="0")
     sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
     sf_a.text = title_parts.main
+    # Add $6 linkage when alt-script is present
+    if title_parts.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+        sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+        sf_6.text = f"880-{main_occurrence:02d}"
     if title_parts.part_number is not None:
         sf_n = etree.SubElement(df, f"{_MARC}subfield", code="n")
         sf_n.text = title_parts.part_number
@@ -5077,6 +5280,7 @@ def _append_title_datafield(
             main_label=title_parts.main,
             alt_scripts=title_parts.alt_scripts,
             alt_script_counter=alt_script_counter,
+            main_occurrence=main_occurrence,
         )
 
 
@@ -5099,11 +5303,29 @@ def _append_publication_datafield(
     If ``alt_script_counter`` is provided and the publication has
     alt-script duplicates, emits MARC 880 fields after the publication
     field."""
-    tag = "260" if publication.ind1 in (" ", "1") else "264"
+    # Use 264 for structured place/agent/date, 260 for flat publicationStatement
+    if publication.place is None and publication.agent is None and publication.date is None:
+        tag = "260"
+    else:
+        tag = "264" if publication.ind1 in (" ", "1", "4") else "260"
+
+    # Pre-reserve occurrence for alt-script linkage
+    main_occurrence: int | None = None
+    if publication.alt_scripts and alt_script_counter is not None:
+        main_occurrence = _reserve_occurrence(alt_script_counter, tag)
+
     df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=publication.ind1, ind2=" ")
     if publication.place is None and publication.agent is None and publication.date is None:
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = publication.statement
+        pub_has_alt = (
+            publication.alt_scripts
+            and alt_script_counter is not None
+            and main_occurrence is not None
+        )
+        if pub_has_alt:
+            sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+            sf_6.text = f"880-{main_occurrence:02d}"
         return
     if publication.place is not None:
         place_text = publication.place
@@ -5122,6 +5344,10 @@ def _append_publication_datafield(
     if publication.date is not None:
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = publication.date
+    # Add $6 linkage when alt-script is present
+    if publication.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+        sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+        sf_6.text = f"880-{main_occurrence:02d}"
 
     # Emit 880 fields for alt-script duplicates
     if publication.alt_scripts and alt_script_counter is not None:
@@ -5133,6 +5359,7 @@ def _append_publication_datafield(
             main_label=publication.place or publication.statement or "",
             alt_scripts=publication.alt_scripts,
             alt_script_counter=alt_script_counter,
+            main_occurrence=main_occurrence,
         )
 
 
@@ -5154,13 +5381,22 @@ def _append_subject_datafields(
     field."""
     for subj in subjects:
         ind2 = "7" if subj.vocab_code else " "
+        # Pre-reserve occurrence for alt-script linkage
+        main_occurrence: int | None = None
+        if subj.alt_scripts and alt_script_counter is not None:
+            main_occurrence = _reserve_occurrence(alt_script_counter, subj.tag)
+
         df = etree.SubElement(record, f"{_MARC}datafield", tag=subj.tag, ind1=" ", ind2=ind2)
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = subj.label
         # marcKey-driven extras ($t, $c, $d, …) come between $a and the
         # structured $0 / $2 — MARC subfield order is alphabetical-ish
         # but $0 / $2 sort after letters per convention.
-        for code, value in subj.extra_subfields:
+        # Overwrite marcKey's $6 with reconstructed occurrence linkage
+        extra = subj.extra_subfields
+        if subj.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+            extra = _replace_marckey_six(extra, main_occurrence)
+        for code, value in extra:
             sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
             sf.text = value
         if subj.authority_uri:
@@ -5169,6 +5405,16 @@ def _append_subject_datafields(
         if subj.vocab_code:
             sf_2 = etree.SubElement(df, f"{_MARC}subfield", code="2")
             sf_2.text = subj.vocab_code
+        # Add $6 linkage when alt-script is present (if no extra_subfields)
+        subj_has_alt = (
+            subj.alt_scripts
+            and alt_script_counter is not None
+            and main_occurrence is not None
+            and not subj.extra_subfields
+        )
+        if subj_has_alt:
+            sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+            sf_6.text = f"880-{main_occurrence:02d}"
 
         # Emit 880 fields for alt-script duplicates
         if subj.alt_scripts and alt_script_counter is not None:
@@ -5180,6 +5426,7 @@ def _append_subject_datafields(
                 main_label=subj.label,
                 alt_scripts=subj.alt_scripts,
                 alt_script_counter=alt_script_counter,
+                main_occurrence=main_occurrence,
             )
 
 
@@ -5262,7 +5509,7 @@ def _append_added_title_datafields(
             sf.text = value
 
 
-def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
+def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
     # statement and branch counts grow as additional MARC tag families
     # are added; each new family is one append call + an optional
     # presence check.
@@ -5373,6 +5620,11 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     # tag (210 / 222 / 242 / 243 / 246 / 247) with indicators from
     # bffi:marcKey (Phase C of p-065) or the per-tag convention.
     for variant in variant_titles:
+        # Pre-reserve occurrence for alt-script linkage
+        main_occurrence: int | None = None
+        if variant.alt_scripts and alt_script_counter is not None:
+            main_occurrence = _reserve_occurrence(alt_script_counter, variant.tag)
+
         df = etree.SubElement(
             record,
             f"{_MARC}datafield",
@@ -5382,6 +5634,10 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
         )
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = variant.text
+        # Add $6 linkage when alt-script is present
+        if variant.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
+            sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+            sf_6.text = f"880-{main_occurrence:02d}"
 
         # Emit 880 fields for alt-script duplicates
         if variant.alt_scripts and alt_script_counter is not None:
@@ -5393,6 +5649,7 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
                 main_label=variant.text,
                 alt_scripts=variant.alt_scripts,
                 alt_script_counter=alt_script_counter,
+                main_occurrence=main_occurrence,
             )
 
     if edition_statement is not None:
@@ -5431,12 +5688,21 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
     # 490 untraced series statements (after RDA, before notes). ISBD
     # trailing " ;" added on $a when $v volume number follows.
     for series in untraced_series:
+        # Pre-reserve occurrence for alt-script linkage
+        series_occurrence: int | None = None
+        if series.alt_scripts and alt_script_counter is not None:
+            series_occurrence = _reserve_occurrence(alt_script_counter, "490")
+
         df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = series.title + (" ;" if series.volume is not None else "")
         if series.volume is not None:
             sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
             sf_v.text = series.volume
+        # Add $6 linkage when alt-script is present
+        if series.alt_scripts and alt_script_counter is not None and series_occurrence is not None:
+            sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
+            sf_6.text = f"880-{series_occurrence:02d}"
 
         # Emit 880 fields for alt-script duplicates
         if series.alt_scripts and alt_script_counter is not None:
@@ -5448,6 +5714,7 @@ def _build_marc_record(  # noqa: PLR0912, PLR0915 — structural aggregation;
                 main_label=series.title,
                 alt_scripts=series.alt_scripts,
                 alt_script_counter=alt_script_counter,
+                main_occurrence=series_occurrence,
             )
 
     _append_note_block(
