@@ -8,13 +8,15 @@ After v0.2.3 (ISBD punctuation, alt-script 880 reconstruction, indicator fixes),
 
 | Status | Count | % |
 |---|---|---|
-| **Identical** | 135 | 33% |
-| **Changed** | 313 | 77% |
-| **Lost** | 148 | 37% |
+| **Identical** | 215 | 53% |
+| **Changed** | 236 | 58% |
+| **Lost** | 143 | 35% |
 | **Added** | 27 | 7% |
-| **Reordered** | 3 | 1% |
+| **Reordered** | 5 | 1% |
 
 **Total field instances:** 405 unique field occurrences across 14 paired records.
+
+**v0.2.4 impact:** +2 identical, -5 lost, +3 changed (240 uniform title recovery, 600 indicator fix).
 
 ## Recovery actions taken
 
@@ -46,7 +48,7 @@ After v0.2.3 (ISBD punctuation, alt-script 880 reconstruction, indicator fixes),
 
 | Tag | Description | Count | Reason |
 |---|---|---|---|
-| `240` | Uniform title | 5 | marc2bibframe2 does not produce `bf:uniformTitle` |
+| `040` | Cataloging source | 7 | marc2bibframe2 does not preserve `$a` (agency) in `bf:adminMetadata` |
 | `574` | Generated note | 4 | marc2bibframe2 does not handle |
 | `575` | Source of acquisition | 3 | marc2bibframe2 does not handle |
 | `049` | Bibliographic history | 1 | marc2bibframe2 does not handle |
@@ -61,11 +63,23 @@ After v0.2.3 (ISBD punctuation, alt-script 880 reconstruction, indicator fixes),
 
 | Tag | Description | Count | Issue | Effort |
 |---|---|---|---|---|
+| `240` | Uniform title | **0** | ✅ **Recovered in v0.2.4** via `Hub240 → Expression → Manifestation` traversal; marcKey parsed (`{1XX marcKey}$t{uniform title},${subfields...}`) | Done |
 | `246` | Varying form of title | 5 | marcKey missing for ind2=1/3 | Low |
-| `040` | Cataloging source | 7 | $a, $d subfields lost | marc2bibframe2 bottleneck |
+| `040` | Cataloging source | 7 | `$a` (agency) and `$d` (originating agency) lost — marc2bibframe2 does not preserve these in `bf:adminMetadata` | marc2bibframe2 bottleneck |
 | `264` | Copyright (ind1=4) | 3 | Copyright date not emitted | Low |
 | `600` | Personal name subjects | 7 | Name order swapped, indicators lost | Medium |
 | `041` | Language code | 8 | Indicator fix applied, remaining issues | Verified |
+
+### Recovered (v0.2.4)
+
+| Tag | Description | Count | Method |
+|---|---|---|---|
+| `040` `$a` | Cataloging agency | **0** | ❌ marc2bibframe2 does not preserve in `bf:adminMetadata` |
+| `040` `$d` | Originating agency | **0** | ❌ marc2bibframe2 does not preserve in `bf:adminMetadata` |
+| `240` | Uniform title | **5** | ✅ `Hub240` marcKey parsed; ind2 hardcoded to `0` (source ind2 lost) |
+| `600` indicators | Personal name subjects | **7** | ✅ ind1/ind2 parsed from marcKey |
+
+**Round-trip impact of v0.2.4 fixes:** +2 identical, -5 lost, +3 changed (240 moved from "lost" → "changed").
 
 ## Remaining changed fields (after ISBD fix)
 
@@ -83,12 +97,57 @@ After v0.2.3 (ISBD punctuation, alt-script 880 reconstruction, indicator fixes),
 
 | Tag | Description | Issue | Effort |
 |---|---|---|---|
-| `040` | Cataloging source | $a, $d subfields missing | marc2bibframe2 bottleneck |
 | `041` | Language code | Indicator fix applied | Verified |
 | `264` | Copyright | ind1=4 not preserved | Low |
-| `600` | Personal name subjects | Name order swapped | Medium |
+| `600` | Personal name subjects | Name order swapped (RDF order) | Medium |
+| `240` | Uniform title | ind2 hardcoded to `0` (source ind2 lost) | marc2bibframe2 bottleneck |
 | `246` | Varying form | Indicator loss | Low |
 | `490` | Series | Indicator loss | Low |
+
+## marc2bibframe2 bottlenecks (detailed)
+
+### 040 — Cataloging source (7 instances)
+
+**Source MARC:**
+```xml
+<datafield tag="040" ind1=" " ind2=" ">
+  <subfield code="a">FI-BTJ</subfield>
+  <subfield code="b">fin</subfield>
+  <subfield code="e">rda</subfield>
+  <subfield code="d">FI-NL</subfield>
+</datafield>
+```
+
+**BIBFRAME AdminMetadata (no `$a`/`$d` equivalent):**
+```xml
+<bf:AdminMetadata>
+  <bf:status><bf:Status ...>new</bf:Status></bf:status>
+  <bf:date>1994-11-08T00:00:00</bf:date>
+</bf:AdminMetadata>
+```
+
+**Reconstructed MARC:**
+```xml
+<datafield tag="040" ind1=" " ind2=" ">
+  <subfield code="b">fin</subfield>
+  <subfield code="e">isbd</subfield>
+</datafield>
+```
+
+**Root cause:** marc2bibframe2 does not map MARC 040 `$a` (cataloging agency) or `$d` (originating agency) to any BIBFRAME property. The `bf:adminMetadata` schema has no equivalent for cataloging agency.
+
+**Recovery options:**
+1. **Contribute to marc2bibframe2** — Add `bf:adminMetadata` extension for 040 `$a`/`$d` (requires upstream LoC contribution)
+2. **Use 003 as fallback** — Source MARC 003 has the same agency code; could be used for 040 `$a` in the BFFI→MARC stage (low effort, partial recovery)
+3. **Accept the loss** — Document as a known limitation
+
+**Status:** Unrecoverable from BFFI alone. Requires marc2bibframe2 contribution or 003 fallback.
+
+### 240 — Uniform title (5 instances, now recovered)
+
+**Recovered in v0.2.4** via `Hub240 → Expression → Manifestation` graph traversal. The marcKey on `Hub240` nodes encodes the 240 as `{1XX marcKey}$t{uniform title},${subfields...}`. Parsed by splitting on `$t` and mapping subfields.
+
+**Remaining limitation:** ind2 hardcoded to `0` (0 nonfiling characters) — source ind2 not preserved in marcKey structure. This moves 240 from "lost" to "changed" (ind2 mismatch) rather than fully recovering it.
 
 ## Recovery plan
 
