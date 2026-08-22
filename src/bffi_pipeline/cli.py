@@ -679,6 +679,13 @@ def bffi_to_marc_command(
             help="Where to write per-record reconstructed MARCXML (`<stem>.marcxml`).",
         ),
     ],
+    apply_isbd_punctuation: Annotated[
+        bool,
+        typer.Option(
+            "--apply-isbd-punctuation",
+            help="Apply ISBD trailing punctuation to reconstructed MARC fields.",
+        ),
+    ] = False,
 ) -> None:
     """BFFI graph → reconstructed MARCXML (reverse direction).
 
@@ -690,7 +697,11 @@ def bffi_to_marc_command(
     gives a clean per-family verification signal.
     """
     _require_run_dir(output_dir, option_label="--output-dir")
-    options = BffiToMarcOptions(input_dir=input_dir, output_dir=output_dir)
+    options = BffiToMarcOptions(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        apply_isbd_punctuation=apply_isbd_punctuation,
+    )
     summary = bffi_to_marc_convert_corpus(options=options)
     typer.echo(
         f"bffi-to-marc: total={summary.total} "

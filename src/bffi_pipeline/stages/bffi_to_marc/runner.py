@@ -48,6 +48,7 @@ from bffi_pipeline.stages.bffi_to_marc.alt_script import (
     AltScriptInfo,
     detect_alt_scripts,
 )
+from bffi_pipeline.stages.bffi_to_marc.isbd import get_isbd_punctuation
 
 STAGE: Final[str] = "bffi2marc"
 
@@ -255,6 +256,7 @@ class ConversionOptions:
 
     input_dir: Path
     output_dir: Path
+    apply_isbd_punctuation: bool = False
 
 
 @dataclass
@@ -5288,6 +5290,8 @@ def _append_publication_datafield(
     record: etree._Element,
     publication: _PublicationEmit,
     alt_script_counter: dict[str, int] | None = None,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append the MARC 260/264 datafield with structured ``$a`` / ``$b`` / ``$c``
     when ``bffi:simplePlace`` / ``bffi:simpleAgent`` / ``bffi:simpleDate``
@@ -5327,9 +5331,22 @@ def _append_publication_datafield(
             sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
             sf_6.text = f"880-{main_occurrence:02d}"
         return
+    # Determine which subfields are present for ISBD punctuation
+    _has_b = publication.agent is not None
+    _has_c = publication.date is not None
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
+
     if publication.place is not None:
         place_text = publication.place
-        if publication.agent is not None:
+        if _isbd_enabled:
+            _next_a = "b" if _has_b else ("c" if _has_c else None)
+            place_text += get_isbd_punctuation(
+                tag=tag,
+                subfield_code="a",
+                next_subfield_code=_next_a,
+                enabled=True,
+            )
+        elif publication.agent is not None:
             place_text += " :"
         elif publication.date is not None:
             place_text += ","
@@ -5337,13 +5354,29 @@ def _append_publication_datafield(
         sf_a.text = place_text
     if publication.agent is not None:
         agent_text = publication.agent
-        if publication.date is not None:
+        if _isbd_enabled:
+            _next_b = "c" if _has_c else None
+            agent_text += get_isbd_punctuation(
+                tag=tag,
+                subfield_code="b",
+                next_subfield_code=_next_b,
+                enabled=True,
+            )
+        elif publication.date is not None:
             agent_text += ","
         sf_b = etree.SubElement(df, f"{_MARC}subfield", code="b")
         sf_b.text = agent_text
     if publication.date is not None:
+        date_text = publication.date
+        if _isbd_enabled:
+            date_text += get_isbd_punctuation(
+                tag=tag,
+                subfield_code="c",
+                next_subfield_code=None,
+                enabled=True,
+            )
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
-        sf_c.text = publication.date
+        sf_c.text = date_text
     # Add $6 linkage when alt-script is present
     if publication.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
         sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
@@ -5547,6 +5580,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
     linking_entries: list[_AddedTitleEmit],
     electronic_locators: list[str],
     leader_text: str,
+    options: ConversionOptions | None = None,
 ) -> etree._Element:
     """Build one MARCXML ``<record>`` element with the v0+ field set."""
     record = etree.Element(f"{_MARC}record")
@@ -5658,7 +5692,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         sf_a.text = edition_statement
 
     for pub in publications:
-        _append_publication_datafield(record, pub, alt_script_counter)
+        _append_publication_datafield(record, pub, alt_script_counter, options=options)
 
     if physical is not None:
         _append_physical_description_datafield(record, physical)
@@ -5758,6 +5792,7 @@ def emit_marcxml(
     *,
     manifestation: URIRef,
     variant_titles: list[_VariantTitleEmit] | None = None,
+    options: ConversionOptions | None = None,
 ) -> bytes:
     """Build a MARCXML document (root: ``<record>``) for one Manifestation.
 
@@ -5850,6 +5885,7 @@ def emit_marcxml(
         added_titles=added_titles,
         linking_entries=linking_entries,
         electronic_locators=electronic_locators,
+        options=options,
     )
     return etree.tostring(
         record,
@@ -5903,6 +5939,7 @@ def convert_one(bffi_path: Path, *, options: ConversionOptions) -> Path:
         graph,
         manifestation=manifestations[0],
         variant_titles=merged_variant_titles,
+        options=options,
     )
     output_path.write_bytes(marcxml_bytes)
     return output_path
