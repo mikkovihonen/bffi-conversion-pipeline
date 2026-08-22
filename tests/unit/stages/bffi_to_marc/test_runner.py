@@ -417,14 +417,19 @@ def test_emit_marcxml_emits_300_physical_description() -> None:
     g.add((manifestation, BFFI.extent, extent_block))
     g.add((manifestation, BFFI.dimensions, Literal("24 cm")))
 
-    marcxml = emit_marcxml(g, manifestation=manifestation)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=manifestation, options=options)
     root = etree.fromstring(marcxml)
     df300 = root.find(f"{{{MARC21_NS}}}datafield[@tag='300']")
     assert df300 is not None
     sf_a = df300.find(f"{{{MARC21_NS}}}subfield[@code='a']")
     sf_c = df300.find(f"{{{MARC21_NS}}}subfield[@code='c']")
     assert sf_a is not None and sf_a.text == "136 pages ;"
-    assert sf_c is not None and sf_c.text == "24 cm"
+    assert sf_c is not None and sf_c.text == "24 cm."
 
 
 def test_emit_marcxml_emits_300_b_from_extent_physical_note() -> None:
@@ -454,7 +459,12 @@ def test_emit_marcxml_emits_300_b_from_extent_physical_note() -> None:
     g.add((extent, BFFI.note, physical_note))
     g.add((m, BFFI.extent, extent))
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df300 = root.find(f"{{{MARC21_NS}}}datafield[@tag='300']")
     assert df300 is not None
@@ -491,14 +501,19 @@ def test_emit_marcxml_emits_300_e_from_manifestation_accmat_note() -> None:
     g.add((accmat, RDFS.label, Literal("esiteliite")))
     g.add((m, BFFI.note, accmat))
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df300 = root.find(f"{{{MARC21_NS}}}datafield[@tag='300']")
     assert df300 is not None
     sf_a = df300.find(f"{{{MARC21_NS}}}subfield[@code='a']")
     sf_e = df300.find(f"{{{MARC21_NS}}}subfield[@code='e']")
     assert sf_a is not None and sf_a.text == "1 CD-levy +"
-    assert sf_e is not None and sf_e.text == "esiteliite"
+    assert sf_e is not None and sf_e.text == "esiteliite."
     # No 500 for the accmat — it routes to 300 $e instead.
     assert root.find(f"{{{MARC21_NS}}}datafield[@tag='500']") is None
 
@@ -761,14 +776,19 @@ def test_emit_marcxml_emits_260_split_with_isbd_punctuation() -> None:
     m = next(g.subjects(RDF.type, BFFI.Manifestation))
     _add_publication_activity(g, m, place="Helsinki", agent="WSOY", date="2010")
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df264 = root.find(f"{{{MARC21_NS}}}datafield[@tag='264']")
     assert df264 is not None
     sf_codes = [sf.get("code") for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     sf_values = [sf.text for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     assert sf_codes == ["a", "b", "c"]
-    assert sf_values == ["Helsinki :", "WSOY,", "2010"]
+    assert sf_values == ["Helsinki :", "WSOY,", "2010."]
 
 
 def test_emit_marcxml_emits_260_falls_back_to_publication_statement_when_unstructured() -> None:
@@ -804,14 +824,19 @@ def test_emit_marcxml_emits_260_with_only_place_and_date() -> None:
     m = next(g.subjects(RDF.type, BFFI.Manifestation))
     _add_publication_activity(g, m, place="London", date="1999")
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df264 = root.find(f"{{{MARC21_NS}}}datafield[@tag='264']")
     assert df264 is not None
     sf_codes = [sf.get("code") for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     sf_values = [sf.text for sf in df264.findall(f"{{{MARC21_NS}}}subfield")]
     assert sf_codes == ["a", "c"]
-    assert sf_values == ["London,", "1999"]
+    assert sf_values == ["London,", "1999."]
 
 
 def test_emit_marcxml_emits_336_337_338_rda_descriptors() -> None:
@@ -1095,7 +1120,12 @@ def test_emit_marcxml_emits_700_with_relator_term_in_subfield_e() -> None:
     g.add((role, RDFS.label, Literal("näyttelijä")))
     g.add((contrib, BFFI.role, role))
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df700 = root.find(f"{{{MARC21_NS}}}datafield[@tag='700']")
     assert df700 is not None
@@ -1104,7 +1134,7 @@ def test_emit_marcxml_emits_700_with_relator_term_in_subfield_e() -> None:
     assert sf_a is not None
     assert sf_e is not None
     assert sf_a.text == "Connery, Sean,"
-    assert sf_e.text == "näyttelijä"
+    assert sf_e.text == "näyttelijä."
     # No $4 (no LoC relator URI in this shape).
     assert df700.find(f"{{{MARC21_NS}}}subfield[@code='4']") is None
     # Order: $a then $e (MARC X00 subfield convention).
@@ -1140,14 +1170,19 @@ def test_emit_marcxml_emits_700_with_both_e_and_4_when_both_signals_present() ->
     g.add((contrib, BFFI.role, role_bnode))
     g.add((contrib, BFFI.role, URIRef("http://id.loc.gov/vocabulary/relators/drt")))
 
-    marcxml = emit_marcxml(g, manifestation=m)
+    options = ConversionOptions(
+        input_dir=Path("/tmp"),
+        output_dir=Path("/tmp"),
+        apply_isbd_punctuation=True,
+    )
+    marcxml = emit_marcxml(g, manifestation=m, options=options)
     root = etree.fromstring(marcxml)
     df700 = root.find(f"{{{MARC21_NS}}}datafield[@tag='700']")
     assert df700 is not None
     sf_codes = [sf.get("code") for sf in df700.findall(f"{{{MARC21_NS}}}subfield")]
     sf_values = [sf.text for sf in df700.findall(f"{{{MARC21_NS}}}subfield")]
     assert sf_codes == ["a", "e", "4"]
-    assert sf_values == ["Hamilton, Guy,", "ohjaaja", "drt"]
+    assert sf_values == ["Hamilton, Guy,", "ohjaaja,", "drt."]
 
 
 def test_emit_marcxml_emits_700_with_analytical_title_from_marckey() -> None:

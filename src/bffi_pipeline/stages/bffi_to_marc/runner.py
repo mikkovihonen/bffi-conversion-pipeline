@@ -5093,18 +5093,28 @@ def _append_contributor_datafields(
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         if _isbd_enabled:
             _next_a = "e" if _has_e else ("4" if _has_4 else None)
-            sf_a.text = c.label + get_isbd_punctuation(
+            _punct = get_isbd_punctuation(
                 tag=c.tag, subfield_code="a", next_subfield_code=_next_a, enabled=True
             )
+            # Avoid double punctuation if value already ends with the punctuation char
+            if _punct and c.label.endswith(_punct[-1]):
+                sf_a.text = c.label
+            else:
+                sf_a.text = c.label + _punct
         else:
             sf_a.text = c.label
         if c.relator_term:
             sf_e = etree.SubElement(df, f"{_MARC}subfield", code="e")
             if _isbd_enabled:
                 _next_e = "4" if _has_4 else None
-                sf_e.text = c.relator_term + get_isbd_punctuation(
+                _punct = get_isbd_punctuation(
                     tag=c.tag, subfield_code="e", next_subfield_code=_next_e, enabled=True
                 )
+                # Avoid double punctuation if value already ends with the punctuation char
+                if _punct and c.relator_term.endswith(_punct[-1]):
+                    sf_e.text = c.relator_term
+                else:
+                    sf_e.text = c.relator_term + _punct
             else:
                 sf_e.text = c.relator_term
         # Overwrite marcKey's $6 with reconstructed occurrence linkage
@@ -5117,9 +5127,13 @@ def _append_contributor_datafields(
         if c.relator:
             sf_4 = etree.SubElement(df, f"{_MARC}subfield", code="4")
             if _isbd_enabled:
-                sf_4.text = c.relator + get_isbd_punctuation(
+                _punct = get_isbd_punctuation(
                     tag=c.tag, subfield_code="4", next_subfield_code=None, enabled=True
                 )
+                if _punct and c.relator.endswith(_punct[-1]):
+                    sf_4.text = c.relator
+                else:
+                    sf_4.text = c.relator + _punct
             else:
                 sf_4.text = c.relator
 
@@ -5156,63 +5170,47 @@ def _append_physical_description_datafield(
     _has_e = physical.accompanying_material is not None
     if physical.extent is not None:
         text = physical.extent
-        if _isbd_enabled:
-            _next_a = "b" if _has_b else ("c" if _has_c else ("e" if _has_e else None))
-            text += get_isbd_punctuation(
-                tag="300",
-                subfield_code="a",
-                next_subfield_code=_next_a,
-                enabled=True,
-            )
-        elif physical.other_physical is not None:
-            text += " :"
-        elif physical.dimensions is not None:
-            text += " ;"
-        elif physical.accompanying_material is not None:
-            text += " +"
+        _next_a = "b" if _has_b else ("c" if _has_c else ("e" if _has_e else None))
+        text += get_isbd_punctuation(
+            tag="300",
+            subfield_code="a",
+            next_subfield_code=_next_a,
+            enabled=_isbd_enabled,
+        )
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = text
     if physical.other_physical is not None:
         text = physical.other_physical
-        if _isbd_enabled:
-            _next_b = "c" if _has_c else ("e" if _has_e else None)
-            text += get_isbd_punctuation(
-                tag="300",
-                subfield_code="b",
-                next_subfield_code=_next_b,
-                enabled=True,
-            )
-        elif physical.dimensions is not None:
-            text += " ;"
-        elif physical.accompanying_material is not None:
-            text += " +"
+        _next_b = "c" if _has_c else ("e" if _has_e else None)
+        _punct_b = get_isbd_punctuation(
+            tag="300",
+            subfield_code="b",
+            next_subfield_code=_next_b,
+            enabled=_isbd_enabled,
+        )
+        # Avoid double punctuation if value already ends with the punctuation char
+        sf_b_text = text if (_punct_b and text.endswith(_punct_b[-1])) else text + _punct_b
         sf_b = etree.SubElement(df, f"{_MARC}subfield", code="b")
-        sf_b.text = text
+        sf_b.text = sf_b_text
     if physical.dimensions is not None:
         text = physical.dimensions
-        if _isbd_enabled:
-            _next_c = "e" if _has_e else None
-            text += get_isbd_punctuation(
-                tag="300",
-                subfield_code="c",
-                next_subfield_code=_next_c,
-                enabled=True,
-            )
-        elif physical.accompanying_material is not None:
-            text += " +"
+        _next_c = "e" if _has_e else None
+        text += get_isbd_punctuation(
+            tag="300",
+            subfield_code="c",
+            next_subfield_code=_next_c,
+            enabled=_isbd_enabled,
+        )
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = text
     if physical.accompanying_material is not None:
         sf_e = etree.SubElement(df, f"{_MARC}subfield", code="e")
-        if _isbd_enabled:
-            sf_e.text = physical.accompanying_material + get_isbd_punctuation(
-                tag="300",
-                subfield_code="e",
-                next_subfield_code=None,
-                enabled=True,
-            )
-        else:
-            sf_e.text = physical.accompanying_material
+        sf_e.text = physical.accompanying_material + get_isbd_punctuation(
+            tag="300",
+            subfield_code="e",
+            next_subfield_code=None,
+            enabled=_isbd_enabled,
+        )
 
 
 def _append_identifier_datafields(
@@ -5534,43 +5532,34 @@ def _append_publication_datafield(
 
     if publication.place is not None:
         place_text = publication.place
-        if _isbd_enabled:
-            _next_a = "b" if _has_b else ("c" if _has_c else None)
-            place_text += get_isbd_punctuation(
-                tag=tag,
-                subfield_code="a",
-                next_subfield_code=_next_a,
-                enabled=True,
-            )
-        elif publication.agent is not None:
-            place_text += " :"
-        elif publication.date is not None:
-            place_text += ","
+        _next_a = "b" if _has_b else ("c" if _has_c else None)
+        place_text += get_isbd_punctuation(
+            tag=tag,
+            subfield_code="a",
+            next_subfield_code=_next_a,
+            enabled=_isbd_enabled,
+        )
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         sf_a.text = place_text
     if publication.agent is not None:
         agent_text = publication.agent
-        if _isbd_enabled:
-            _next_b = "c" if _has_c else None
-            agent_text += get_isbd_punctuation(
-                tag=tag,
-                subfield_code="b",
-                next_subfield_code=_next_b,
-                enabled=True,
-            )
-        elif publication.date is not None:
-            agent_text += ","
+        _next_b = "c" if _has_c else None
+        agent_text += get_isbd_punctuation(
+            tag=tag,
+            subfield_code="b",
+            next_subfield_code=_next_b,
+            enabled=_isbd_enabled,
+        )
         sf_b = etree.SubElement(df, f"{_MARC}subfield", code="b")
         sf_b.text = agent_text
     if publication.date is not None:
         date_text = publication.date
-        if _isbd_enabled:
-            date_text += get_isbd_punctuation(
-                tag=tag,
-                subfield_code="c",
-                next_subfield_code=None,
-                enabled=True,
-            )
+        date_text += get_isbd_punctuation(
+            tag=tag,
+            subfield_code="c",
+            next_subfield_code=None,
+            enabled=_isbd_enabled,
+        )
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = date_text
     # Add $6 linkage when alt-script is present
@@ -5979,15 +5968,12 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         _isbd_enabled = options.apply_isbd_punctuation if options else False
         _has_v = series.volume is not None
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        if _isbd_enabled:
-            sf_a.text = series.title + get_isbd_punctuation(
-                tag="490",
-                subfield_code="a",
-                next_subfield_code=("v" if _has_v else None),
-                enabled=True,
-            )
-        else:
-            sf_a.text = series.title + (" ;" if series.volume is not None else "")
+        sf_a.text = series.title + get_isbd_punctuation(
+            tag="490",
+            subfield_code="a",
+            next_subfield_code=("v" if _has_v else None),
+            enabled=_isbd_enabled,
+        )
         if series.volume is not None:
             sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
             sf_v.text = series.volume

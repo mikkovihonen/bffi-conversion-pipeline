@@ -15,8 +15,8 @@ class TestGetIsbdPunctuation:
         assert get_isbd_punctuation("999", "a", None, enabled=True) == ""
 
     def test_260_a_with_b(self) -> None:
-        """260 $a followed by $b: colon."""
-        assert get_isbd_punctuation("260", "a", "b", enabled=True) == ":"
+        """260 $a followed by $b: space-colon."""
+        assert get_isbd_punctuation("260", "a", "b", enabled=True) == " :"
 
     def test_260_a_with_c(self) -> None:
         """260 $a followed by $c: comma."""
@@ -47,8 +47,8 @@ class TestGetIsbdPunctuation:
         assert get_isbd_punctuation("100", "e", None, enabled=True) == "."
 
     def test_245_a_with_b(self) -> None:
-        """245 $a followed by $b: colon."""
-        assert get_isbd_punctuation("245", "a", "b", enabled=True) == ":"
+        """245 $a followed by $b: space-colon."""
+        assert get_isbd_punctuation("245", "a", "b", enabled=True) == " :"
 
     def test_245_b_with_c(self) -> None:
         """245 $b followed by $c: slash."""
