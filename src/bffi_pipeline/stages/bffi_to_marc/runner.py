@@ -5121,15 +5121,32 @@ def _append_contributor_datafields(
 
 
 def _append_physical_description_datafield(
-    record: etree._Element, physical: _PhysicalDescription
+    record: etree._Element,
+    physical: _PhysicalDescription,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append the MARC 300 datafield with ``$a`` / ``$b`` / ``$c`` / ``$e``
-    subfields based on which signals are present, with ISBD trailing
-    punctuation (\" :\" before $b, \" ;\" before $c, \" +\" before $e)."""
+    subfields based on which signals are present. ISBD trailing punctuation
+    (\" :\" before $b, \" ;\" before $c, \" +\" before $e) is added when
+    ``options.apply_isbd_punctuation`` is True."""
     df = etree.SubElement(record, f"{_MARC}datafield", tag="300", ind1=" ", ind2=" ")
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
+    # Determine which subfields are present for ISBD punctuation
+    _has_b = physical.other_physical is not None
+    _has_c = physical.dimensions is not None
+    _has_e = physical.accompanying_material is not None
     if physical.extent is not None:
         text = physical.extent
-        if physical.other_physical is not None:
+        if _isbd_enabled:
+            _next_a = "b" if _has_b else ("c" if _has_c else ("e" if _has_e else None))
+            text += get_isbd_punctuation(
+                tag="300",
+                subfield_code="a",
+                next_subfield_code=_next_a,
+                enabled=True,
+            )
+        elif physical.other_physical is not None:
             text += " :"
         elif physical.dimensions is not None:
             text += " ;"
@@ -5139,7 +5156,15 @@ def _append_physical_description_datafield(
         sf_a.text = text
     if physical.other_physical is not None:
         text = physical.other_physical
-        if physical.dimensions is not None:
+        if _isbd_enabled:
+            _next_b = "c" if _has_c else ("e" if _has_e else None)
+            text += get_isbd_punctuation(
+                tag="300",
+                subfield_code="b",
+                next_subfield_code=_next_b,
+                enabled=True,
+            )
+        elif physical.dimensions is not None:
             text += " ;"
         elif physical.accompanying_material is not None:
             text += " +"
@@ -5147,13 +5172,29 @@ def _append_physical_description_datafield(
         sf_b.text = text
     if physical.dimensions is not None:
         text = physical.dimensions
-        if physical.accompanying_material is not None:
+        if _isbd_enabled:
+            _next_c = "e" if _has_e else None
+            text += get_isbd_punctuation(
+                tag="300",
+                subfield_code="c",
+                next_subfield_code=_next_c,
+                enabled=True,
+            )
+        elif physical.accompanying_material is not None:
             text += " +"
         sf_c = etree.SubElement(df, f"{_MARC}subfield", code="c")
         sf_c.text = text
     if physical.accompanying_material is not None:
         sf_e = etree.SubElement(df, f"{_MARC}subfield", code="e")
-        sf_e.text = physical.accompanying_material
+        if _isbd_enabled:
+            sf_e.text = physical.accompanying_material + get_isbd_punctuation(
+                tag="300",
+                subfield_code="e",
+                next_subfield_code=None,
+                enabled=True,
+            )
+        else:
+            sf_e.text = physical.accompanying_material
 
 
 def _append_identifier_datafields(
@@ -5803,7 +5844,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         _append_publication_datafield(record, pub, alt_script_counter, options=options)
 
     if physical is not None:
-        _append_physical_description_datafield(record, physical)
+        _append_physical_description_datafield(record, physical, options=options)
 
     # 306 playing time precedes the frequency block (MARC tag order).
     _append_simple_a_datafields(record, "306", tuple(playing_times))

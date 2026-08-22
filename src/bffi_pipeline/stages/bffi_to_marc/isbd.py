@@ -135,6 +135,15 @@ ISBD_RULES: Final[dict[str, dict[str, Any]]] = {
             "c": {"last": "."},
         },
     },
+    "300": {
+        "subfield_order": ["a", "b", "c", "e"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ":", "c": ";", "e": "+"}},
+            "b": {"last": ";", "next": {"c": ";", "e": "+"}},
+            "c": {"last": "+", "next": {"e": "+"}},
+            "e": {"last": "."},
+        },
+    },
     "500": {
         "subfield_order": ["a"],
         "punctuation_after": {
