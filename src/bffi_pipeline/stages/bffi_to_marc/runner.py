@@ -1120,6 +1120,36 @@ def _parse_marc_key_subfields(key: str) -> tuple[tuple[str, str], ...]:
     return tuple(subfields)
 
 
+def _deduplicate_datafields(record: etree._Element) -> None:
+    """Remove exact duplicate datafields from a MARC record.
+
+    A "duplicate" is a datafield with the same tag, ind1, ind2, and
+    subfield content (same order — MARC order is structural but
+    duplicates from marc2bibframe2 have identical subfield order). The
+    first occurrence is kept; subsequent duplicates are removed.
+
+    This is a post-processing step that runs after all datafields have
+    been appended to the record. It does not modify the order of
+    remaining fields.
+    """
+    datafields = [child for child in record if child.tag.endswith("datafield")]
+    seen: set[tuple[str, str, str, tuple[tuple[str, str], ...]]] = set()
+    for df in datafields:
+        tag = df.get("tag")
+        if tag is None:
+            continue
+        ind1 = df.get("ind1", " ") or " "
+        ind2 = df.get("ind2", " ") or " "
+        subfields: tuple[tuple[str, str], ...] = tuple(
+            (sf.get("code") or "", sf.text or "") for sf in df if sf.tag.endswith("subfield")
+        )
+        key: tuple[str, str, str, tuple[tuple[str, str], ...]] = (tag, ind1, ind2, subfields)
+        if key in seen:
+            record.remove(df)
+        else:
+            seen.add(key)
+
+
 class _FieldDeduplicator:
     """Track emitted MARC datafields and suppress exact duplicates.
 
@@ -5902,13 +5932,6 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
     # Track occurrence numbers for alt-script 880 fields per tag
     alt_script_counter: dict[str, int] = {}
 
-    # Deduplication: suppress exact duplicate datafields (same tag,
-    # ind1, ind2, and subfield content). marc2bibframe2 can produce
-    # duplicate bf:relation blocks that would otherwise become
-    # byte-identical MARC datafields (e.g. two 490 "Kungsleden" from one
-    # source 490).
-    seen_fields = _FieldDeduplicator()
-
     cf001 = etree.SubElement(record, f"{_MARC}controlfield", tag="001")
     cf001.text = bib_id
 
@@ -6052,30 +6075,19 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         if series.alt_scripts and alt_script_counter is not None:
             series_occurrence = _reserve_occurrence(alt_script_counter, "490")
 
-        # Build subfields for deduplication check.
+        df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
         _isbd_enabled = options.apply_isbd_punctuation if options else False
         _has_v = series.volume is not None
-        _subfields: list[tuple[str, str]] = [
-            (
-                "a",
-                series.title
-                + get_isbd_punctuation(
-                    tag="490",
-                    subfield_code="a",
-                    next_subfield_code=("v" if _has_v else None),
-                    enabled=_isbd_enabled,
-                ),
-            ),
-        ]
+        sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
+        sf_a.text = series.title + get_isbd_punctuation(
+            tag="490",
+            subfield_code="a",
+            next_subfield_code=("v" if _has_v else None),
+            enabled=_isbd_enabled,
+        )
         if series.volume is not None:
-            _subfields.append(("v", series.volume))
-        if seen_fields.is_duplicate("490", "0", " ", series.title, tuple(_subfields)):
-            continue
-
-        df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
-        for code, value in _subfields:
-            sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
-            sf.text = value
+            sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
+            sf_v.text = series.volume
         # Add $6 linkage when alt-script is present
         if series.alt_scripts and alt_script_counter is not None and series_occurrence is not None:
             sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
@@ -6131,6 +6143,12 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         df = etree.SubElement(record, f"{_MARC}datafield", tag="856", ind1="4", ind2="0")
         sf_u = etree.SubElement(df, f"{_MARC}subfield", code="u")
         sf_u.text = url
+
+    # Deduplicate exact duplicate datafields (same tag, ind1, ind2,
+    # subfield content). marc2bibframe2 can produce duplicate
+    # bf:relation / bf:adminMetadata blocks that become byte-identical
+    # MARC datafields (e.g. two 490 "Kungsleden" from one source 490).
+    _deduplicate_datafields(record)
 
     return record
 
