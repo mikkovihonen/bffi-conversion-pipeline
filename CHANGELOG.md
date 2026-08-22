@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **ISBD punctuation (toggleable)** — `--apply-isbd-punctuation` flag adds ISBD trailing punctuation to reconstructed MARC fields: `$a:` `$b,` `$c.` for publications (260/264), `$a:` `$b/` `$c.` for titles (245), `$a,` `$e.` for contributors (100/700), `$a.` for notes (500) and subjects (650), `$a.` for series (490). Punctuation is applied to both main fields and alt-script 880 fields.
+- **`ConversionOptions.apply_isbd_punctuation`** — new boolean field (default `False`) to enable ISBD punctuation programmatically.
+- **`get_isbd_punctuation()` helper** — returns ISBD trailing punctuation based on tag, subfield code, and next subfield.
+
 ## [0.2.2] - 2026-08-22
 
 ### Changed
