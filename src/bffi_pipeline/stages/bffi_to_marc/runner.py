@@ -4260,6 +4260,8 @@ class _SubjectEmit:
     label: str
     vocab_code: str | None
     authority_uri: str | None
+    ind1: str = " "
+    ind2: str = " "
     extra_subfields: tuple[tuple[str, str], ...] = ()
     alt_scripts: tuple[AltScriptInfo, ...] = ()
 
@@ -4455,12 +4457,21 @@ def _build_subject_emit(graph: Graph, subj_node: URIRef | BNode) -> _SubjectEmit
     else:
         authority_uri = None
     extras = _subject_marckey_extras(graph, subj_node)
+    # Parse ind1/ind2 from marcKey when present.
+    ind1 = ind2 = " "
+    marc_key = next(graph.objects(subj_node, BFFI.marcKey), None)
+    if isinstance(marc_key, Literal):
+        parsed = _parse_marc_key(str(marc_key))
+        if parsed is not None:
+            ind1, ind2 = parsed[1], parsed[2]
     # Detect alt-script values on the subject's rdfs:label
     subj_uri = URIRef(subj_node) if isinstance(subj_node, Node) else subj_node
     alt_scripts = tuple(detect_alt_scripts(graph, subj_uri, RDFS.label))
     return _SubjectEmit(
         tag=tag,
         label=label,
+        ind1=ind1,
+        ind2=ind2,
         vocab_code=vocab_code,
         authority_uri=authority_uri,
         extra_subfields=extras,
@@ -5601,13 +5612,17 @@ def _append_subject_datafields(
     alt-script duplicates, emits MARC 880 fields after the subject
     field."""
     for subj in subjects:
-        ind2 = "7" if subj.vocab_code else " "
+        # Use marcKey indicators when present; otherwise default to blank.
+        # When $2 is emitted (vocab_code present), ind2 becomes "7" per the
+        # MARC convention ("source specified in subfield $2").
+        ind1 = subj.ind1
+        ind2 = "7" if subj.vocab_code else subj.ind2
         # Pre-reserve occurrence for alt-script linkage
         main_occurrence: int | None = None
         if subj.alt_scripts and alt_script_counter is not None:
             main_occurrence = _reserve_occurrence(alt_script_counter, subj.tag)
 
-        df = etree.SubElement(record, f"{_MARC}datafield", tag=subj.tag, ind1=" ", ind2=ind2)
+        df = etree.SubElement(record, f"{_MARC}datafield", tag=subj.tag, ind1=ind1, ind2=ind2)
         _isbd_enabled = options.apply_isbd_punctuation if options else False
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
         if _isbd_enabled:
