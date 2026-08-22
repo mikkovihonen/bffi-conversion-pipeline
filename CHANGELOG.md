@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactored
+
+- **BFFI→MARC stage split** — `runner.py` (6148 lines) split into four modules by concern: `constants.py` (shared `STAGE`, `PROGRESS_CADENCE`, `MARC21_NS`), `extractors.py` (graph-walking extract functions, dataclasses, `@marc_emit` decorator + `MARC_EMIT_REGISTRY`), `emit.py` (MARCXML construction via lxml), `runner.py` (thin facade with public API: `emit_marcxml`, `convert_one`, `convert_corpus`, `ConversionOptions`, `ConversionSummary`, `BffiToMarcError`). All cross-module imports (`alt_script`, `isbd`, `observability`, `provenance`) preserved. Backward-compatible re-exports of `MARC21_NS`, `MARC_EMIT_REGISTRY`, `MarcEmitMeta` from `runner.py` for diagnostic tools. 641 tests passing.
+
 ### Fixed
 
 - **6XX subject indicator loss** — 600/610/611/630/648/650/651/653/655/662 fields now preserve ind1/ind2 from `bffi:marcKey` (e.g. `600 14` instead of `600   `). ind2 set to `"7"` when `$2` emitted (per MARC convention). Added `ind1`/`ind2` fields to `_SubjectEmit` dataclass.
