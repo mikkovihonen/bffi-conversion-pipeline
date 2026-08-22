@@ -4904,15 +4904,33 @@ def _extract_assigner_label(graph: Graph, ident: Node) -> str | None:
     return str(label) if isinstance(label, Literal) else None
 
 
-def _append_simple_a_datafields(record: etree._Element, tag: str, values: tuple[str, ...]) -> None:
+def _append_simple_a_datafields(
+    record: etree._Element,
+    tag: str,
+    values: tuple[str, ...],
+    *,
+    options: ConversionOptions | None = None,
+) -> None:
     """Append one MARC datafield per value, each with a single ``$a``
     subfield carrying the value and blank indicators. Used for MARC
     families whose entire emit shape is a list of bare ``$a`` rows
-    (336 / 337 / 338 RDA descriptors today; potentially others)."""
+    (336 / 337 / 338 RDA descriptors today; potentially others).
+
+    ISBD trailing punctuation is added when ``options.apply_isbd_punctuation``
+    is True."""
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
     for value in values:
         df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=" ", ind2=" ")
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = value
+        if _isbd_enabled:
+            sf_a.text = value + get_isbd_punctuation(
+                tag=tag,
+                subfield_code="a",
+                next_subfield_code=None,
+                enabled=True,
+            )
+        else:
+            sf_a.text = value
 
 
 @marc_emit_dynamic(
@@ -5237,10 +5255,10 @@ def _append_note_block(
     summary → 521 intended audience → 540 use."""
     _append_note_datafields(record, notes, alt_script_counter, options=options)
     _append_table_of_contents_datafields(record, table_of_contents)
-    _append_simple_a_datafields(record, "506", policies.access)
-    _append_simple_a_datafields(record, "520", tuple(summaries))
-    _append_simple_a_datafields(record, "521", tuple(intended_audiences))
-    _append_simple_a_datafields(record, "540", policies.use)
+    _append_simple_a_datafields(record, "506", policies.access, options=options)
+    _append_simple_a_datafields(record, "520", tuple(summaries), options=options)
+    _append_simple_a_datafields(record, "521", tuple(intended_audiences), options=options)
+    _append_simple_a_datafields(record, "540", policies.use, options=options)
 
 
 def _append_note_datafields(
@@ -5322,24 +5340,70 @@ def _append_table_of_contents_datafields(
 
 
 def _append_rda_datafields(
-    record: etree._Element, tag: str, entries: tuple[_RdaEntry, ...]
+    record: etree._Element,
+    tag: str,
+    entries: tuple[_RdaEntry, ...],
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append one MARC datafield per RDA descriptor: ``$a`` label (when
     present), ``$b`` 3-letter code, ``$2`` scheme name, ``$3`` materials
     specified (when ``bffi:appliesTo`` is present). Multiple values on one
-    BFFI predicate produce multiple datafields per MARC convention."""
+    BFFI predicate produce multiple datafields per MARC convention.
+
+    ISBD trailing punctuation is added when ``options.apply_isbd_punctuation``
+    is True."""
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
     for entry in entries:
         df = etree.SubElement(record, f"{_MARC}datafield", tag=tag, ind1=" ", ind2=" ")
+        _has_b = entry.code is not None
+        _has_2 = entry.scheme is not None
+        _has_3 = entry.applies_to is not None
         if entry.label is not None:
             sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-            sf_a.text = entry.label
+            if _isbd_enabled:
+                _next_a = "b" if _has_b else ("2" if _has_2 else ("3" if _has_3 else None))
+                sf_a.text = entry.label + get_isbd_punctuation(
+                    tag=tag,
+                    subfield_code="a",
+                    next_subfield_code=_next_a,
+                    enabled=True,
+                )
+            else:
+                sf_a.text = entry.label
         sf_b = etree.SubElement(df, f"{_MARC}subfield", code="b")
-        sf_b.text = entry.code
+        if _isbd_enabled:
+            _next_b = "2" if _has_2 else ("3" if _has_3 else None)
+            sf_b.text = entry.code + get_isbd_punctuation(
+                tag=tag,
+                subfield_code="b",
+                next_subfield_code=_next_b,
+                enabled=True,
+            )
+        else:
+            sf_b.text = entry.code
         sf_2 = etree.SubElement(df, f"{_MARC}subfield", code="2")
-        sf_2.text = entry.scheme
+        if _isbd_enabled:
+            _next_2 = "3" if _has_3 else None
+            sf_2.text = entry.scheme + get_isbd_punctuation(
+                tag=tag,
+                subfield_code="2",
+                next_subfield_code=_next_2,
+                enabled=True,
+            )
+        else:
+            sf_2.text = entry.scheme
         if entry.applies_to is not None:
             sf_3 = etree.SubElement(df, f"{_MARC}subfield", code="3")
-            sf_3.text = entry.applies_to
+            if _isbd_enabled:
+                sf_3.text = entry.applies_to + get_isbd_punctuation(
+                    tag=tag,
+                    subfield_code="3",
+                    next_subfield_code=None,
+                    enabled=True,
+                )
+            else:
+                sf_3.text = entry.applies_to
 
 
 def _append_title_datafield(
@@ -5653,21 +5717,56 @@ def _append_acquisition_source_datafields(
 
 
 def _append_supplementary_content_datafields(
-    record: etree._Element, contents: list[_SupplementaryContentEmit]
+    record: etree._Element,
+    contents: list[_SupplementaryContentEmit],
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append one MARC 353 datafield per emit with ``$a`` content,
-    ``$0`` authority URI, ``$2`` source scheme code."""
+    ``$0`` authority URI, ``$2`` source scheme code.
+
+    ISBD trailing punctuation is added when ``options.apply_isbd_punctuation``
+    is True."""
+    _isbd_enabled = options.apply_isbd_punctuation if options else False
     for sup in contents:
         df = etree.SubElement(record, f"{_MARC}datafield", tag="353", ind1=" ", ind2=" ")
+        _has_0 = sup.authority_uri is not None
+        _has_2 = sup.source is not None
         if sup.content is not None:
             sf = etree.SubElement(df, f"{_MARC}subfield", code="a")
-            sf.text = sup.content
+            if _isbd_enabled:
+                _next_a = "0" if _has_0 else ("2" if _has_2 else None)
+                sf.text = sup.content + get_isbd_punctuation(
+                    tag="353",
+                    subfield_code="a",
+                    next_subfield_code=_next_a,
+                    enabled=True,
+                )
+            else:
+                sf.text = sup.content
         if sup.authority_uri is not None:
             sf = etree.SubElement(df, f"{_MARC}subfield", code="0")
-            sf.text = sup.authority_uri
+            if _isbd_enabled:
+                _next_0 = "2" if _has_2 else None
+                sf.text = sup.authority_uri + get_isbd_punctuation(
+                    tag="353",
+                    subfield_code="0",
+                    next_subfield_code=_next_0,
+                    enabled=True,
+                )
+            else:
+                sf.text = sup.authority_uri
         if sup.source is not None:
             sf = etree.SubElement(df, f"{_MARC}subfield", code="2")
-            sf.text = sup.source
+            if _isbd_enabled:
+                sf.text = sup.source + get_isbd_punctuation(
+                    tag="353",
+                    subfield_code="2",
+                    next_subfield_code=None,
+                    enabled=True,
+                )
+            else:
+                sf.text = sup.source
 
 
 def _append_added_title_datafields(
@@ -5847,7 +5946,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         _append_physical_description_datafield(record, physical, options=options)
 
     # 306 playing time precedes the frequency block (MARC tag order).
-    _append_simple_a_datafields(record, "306", tuple(playing_times))
+    _append_simple_a_datafields(record, "306", tuple(playing_times), options=options)
 
     # 310 (current) and 321 (former) frequencies dispatch from the same
     # bffi:frequency walk; each Frequency block carries its target tag.
@@ -5857,16 +5956,16 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         sf_a.text = freq.text
 
     # 334 mode of issuance — single $a, blank indicators.
-    _append_simple_a_datafields(record, "334", tuple(modes_of_issuance))
+    _append_simple_a_datafields(record, "334", tuple(modes_of_issuance), options=options)
 
     # 336/337/338 RDA descriptors. One datafield per code (multiple values
     # on a single predicate produce repeated datafields per MARC convention).
-    _append_rda_datafields(record, "336", rda.content)
-    _append_rda_datafields(record, "337", rda.media)
-    _append_rda_datafields(record, "338", rda.carrier)
+    _append_rda_datafields(record, "336", rda.content, options=options)
+    _append_rda_datafields(record, "337", rda.media, options=options)
+    _append_rda_datafields(record, "338", rda.carrier, options=options)
 
     # 353 supplementary content — after RDA descriptors, before notes.
-    _append_supplementary_content_datafields(record, supplementary_contents)
+    _append_supplementary_content_datafields(record, supplementary_contents, options=options)
 
     # 490 untraced series statements (after RDA, before notes). ISBD
     # trailing " ;" added on $a when $v volume number follows.
