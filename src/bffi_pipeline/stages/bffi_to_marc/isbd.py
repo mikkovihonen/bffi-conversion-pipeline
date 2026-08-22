@@ -204,6 +204,70 @@ ISBD_RULES: Final[dict[str, dict[str, Any]]] = {
             "2": {"last": "."},
         },
     },
+    "250": {
+        "subfield_order": ["a"],
+        "punctuation_after": {
+            "a": {"last": "."},
+        },
+    },
+    "306": {
+        "subfield_order": ["a"],
+        "punctuation_after": {
+            "a": {"last": "."},
+        },
+    },
+    "334": {
+        "subfield_order": ["a"],
+        "punctuation_after": {
+            "a": {"last": "."},
+        },
+    },
+    "336": {
+        "subfield_order": ["a", "b", "2"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ":", "2": "."}},
+            "b": {"last": ".", "next": {"2": "."}},
+            "2": {"last": "."},
+        },
+    },
+    "337": {
+        "subfield_order": ["a", "b", "2"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ":", "2": "."}},
+            "b": {"last": ".", "next": {"2": "."}},
+            "2": {"last": "."},
+        },
+    },
+    "338": {
+        "subfield_order": ["a", "b", "c", "2"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ":", "c": ":", "2": "."}},
+            "b": {"last": ":", "next": {"c": ":", "2": "."}},
+            "c": {"last": ".", "next": {"2": "."}},
+            "2": {"last": "."},
+        },
+    },
+    "353": {
+        "subfield_order": ["a"],
+        "punctuation_after": {
+            "a": {"last": "."},
+        },
+    },
+    "730": {
+        "subfield_order": ["a", "b", "f", "g"],
+        "punctuation_after": {
+            "a": {"last": "", "next": {"b": ".", "f": ":", "g": ":"}},
+            "b": {"last": ".", "next": {"f": ":", "g": ":"}},
+            "f": {"last": ".", "next": {"g": ","}},
+            "g": {"last": "."},
+        },
+    },
+    "740": {
+        "subfield_order": ["a"],
+        "punctuation_after": {
+            "a": {"last": "."},
+        },
+    },
 }
 
 
