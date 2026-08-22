@@ -5158,11 +5158,12 @@ def _append_note_block(
     summaries: list[str],
     intended_audiences: list[str],
     alt_script_counter: dict[str, int] | None = None,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append the 5XX note block in (approximately) MARC tag-numeric
     order: 500-set general notes → 505 contents → 506 access → 520
     summary → 521 intended audience → 540 use."""
-    _append_note_datafields(record, notes, alt_script_counter)
+    _append_note_datafields(record, notes, alt_script_counter, options=options)
     _append_table_of_contents_datafields(record, table_of_contents)
     _append_simple_a_datafields(record, "506", policies.access)
     _append_simple_a_datafields(record, "520", tuple(summaries))
@@ -5174,6 +5175,8 @@ def _append_note_datafields(
     record: etree._Element,
     notes: list[_NoteEmit],
     alt_script_counter: dict[str, int] | None = None,
+    *,
+    options: ConversionOptions | None = None,
 ) -> None:
     """Append one MARC 5XX-style datafield per note emit. Indicators
     default to blank; 587 overrides ind1 from the mnotetype tail.
@@ -5191,8 +5194,17 @@ def _append_note_datafields(
             record, f"{_MARC}datafield", tag=note.tag, ind1=note.ind1, ind2=note.ind2
         )
         if note.text:
+            _isbd_enabled = options.apply_isbd_punctuation if options else False
             sf = etree.SubElement(df, f"{_MARC}subfield", code=note.subfield_code)
-            sf.text = note.text
+            if _isbd_enabled:
+                sf.text = note.text + get_isbd_punctuation(
+                    tag=note.tag,
+                    subfield_code=note.subfield_code,
+                    next_subfield_code=None,
+                    enabled=True,
+                )
+            else:
+                sf.text = note.text
             # Add $6 linkage when alt-script is present
             if note.alt_scripts and alt_script_counter is not None and main_occurrence is not None:
                 sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
@@ -5788,8 +5800,18 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
             series_occurrence = _reserve_occurrence(alt_script_counter, "490")
 
         df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
+        _isbd_enabled = options.apply_isbd_punctuation if options else False
+        _has_v = series.volume is not None
         sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = series.title + (" ;" if series.volume is not None else "")
+        if _isbd_enabled:
+            sf_a.text = series.title + get_isbd_punctuation(
+                tag="490",
+                subfield_code="a",
+                next_subfield_code=("v" if _has_v else None),
+                enabled=True,
+            )
+        else:
+            sf_a.text = series.title + (" ;" if series.volume is not None else "")
         if series.volume is not None:
             sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
             sf_v.text = series.volume
@@ -5819,6 +5841,7 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         summaries=summaries,
         intended_audiences=intended_audiences,
         alt_script_counter=alt_script_counter,
+        options=options,
     )
 
     # 6XX subjects come after the bibliographic-description block.
