@@ -1150,36 +1150,6 @@ def _deduplicate_datafields(record: etree._Element) -> None:
             seen.add(key)
 
 
-class _FieldDeduplicator:
-    """Track emitted MARC datafields and suppress exact duplicates.
-
-    A "duplicate" is a datafield with the same tag, ind1, ind2, and
-    subfield content (order-insensitive on subfields — MARC order is
-    structural but duplicates from marc2bibframe2 have identical
-    subfield order). Uses a ``set`` of ``frozenset`` for O(1) lookups.
-    """
-
-    def __init__(self) -> None:
-        self._seen: set[frozenset[tuple[str, str, str, str, tuple[tuple[str, str], ...]]]] = set()
-
-    def is_duplicate(
-        self,
-        tag: str,
-        ind1: str,
-        ind2: str,
-        text: str,
-        subfields: tuple[tuple[str, str], ...],
-    ) -> bool:
-        """Return ``True`` if this field has already been emitted."""
-        key: frozenset[tuple[str, str, str, str, tuple[tuple[str, str], ...]]] = frozenset(
-            {(tag, ind1, ind2, text, subfields)}
-        )
-        if key in self._seen:
-            return True
-        self._seen.add(key)
-        return False
-
-
 @marc_emit(
     MarcEmitMeta(
         tag="730",
