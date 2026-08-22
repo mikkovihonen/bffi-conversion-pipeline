@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **6XX subject indicator loss** — 600/610/611/630/648/650/651/653/655/662 fields now preserve ind1/ind2 from `bffi:marcKey` (e.g. `600 14` instead of `600   `). ind2 set to `"7"` when `$2` emitted (per MARC convention). Added `ind1`/`ind2` fields to `_SubjectEmit` dataclass.
 - **240 uniform title loss** — 240 fields are now recovered from `bffi:Hub240` nodes via `Manifestation → Expression → Hub` traversal. Parsed from Hub's `marcKey` (`{1XX marcKey}$t{uniform title},${subfields...}`) with uniform title mapped to `$a` and remaining subfields via `_AGENT_TO_240_SUBFIELD_CODE`. Round-trip: 5 fewer lost fields, 2 more identical.
+- **490 duplicate series** — exact duplicate 490 datafields (same tag, ind1, ind2, subfield content) are now deduplicated via `_FieldDeduplicator`. marc2bibframe2 produces duplicate `bf:relation` blocks for the first 490 field; the deduplicator removes the byte-identical duplicate before emit. Round-trip: -2 added fields.
 
 ### Changed
 
