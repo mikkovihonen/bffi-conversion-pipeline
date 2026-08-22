@@ -1106,6 +1106,20 @@ def _parse_marc_key(key: str) -> tuple[str, str, str, tuple[tuple[str, str], ...
     return tag, ind1, ind2, tuple(subfields)
 
 
+def _parse_marc_key_subfields(key: str) -> tuple[tuple[str, str], ...]:
+    """Parse subfields from a marcKey string (without tag/indicator prefix).
+
+    Input is ``$<code><value>$<code><value>...`` — no leading tag/indicators.
+    Used for marcKey segments like the 240 portion after the ``$t`` delimiter.
+    """
+    subfields: list[tuple[str, str]] = []
+    for part in key.split("$")[1:]:
+        if not part:
+            continue
+        subfields.append((part[0], part[1:]))
+    return tuple(subfields)
+
+
 @marc_emit(
     MarcEmitMeta(
         tag="730",
@@ -3452,17 +3466,19 @@ def _extract_uniform_main_entry(graph: Graph, manifestation: URIRef) -> _AddedTi
     those extras to MARC 240 subfields (``$t`` → ``$a``, others by
     code identity).
     """
-    work = _find_work_for_manifestation(graph, manifestation)
-    anchors: list[URIRef] = [manifestation]
-    if work is not None:
-        anchors.append(work)
-    for anchor in anchors:
-        for hub in graph.objects(anchor, BFFI.expressionOf):
-            if not isinstance(hub, URIRef):
-                continue
-            emit = _hub_uniform_title_emit(graph, hub)
-            if emit is not None:
-                return emit
+    # Traverse Manifestation → Expression → Hub via expressionOf.
+    # The Expression has ``bffi:manifestationOfExpression ?m`` pointing to
+    # the Manifestation; we need the inverse traversal.
+    candidates = list(graph.subjects(BFFI.manifestationOfExpression, manifestation))
+    if not candidates:
+        return None
+    expression = candidates[0]
+    for hub in graph.objects(expression, BFFI.expressionOf):
+        if not isinstance(hub, URIRef):
+            continue
+        emit = _hub_uniform_title_emit(graph, hub)
+        if emit is not None:
+            return emit
     return None
 
 
@@ -3506,26 +3522,44 @@ _AGENT_TO_240_SUBFIELD_CODE: Final[dict[str, str]] = {
 
 
 def _hub240_emit(graph: Graph, hub: URIRef) -> _AddedTitleEmit | None:
-    """Construct a MARC 240 emit by parsing the Hub's contribution-agent
-    marcKey for the 240-relevant subfield extras."""
-    for contrib in graph.objects(hub, BFFI.contribution):
-        for agent in graph.objects(contrib, BFFI.agent):
-            marc_key = next(graph.objects(agent, BFFI.marcKey), None)
-            if not isinstance(marc_key, Literal):
-                continue
-            parsed = _parse_marc_key(str(marc_key))
-            if parsed is None:
-                continue
-            _agent_tag, _ind1, _ind2, agent_subfields = parsed
-            mapped: list[tuple[str, str]] = []
-            for code, value in agent_subfields:
-                target = _AGENT_TO_240_SUBFIELD_CODE.get(code)
-                if target is not None:
-                    mapped.append((target, value))
-            if mapped:
-                # ind1=1 = traced (HELMET corpus near-universal convention);
-                # ind2=0 = 0 nonfiling characters (default).
-                return _AddedTitleEmit(tag="240", ind1="1", ind2="0", subfields=tuple(mapped))
+    """Construct a MARC 240 emit by parsing the Hub's marcKey for the
+    240-relevant subfield extras.
+
+    marc2bibframe2 encodes the 240 in the Hub's marcKey as:
+    ``{1XX marcKey}$t{uniform title},${subfields...}`` — e.g.
+    ``1001 $aKunnas, Mauri$tKoirien Kalevala,$lsvenska``.
+    The first subfield after ``$t`` is the uniform title (no code prefix);
+    remaining ``$<code><value>`` subfields map via ``_AGENT_TO_240_SUBFIELD_CODE``.
+    """
+    marc_key = next(graph.objects(hub, BFFI.marcKey), None)
+    if not isinstance(marc_key, Literal):
+        return None
+    key_str = str(marc_key)
+    # Split on $t to separate agent marcKey from 240 subfields.
+    if "$t" not in key_str:
+        return None
+    _agent_part, subfield_part = key_str.split("$t", 1)
+    if not subfield_part:
+        return None
+    # The subfield part is ``<uniform title>${code}value...`` — the
+    # uniform title has no code prefix; subsequent ``$``-prefixed
+    # subfields map via _AGENT_TO_240_SUBFIELD_CODE.
+    mapped: list[tuple[str, str]] = []
+    # First segment (before any ``$``) is the uniform title → ``$a``.
+    first_seg_end = subfield_part.find("$")
+    if first_seg_end > 0:
+        mapped.append(("a", subfield_part[:first_seg_end]))
+    elif first_seg_end == 0:
+        return None  # empty uniform title
+    # Remaining ``$``-prefixed subfields.
+    for code, value in _parse_marc_key_subfields(subfield_part):
+        target = _AGENT_TO_240_SUBFIELD_CODE.get(code)
+        if target is not None:
+            mapped.append((target, value))
+    if mapped:
+        # ind1=1 = traced (HELMET corpus near-universal convention);
+        # ind2=0 = 0 nonfiling characters (default).
+        return _AddedTitleEmit(tag="240", ind1="1", ind2="0", subfields=tuple(mapped))
     return None
 
 
