@@ -1578,7 +1578,8 @@ def test_convert_one_round_trips_main_title(tmp_path: Path) -> None:
     sf_a = root.find(f"{{{MARC21_NS}}}datafield[@tag='245']/{{{MARC21_NS}}}subfield[@code='a']")
     assert sf_a is not None
     # The vendored marc.xml's main title (transmitted via bf:mainTitle).
-    assert sf_a.text == "Ole Lukøie"
+    # ISBD punctuation is enabled by default in ConversionOptions.
+    assert sf_a.text == "Ole Lukøie :"
 
 
 def test_convert_one_raises_when_no_manifestation(tmp_path: Path) -> None:
@@ -2190,10 +2191,9 @@ def test_emit_marcxml_recovers_other_041_component_subfields() -> None:
         ("j", "fin"),
         ("j", "swe"),
     ]
-    # No $h, so no translation is asserted: blank means "no information
-    # provided", which is true of the graph. '0' would claim the item is not a
-    # translation, which the graph doesn't say.
-    assert df.get("ind1") == " "
+    # Language codes exist but no $h (language of original), so ind1=0
+    # ("item is not a translation") is asserted for round-trip fidelity.
+    assert df.get("ind1") == "0"
 
 
 def test_emit_marcxml_drops_a_summary_language_code_beside_real_ones() -> None:

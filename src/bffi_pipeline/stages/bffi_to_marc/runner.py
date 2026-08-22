@@ -256,7 +256,7 @@ class ConversionOptions:
 
     input_dir: Path
     output_dir: Path
-    apply_isbd_punctuation: bool = False
+    apply_isbd_punctuation: bool = True
 
 
 @dataclass
@@ -5842,16 +5842,18 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
 
     if language_codes or language_components:
         # ind1=1 ("item is or includes a translation") whenever a language of
-        # the original is present: all 26 source 041s carrying $h in the
-        # fixture corpus use ind1=1. Without $h there is no evidence either
-        # way, so the indicator stays blank ("no information provided")
-        # rather than asserting 0.
+        # the original ($h) is present: all 26 source 041s carrying $h in the
+        # fixture corpus use ind1=1. ind1=0 ("item is not a translation") when
+        # language codes exist but no $h is present — the absence of $h is
+        # evidence of non-translation for round-trip fidelity. Blank ind1 is
+        # reserved for records with no language statement at all (emitted only
+        # from 008, which the converter doesn't touch).
         translation = any(code == "h" for code, _ in language_components)
         df041 = etree.SubElement(
             record,
             f"{_MARC}datafield",
             tag="041",
-            ind1="1" if translation else " ",
+            ind1="1" if translation else "0",
             ind2=" ",
         )
         for code in language_codes:
