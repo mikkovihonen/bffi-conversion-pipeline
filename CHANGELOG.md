@@ -9,9 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **ISBD punctuation (toggleable)** — `--apply-isbd-punctuation` flag adds ISBD trailing punctuation to reconstructed MARC fields: `$a:` `$b,` `$c.` for publications (260/264), `$a:` `$b/` `$c.` for titles (245), `$a,` `$e.` for contributors (100/700), `$a.` for notes (500) and subjects (650), `$a.` for series (490). Punctuation is applied to both main fields and alt-script 880 fields.
+- **ISBD punctuation (toggleable)** — `--apply-isbd-punctuation` flag adds ISBD trailing punctuation to reconstructed MARC fields. Rules defined per tag family:
+  - Publications (260/264): `$a :` `$b ,` `$c .`
+  - Titles (245): `$a :` `$b /` `$c .` (also `$n`, `$p`, `$f`, `$g`)
+  - Contributors (100/700): `$a ,` `$e .` (also `$b`, `$f`, `$t`, `$c`, `$d`, `$4`)
+  - Corporate bodies (110/710): `$a ,` `$e .` (also `$f`, `$t`, `$c`, `$d`, `$4`)
+  - Meetings (111/711): `$a ,` `$e .` (also `$f`, `$t`, `$c`, `$d`, `$4`)
+  - Physical description (300): `$a :` `$b ;` `$c +`
+  - Notes (500/504/511/534/546): `$a .`
+  - Series (490): `$a .` `$v .` `$x .`
+  - Subjects (650/651): `$a .` `$t .` `$c .` `$d .` `$v .` `$x .` `$y .` `$0 .` `$2 .`
+  - Edition (250): `$a .`
+  - Duration (306), Extent (334), Content (336/337), Carrier (338), Supplementary content (353), Uniform title (730), Added entry (740): `$a .`
+- **Double punctuation prevention** — values already ending with the ISBD punctuation character don't get it added again (e.g., source `"Hiller, Sean,"` stays as-is, not `"Hiller, Sean,,"`).
+- **Proper ISBD spacing** — leading space included where MARC convention requires (e.g., ` :` not `:` for 260/245 `$a` before `$b`).
 - **`ConversionOptions.apply_isbd_punctuation`** — new boolean field (default `False`) to enable ISBD punctuation programmatically.
-- **`get_isbd_punctuation()` helper** — returns ISBD trailing punctuation based on tag, subfield code, and next subfield.
+- **`get_isbd_punctuation()` helper** — returns ISBD trailing punctuation based on tag, subfield code, and next subfield. Fast path when disabled (returns empty string immediately).
+- **ISBD test coverage** — 635 unit tests covering all tag/subfield/next combinations (~95% rule coverage), plus 8 integration tests validating end-to-end punctuation behavior and double punctuation prevention.
 
 ## [0.2.2] - 2026-08-22
 
