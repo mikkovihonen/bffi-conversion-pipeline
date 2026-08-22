@@ -346,5 +346,6 @@ by missing support. MARC `020 $a` alone round-trips; add a spurious
 | `1830` | `830` | maximal | datafield | `##` | `$a` `$n` `$v` | reverse_only |
 | `856` | `856` | minimal | datafield | `40` | `$u` | asymmetric |
 | `859` | `859` | minimal | datafield | `##` | `$a` | forward_only |
+| `880` | `880` | minimal | datafield | `##` | `$a` | reverse_only |
 
-319 probe records.
+320 probe records.
