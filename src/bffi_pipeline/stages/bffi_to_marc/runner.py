@@ -1120,6 +1120,36 @@ def _parse_marc_key_subfields(key: str) -> tuple[tuple[str, str], ...]:
     return tuple(subfields)
 
 
+class _FieldDeduplicator:
+    """Track emitted MARC datafields and suppress exact duplicates.
+
+    A "duplicate" is a datafield with the same tag, ind1, ind2, and
+    subfield content (order-insensitive on subfields — MARC order is
+    structural but duplicates from marc2bibframe2 have identical
+    subfield order). Uses a ``set`` of ``frozenset`` for O(1) lookups.
+    """
+
+    def __init__(self) -> None:
+        self._seen: set[frozenset[tuple[str, str, str, str, tuple[tuple[str, str], ...]]]] = set()
+
+    def is_duplicate(
+        self,
+        tag: str,
+        ind1: str,
+        ind2: str,
+        text: str,
+        subfields: tuple[tuple[str, str], ...],
+    ) -> bool:
+        """Return ``True`` if this field has already been emitted."""
+        key: frozenset[tuple[str, str, str, str, tuple[tuple[str, str], ...]]] = frozenset(
+            {(tag, ind1, ind2, text, subfields)}
+        )
+        if key in self._seen:
+            return True
+        self._seen.add(key)
+        return False
+
+
 @marc_emit(
     MarcEmitMeta(
         tag="730",
@@ -5872,6 +5902,13 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
     # Track occurrence numbers for alt-script 880 fields per tag
     alt_script_counter: dict[str, int] = {}
 
+    # Deduplication: suppress exact duplicate datafields (same tag,
+    # ind1, ind2, and subfield content). marc2bibframe2 can produce
+    # duplicate bf:relation blocks that would otherwise become
+    # byte-identical MARC datafields (e.g. two 490 "Kungsleden" from one
+    # source 490).
+    seen_fields = _FieldDeduplicator()
+
     cf001 = etree.SubElement(record, f"{_MARC}controlfield", tag="001")
     cf001.text = bib_id
 
@@ -6015,19 +6052,30 @@ def _build_marc_record(  # noqa: PLR0915 — structural aggregation;
         if series.alt_scripts and alt_script_counter is not None:
             series_occurrence = _reserve_occurrence(alt_script_counter, "490")
 
-        df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
+        # Build subfields for deduplication check.
         _isbd_enabled = options.apply_isbd_punctuation if options else False
         _has_v = series.volume is not None
-        sf_a = etree.SubElement(df, f"{_MARC}subfield", code="a")
-        sf_a.text = series.title + get_isbd_punctuation(
-            tag="490",
-            subfield_code="a",
-            next_subfield_code=("v" if _has_v else None),
-            enabled=_isbd_enabled,
-        )
+        _subfields: list[tuple[str, str]] = [
+            (
+                "a",
+                series.title
+                + get_isbd_punctuation(
+                    tag="490",
+                    subfield_code="a",
+                    next_subfield_code=("v" if _has_v else None),
+                    enabled=_isbd_enabled,
+                ),
+            ),
+        ]
         if series.volume is not None:
-            sf_v = etree.SubElement(df, f"{_MARC}subfield", code="v")
-            sf_v.text = series.volume
+            _subfields.append(("v", series.volume))
+        if seen_fields.is_duplicate("490", "0", " ", series.title, tuple(_subfields)):
+            continue
+
+        df = etree.SubElement(record, f"{_MARC}datafield", tag="490", ind1="0", ind2=" ")
+        for code, value in _subfields:
+            sf = etree.SubElement(df, f"{_MARC}subfield", code=code)
+            sf.text = value
         # Add $6 linkage when alt-script is present
         if series.alt_scripts and alt_script_counter is not None and series_occurrence is not None:
             sf_6 = etree.SubElement(df, f"{_MARC}subfield", code="6")
