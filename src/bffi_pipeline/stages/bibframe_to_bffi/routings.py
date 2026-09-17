@@ -329,6 +329,30 @@ AXIS_DEFAULT_PREDICATES: Final[dict[URIRef, tuple[URIRef, URIRef]]] = {
     BF.issuance: (BFFI.issuance, BFFI.issuance),
 }
 
+#: Classes declared as ``rdfs:subClassOf bffi:Expression`` in ``vocab/lkd.rdf``.
+BFFI_EXPRESSION_CLASSES: Final[frozenset[URIRef]] = frozenset(
+    {
+        BFFI.AggregatingExpression,
+        BFFI.Arrangement,
+        BFFI.CartographyExpression,
+        BFFI.CollectionExpression,
+        BFFI.Dataset,
+        BFFI.MixedMaterial,
+        BFFI.MonographExpression,
+        BFFI.MovingImageExpression,
+        BFFI.Multimedia,
+        BFFI.MusicAudioExpression,
+        BFFI.NonMusicAudioExpression,
+        BFFI.NotatedMovement,
+        BFFI.NotatedMusic,
+        BFFI.Object,
+        BFFI.SerialExpression,
+        BFFI.SeriesExpression,
+        BFFI.StillImage,
+        BFFI.Text,
+    }
+)
+
 #: ``rdf:type`` assertions that signal a subject (or object) is on the
 #: Expression axis. The set covers the BFFI Expression class and its
 #: declared descendants in ``lkd.rdf`` — :func:`route_axis_default_predicates`
@@ -337,17 +361,7 @@ AXIS_DEFAULT_PREDICATES: Final[dict[URIRef, tuple[URIRef, URIRef]]] = {
 #: set routes to the Expression-axis variant; everything else lands on
 #: the Work-axis default.
 _EXPRESSION_AXIS_SIGNALS: Final[frozenset[URIRef]] = frozenset(
-    {
-        BFFI.Expression,
-        BFFI.AggregatingExpression,
-        BFFI.MonographExpression,
-        BFFI.SeriesExpression,
-        BFFI.SerialExpression,
-        BFFI.MusicAudioExpression,
-        BFFI.MovingImageExpression,
-        BFFI.CartographyExpression,
-        BFFI.NonMusicAudioExpression,
-    }
+    {BFFI.Expression} | BFFI_EXPRESSION_CLASSES
 )
 
 #: BIBFRAME ``bf:Title`` subclasses that BFFI collapses into the
@@ -551,7 +565,17 @@ def route_work_split(graph: Graph) -> int:
                 graph.remove((subject, p, o))
                 graph.add((expr_node, p, o))
 
-        # 4. Populate bffi:languageOfExpression on Expression
+        # 4. Migrate Expression-axis classes from Work to Expression.
+        #    Classes declared as rdfs:subClassOf bffi:Expression in lkd.rdf
+        #    (such as bffi:NotatedMusic, bffi:Text, etc.) were attached to bf:Work
+        #    by marc2bibframe2 because BIBFRAME has no Expression entity.
+        #    In BFFI, they belong on the Expression, not the Work.
+        for o in list(graph.objects(subject, RDF.type)):
+            if o in BFFI_EXPRESSION_CLASSES:
+                graph.remove((subject, RDF.type, o))
+                graph.add((expr_node, RDF.type, o))
+
+        # 5. Populate bffi:languageOfExpression on Expression
         #    and fix bffi:language on Work for translations.
         text_langs = list(graph.objects(subject, BFFI.language))
 

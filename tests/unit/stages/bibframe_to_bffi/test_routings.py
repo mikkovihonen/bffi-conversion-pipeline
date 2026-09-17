@@ -9,6 +9,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     AXIS_DEFAULT_CLASSES,
     BF,
     BFFI,
+    BFFI_EXPRESSION_CLASSES,
     INVERSE_PREDICATE_ROUTINGS,
     RELATION_PREDICATE_ROUTINGS,
     ROUTING_REGISTRY,
@@ -692,6 +693,33 @@ def test_route_work_split_translation_uses_original_language() -> None:
     ) in g
     # otx note survives on Work.
     assert (note, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")) in g
+
+
+def test_route_work_split_migrates_expression_classes() -> None:
+    """Classes declared as rdfs:subClassOf bffi:Expression in lkd.rdf
+    (such as bffi:NotatedMusic and bffi:Text) must be moved from the Work
+    node to the minted Expression node during route_work_split."""
+    g = Graph()
+    w = URIRef("http://example.org/work")
+    g.add((w, RDF.type, BFFI.BibframeWork))
+    g.add((w, RDF.type, BFFI.NotatedMusic))
+    g.add((w, RDF.type, BFFI.Text))
+
+    route_work_split(g)
+
+    expr = next(g.subjects(RDF.type, BFFI.Expression))
+    # Work keeps only Work-axis types.
+    assert (w, RDF.type, BFFI.Work) in g
+    assert (w, RDF.type, BFFI.NotatedMusic) not in g
+    assert (w, RDF.type, BFFI.Text) not in g
+
+    # Expression receives the Expression-axis classes.
+    assert BFFI.NotatedMusic in BFFI_EXPRESSION_CLASSES
+    assert BFFI.Text in BFFI_EXPRESSION_CLASSES
+    assert (expr, RDF.type, BFFI.Expression) in g
+    assert (expr, RDF.type, BFFI.NotatedMusic) in g
+    assert (expr, RDF.type, BFFI.Text) in g
+    assert (expr, BFFI.expressionOf, w) in g
 
 
 # --- routing 6 (axis-default classes) -----------------------------------

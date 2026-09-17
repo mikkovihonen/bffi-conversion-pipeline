@@ -559,18 +559,24 @@ def _leader_status_byte(graph: Graph, manifestation: URIRef) -> str:
 
 def _leader_record_type_byte(graph: Graph, manifestation: URIRef) -> str:
     """Pick the MARC leader position-06 byte (type of record) from
-    ``?work bffi:content <…/contentTypes/{code}>``. Returns the
-    default ``"a"`` (language material) when no content URI matches
+    ``bffi:content <…/contentTypes/{code}>`` on the Work or Expression. Returns
+    the default ``"a"`` (language material) when no content URI matches
     the dispatch table."""
     work = _find_work_for_manifestation(graph, manifestation)
-    if work is None:
-        return _LEADER_DEFAULT_TYPE
-    for content_uri in graph.objects(work, BFFI.content):
-        if not isinstance(content_uri, URIRef):
-            continue
-        mapped = _CONTENT_TYPE_TO_LEADER_TYPE.get(local_name(content_uri))
-        if mapped is not None:
-            return mapped
+    if work is not None:
+        for content_uri in graph.objects(work, BFFI.content):
+            if not isinstance(content_uri, URIRef):
+                continue
+            mapped = _CONTENT_TYPE_TO_LEADER_TYPE.get(local_name(content_uri))
+            if mapped is not None:
+                return mapped
+    for expr in _expressions_for(graph, manifestation, work):
+        for content_uri in graph.objects(expr, BFFI.content):
+            if not isinstance(content_uri, URIRef):
+                continue
+            mapped = _CONTENT_TYPE_TO_LEADER_TYPE.get(local_name(content_uri))
+            if mapped is not None:
+                return mapped
     return _LEADER_DEFAULT_TYPE
 
 

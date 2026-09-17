@@ -409,3 +409,41 @@ def test_a_conversion_failure_lands_in_the_errors_sidecar(tmp_path: Path) -> Non
     assert len(rows) == 1
     assert rows[0]["boundary"] == 0
     assert rows[0]["error_type"] == "BibframeToBffiError"
+
+
+def test_convert_one_notated_music_is_on_expression_not_work(tmp_path: Path) -> None:
+    """When converting b1042698x, bffi:NotatedMusic (subclass of bffi:Expression)
+    must end up on the Expression node, not on the Work node."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b1042698x.xml"
+    bibframe_path = in_dir / "b1042698x.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+    bffi_notated_music = URIRef(BFFI_NAMESPACE + "NotatedMusic")
+    bffi_work = URIRef(BFFI_NAMESPACE + "Work")
+    bffi_expression = URIRef(BFFI_NAMESPACE + "Expression")
+
+    work_nodes = list(g.subjects(RDF.type, bffi_work))
+    assert work_nodes
+    for work in work_nodes:
+        assert (work, RDF.type, bffi_notated_music) not in g
+
+    expr_nodes = list(g.subjects(RDF.type, bffi_expression))
+    assert expr_nodes
+    assert any((expr, RDF.type, bffi_notated_music) in g for expr in expr_nodes)
