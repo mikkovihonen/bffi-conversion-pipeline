@@ -29,7 +29,7 @@ The first column is the MARC tag (or `leader` for the record-level pseudo-tag). 
 
 | MARC tag | Ind1 / Ind2 | Subfields | BFFI source |
 |---|---|---|---|
-| `leader` | `—` | — | Position 05 ← bffi:adminMetadata / bffi:status (mstatus URI); position 06 ← bffi:content URI's last segment (txt → 'a' etc.); position 07 ← bffi:issuance URI (mono → 'm', serl → 's', …); position 17 ← bffi:encodingLevel (menclvl/7 → '7', menclvl/f → ' '). |
+| `leader` | `—` | — | Position 05 ← bffi:adminMetadata / bffi:status (mstatus URI); position 06 ← bffi:content URI's last segment (txt → 'a' etc.) on Work or Expression; position 07 ← bffi:issuance URI (mono → 'm', serl → 's', …); position 17 ← bffi:encodingLevel (menclvl/7 → '7', menclvl/f → ' '). |
 | `001` | `—` | — | ?m bffi:identifiedBy [a bffi:Local ; rdf:value ?bib_id] (fallback: parse from the Manifestation URI fragment) |
 | `005` | `—` | — | ?m bffi:adminMetadata [a bffi:AdminMetadata ; bffi:changeDate ?date] |
 | `010` | `##` | `$a` — LCCN value | ?m bffi:identifiedBy [a bffi:Identifier ; bffi:source <http://id.loc.gov/vocabulary/identifiers/lccn> ; rdf:value ?value] |

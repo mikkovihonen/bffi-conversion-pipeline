@@ -528,7 +528,8 @@ _RESOURCE_COMPONENTS_OTX: Final[URIRef] = URIRef(
     terms=(BFFI.BibframeWork,),
     replacement=(
         "`bffi:Work` (conceptual, ``bffi:language`` = original language) "
-        "+ `bffi:Expression` (realisation, ``bffi:languageOfExpression`` = text language)"
+        "+ `bffi:Expression` (realisation, ``bffi:languageOfExpression`` = text language; "
+        "Expression subclasses like ``bffi:NotatedMusic`` migrated from Work)"
     ),
     link_kind="entity split: BibframeWork → Work + Expression",
 )
@@ -539,6 +540,12 @@ def route_work_split(graph: Graph) -> int:
     The original subject is re-typed as `bffi:Work`. A new BNode is minted
     as the `bffi:Expression`, linked via `bffi:expressionOf`. Properties
     with an Expression domain are migrated to the new node.
+
+    **Expression-axis class migration**: classes declared as
+    ``rdfs:subClassOf bffi:Expression`` in ``vocab/lkd.rdf`` (such as
+    ``bffi:NotatedMusic``, ``bffi:Text``, etc.) were attached to the
+    Work by marc2bibframe2 because BIBFRAME has no Expression entity.
+    These types are moved from the Work to the Expression.
 
     **Language split**: every direct ``bffi:language`` value on the Work is
     copied to the Expression as ``bffi:languageOfExpression``. For

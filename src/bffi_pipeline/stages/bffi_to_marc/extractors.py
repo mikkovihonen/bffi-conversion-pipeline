@@ -475,7 +475,8 @@ class _RdaDescriptors:
         subfields=(),
         source=(
             "Position 05 ← bffi:adminMetadata / bffi:status (mstatus URI); "
-            "position 06 ← bffi:content URI's last segment (txt → 'a' etc.); "
+            "position 06 ← bffi:content URI's last segment (txt → 'a' etc.) "
+            "on Work or Expression; "
             "position 07 ← bffi:issuance URI (mono → 'm', serl → 's', …); "
             "position 17 ← bffi:encodingLevel "
             "(menclvl/7 → '7', menclvl/f → ' ')."
@@ -2699,7 +2700,7 @@ class _SupplementaryContentEmit:
 def _extract_supplementary_content(
     graph: Graph, manifestation: URIRef
 ) -> list[_SupplementaryContentEmit]:
-    """Walk ``?work bffi:supplementaryContent`` and emit one MARC 353
+    r"""Walk ``?work bffi:supplementaryContent`` and emit one MARC 353
     datafield per bnode.
 
     BFFI shape (per marc2bibframe2's 353 template in
@@ -2792,7 +2793,7 @@ def _extract_supplementary_content(
 def _extract_acquisition_source(
     graph: Graph, manifestation: URIRef
 ) -> list[_AcquisitionSourceEmit]:
-    """Walk ``?m bffi:acquisitionSource`` and emit one MARC 037 datafield
+    r"""Walk ``?m bffi:acquisitionSource`` and emit one MARC 037 datafield
     per bnode.
 
     BFFI shape (per marc2bibframe2's 037 template in
@@ -4512,7 +4513,7 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
             "Leader) batch group number. marc2bibframe2 emits ``bf:IssnL`` when "
             "ind1=0; the forward routing collapses it to ``bffi:Identifier`` with "
             "``bffi:source`` ``…/identifiers/issn-l``. The reverse path reads "
-            "this and emits MARC 023 \$a with the bare value."
+            "this and emits MARC 023 \\$a with the bare value."
         ),
     ),
     MarcEmitMeta(
@@ -4529,7 +4530,7 @@ def _subject_marc_tag(graph: Graph, subj_node: Node) -> str | None:
             "string derived from the record's control fields and datafields). "
             "marc2bibframe2 emits ``bf:Fingerprint`` → ``bffi:Identifier`` with "
             "``bffi:source`` ``…/identifiers/fingerprint``. The reverse path "
-            "reads this and emits MARC 026 \$a with the bare value."
+            "reads this and emits MARC 026 \\$a with the bare value."
         ),
     ),
     MarcEmitMeta(
