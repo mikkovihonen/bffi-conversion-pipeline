@@ -2155,12 +2155,19 @@ def test_emit_marcxml_recovers_041_subfield_h_from_an_original_text_note() -> No
     ``bf:Note`` typed with a ``resourceComponents`` URI, language inside — so
     \\$h survives the forward hop and can be put back. 26 occurrences in the
     fixture corpus.
+
+    Post-language-split shape: Work has the original language, Expression has
+    the text language via ``bffi:languageOfExpression``, and the ``otx`` note
+    carries the original language for \\$h.
     """
     g = _build_minimal_bffi_graph(
         manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
     )
-    manifestation, work = _work_with_manifestation(g)
-    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    manifestation, work, expr = _work_and_expression_with_manifestation(g)
+    # Original language (Russian) on Work
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")))
+    # Text language (Finnish) on Expression
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
     _add_language_component(g, work, "otx", "rus")
 
     root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
@@ -2228,6 +2235,65 @@ def test_emit_marcxml_keeps_a_summary_language_code_when_it_stands_alone() -> No
     df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
     assert df is not None
     assert [sf.text for sf in df.findall(f"{{{MARC21_NS}}}subfield[@code='a']")] == ["zxx"]
+
+
+def _work_and_expression_with_manifestation(
+    g: Graph,
+) -> tuple[URIRef, URIRef, BNode]:
+    """Return ``(manifestation, work, expression)`` wired via bffi:workManifested.
+
+    The Work is already typed ``bffi:Work`` (post-split shape) with a
+    linked Expression node.
+    """
+    manifestation = next(g.subjects(RDF.type, BFFI.Manifestation))
+    work = URIRef("http://example.org/b1#Work")
+    g.add((work, RDF.type, BFFI.Work))
+    expr = BNode()
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((manifestation, BFFI.workManifested, work))
+    return manifestation, work, expr
+
+
+def test_emit_marcxml_reads_041a_from_language_of_expression() -> None:
+    """After the language split, 041 \\$a is read from
+    ``bffi:languageOfExpression`` on the Expression node."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work, expr = _work_and_expression_with_manifestation(g)
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    assert [sf.text for sf in df.findall(f"{{{MARC21_NS}}}subfield[@code='a']")] == ["fin"]
+
+
+def test_emit_marcxml_translation_splits_041a_and_041h() -> None:
+    """For a translation graph (otx note + Work bffi:language = original
+    language, Expression bffi:languageOfExpression = text language),
+    041 \\$a carries only the text language and 041 \\$h carries the
+    original language."""
+    g = _build_minimal_bffi_graph(
+        manifestation_uri="http://example.org/b1#Instance", bib_id="b1", title="t"
+    )
+    manifestation, work, expr = _work_and_expression_with_manifestation(g)
+    # Text language (Finnish) on Expression
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+    # Original language (Russian) on Work
+    g.add((work, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")))
+    # otx note on Work
+    _add_language_component(g, work, "otx", "rus")
+
+    root = etree.fromstring(emit_marcxml(g, manifestation=manifestation))
+    df = root.find(f"{{{MARC21_NS}}}datafield[@tag='041']")
+    assert df is not None
+    # Only text language in $a; original language in $h.
+    assert [(sf.get("code"), sf.text) for sf in df] == [("a", "fin"), ("h", "rus")]
+    # ind1=1 — "item is or includes a translation".
+    assert df.get("ind1") == "1"
 
 
 def test_emit_marcxml_emits_037_from_acquisition_source() -> None:

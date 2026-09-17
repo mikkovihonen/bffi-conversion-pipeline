@@ -55,10 +55,11 @@ Out of scope for v0 — flagged in the mapping doc but deferred to a
 follow-on:
 
 - Hub routing currently picks the *type* per marcKey signals but does
-  NOT also attach the optional facet predicates (``bffi:languageOfExpression``,
-  ``bffi:musicKey``, ``bffi:version``). Those are nice-to-have signal
-  promotions; the type rewrite is what unblocks closed-namespace
-  discipline.
+  NOT also attach the optional facet predicates (``bffi:musicKey``,
+  ``bffi:version``). Those are nice-to-have signal promotions; the
+  type rewrite is what unblocks closed-namespace discipline.
+  ``bffi:languageOfExpression`` is now handled by the Work split
+  (routing 4b).
 """
 
 from __future__ import annotations
@@ -504,9 +505,17 @@ BFFI_EXPRESSION_PROPS: Final[frozenset[URIRef]] = frozenset(
 )
 
 
+_RESOURCE_COMPONENTS_OTX: Final[URIRef] = URIRef(
+    "http://id.loc.gov/vocabulary/resourceComponents/otx"
+)
+
+
 @routing(
     terms=(BFFI.BibframeWork,),
-    replacement="`bffi:Work` (conceptual) + `bffi:Expression` (realisation)",
+    replacement=(
+        "`bffi:Work` (conceptual, ``bffi:language`` = original language) "
+        "+ `bffi:Expression` (realisation, ``bffi:languageOfExpression`` = text language)"
+    ),
     link_kind="entity split: BibframeWork → Work + Expression",
 )
 def route_work_split(graph: Graph) -> int:
@@ -516,6 +525,14 @@ def route_work_split(graph: Graph) -> int:
     The original subject is re-typed as `bffi:Work`. A new BNode is minted
     as the `bffi:Expression`, linked via `bffi:expressionOf`. Properties
     with an Expression domain are migrated to the new node.
+
+    **Language split**: every direct ``bffi:language`` value on the Work is
+    copied to the Expression as ``bffi:languageOfExpression``. For
+    translations (detected by the presence of a ``bffi:note`` typed
+    ``resourceComponents/otx``), the Work's ``bffi:language`` is replaced
+    with the original language from the ``otx`` note, while the Expression
+    retains the text language. The ``otx`` note structure itself is
+    preserved for 041 ``$h`` round-trip fidelity.
     """
     rewritten = 0
     for subject in list(graph.subjects(RDF.type, BFFI.BibframeWork)):
@@ -533,6 +550,32 @@ def route_work_split(graph: Graph) -> int:
             if p in BFFI_EXPRESSION_PROPS or p == BF.hasInstance:
                 graph.remove((subject, p, o))
                 graph.add((expr_node, p, o))
+
+        # 4. Populate bffi:languageOfExpression on Expression
+        #    and fix bffi:language on Work for translations.
+        text_langs = list(graph.objects(subject, BFFI.language))
+
+        # Detect translation: any bffi:note typed resourceComponents/otx?
+        orig_langs: list[Node] = []
+        for note in graph.objects(subject, BFFI.note):
+            if not isinstance(note, (URIRef, BNode)):
+                continue
+            if (note, RDF.type, _RESOURCE_COMPONENTS_OTX) in graph:
+                for lang in graph.objects(note, BFFI.language):
+                    if isinstance(lang, URIRef):
+                        orig_langs.append(lang)
+
+        # Expression always gets the text languages.
+        for lang in text_langs:
+            graph.add((expr_node, BFFI.languageOfExpression, lang))
+
+        # For translations: replace Work's bffi:language with the original language.
+        if orig_langs:
+            for lang in text_langs:
+                graph.remove((subject, BFFI.language, lang))
+            for lang in orig_langs:
+                graph.add((subject, BFFI.language, lang))
+        # For non-translations: Work keeps bffi:language as-is (= same as Expression).
 
         rewritten += 1
     return rewritten

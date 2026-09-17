@@ -3659,9 +3659,13 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
             ("r", "language of accessible visual language"),
         ),
         source=(
-            "\\$a: ?m or ?work or ?expression bffi:language "
-            "<http://id.loc.gov/vocabulary/languages/{code}> — the last URI "
-            "segment is the MARC code. \\$h and the other component codes: "
+            "\\$a: ?expression bffi:languageOfExpression "
+            "<http://id.loc.gov/vocabulary/languages/{code}> "
+            "(preferred), falling back to ?work or ?m bffi:language "
+            "for backward compatibility. "
+            "For translations (otx note present), ?work bffi:language "
+            "carries the original language and is excluded from \\$a. "
+            "\\$h and the other component codes: "
             "?work bffi:note [a <http://id.loc.gov/vocabulary/resourceComponents/"
             "{component}> ; bffi:language <…/languages/{code}>], where the "
             "component URI selects the subfield (otx → \\$h, sub → \\$j, …)"
@@ -3677,6 +3681,12 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
             "and likewise \\$i \\$j \\$k \\$m \\$n \\$p \\$q \\$r. "
             "26 source \\$h and 10 \\$j occurrences in the fixture corpus; "
             "9 records' 041s became byte-identical when this landed.\n\n"
+            "**Language split**: the forward converter's Work split populates "
+            "``bffi:languageOfExpression`` on Expression nodes with the text "
+            "language, and for translations replaces the Work's ``bffi:language`` "
+            "with the original language (from the ``otx`` note). This extractor "
+            "reads both predicates and uses the ``otx`` presence as a guard to "
+            "exclude the Work's original language from \\$a.\n\n"
             "**Not recovered:** the ``bdefgt`` set (\\$b summary, \\$d sung or "
             "spoken text, \\$e librettos, \\$f table of contents, \\$g "
             "accompanying material, \\$t transcripts), which the XSLT emits as "
@@ -3704,38 +3714,51 @@ def _note_text_with_type(graph: Graph, subject: Node, note_type: URIRef) -> str 
     )
 )
 def _extract_language_codes(graph: Graph, manifestation: URIRef) -> list[str]:
-    """Walk every ``?m bffi:language`` object — typically a LoC language
-    vocabulary URI like ``<http://id.loc.gov/vocabulary/languages/eng>``.
-    Returns the 3-letter MARC language codes (the URI's local name).
+    """Collect language codes for MARC 041 \\$a.
 
-    Deduped, deterministic ordering (sorted). Maps to MARC 041 \\$a (one per
-    language).
+    Reads ``bffi:languageOfExpression`` from Expression nodes (the primary
+    source after the Work split) and ``bffi:language`` from all axes for
+    backward compatibility. Returns 3-letter MARC language codes (the URI's
+    local name), deduped and sorted.
 
-    Walks the Manifestation, the Work and any Expression. marc2bibframe2 puts
-    ``bf:language`` on the **Work** for 041 (this rule's own note has said so
-    all along) and language is an Expression attribute in the FRBR sense, so
-    a Manifestation-only walk emitted nothing for a record whose only
-    language statement came from 041.
+    For translations (detected by an ``otx``-typed ``bffi:note`` on the
+    Work), the Work's ``bffi:language`` carries the original language and
+    is excluded from \\$a — it belongs in \\$h instead, which
+    ``_extract_language_components`` handles via the note structure.
     """
     work = _find_work_for_manifestation(graph, manifestation)
     owners: list[URIRef | BNode] = [manifestation]
     if work is not None:
         owners.append(work)
-    owners.extend(_expressions_for(graph, manifestation, work))
-    codes = {
-        local_name(obj)
-        for owner in owners
-        for obj in graph.objects(owner, BFFI.language)
-        if isinstance(obj, URIRef)
-    }
-    # ``mul`` (multiple languages) and ``zxx`` (no linguistic content) are
-    # 008/35-37 summary codes. marc2bibframe2 emits them as ``bf:language``
-    # like any other, so a record whose 041 lists its languages individually
-    # picked up a spurious extra ``$a`` from its own 008 — ``$azxx`` beside
-    # ``$aita $ager``, ``$amul`` beside eight real codes. In the fixture
-    # corpus these two codes appear in a source 041 only on their own (3
-    # records, all ``zxx`` alone), never alongside real languages, so they
-    # are dropped when anything else is present and kept when they aren't.
+    expressions = _expressions_for(graph, manifestation, work)
+    owners.extend(expressions)
+
+    codes: set[str] = set()
+    # Read bffi:language from all owners (backward compat).
+    for owner in owners:
+        for obj in graph.objects(owner, BFFI.language):
+            if isinstance(obj, URIRef):
+                codes.add(local_name(obj))
+    # Read bffi:languageOfExpression from Expression nodes.
+    for expr in expressions:
+        for obj in graph.objects(expr, BFFI.languageOfExpression):
+            if isinstance(obj, URIRef):
+                codes.add(local_name(obj))
+
+    # For translations, bffi:language on Work is the ORIGINAL language
+    # (= 041 $h, not $a). Exclude it from $a codes when otx notes exist.
+    if work is not None:
+        has_otx = any(
+            (note, RDF.type, _RESOURCE_COMPONENTS_OTX) in graph
+            for note in graph.objects(work, BFFI.note)
+            if isinstance(note, (URIRef, BNode))
+        )
+        if has_otx:
+            # Work's bffi:language is the original lang → belongs in $h, not $a.
+            for obj in graph.objects(work, BFFI.language):
+                if isinstance(obj, URIRef):
+                    codes.discard(local_name(obj))
+
     if len(codes) > 1:
         codes -= _LANGUAGE_SUMMARY_CODES
     return sorted(codes)
@@ -3754,6 +3777,11 @@ _RESOURCE_COMPONENT_TO_041_SUBFIELD: Final[dict[URIRef, str]] = {
     URIRef("http://id.loc.gov/vocabulary/resourceComponents/aud"): "q",
     URIRef("http://id.loc.gov/vocabulary/resourceComponents/vis"): "r",
 }
+
+# The "original text" typed note is the translation discriminator.
+_RESOURCE_COMPONENTS_OTX: Final[URIRef] = URIRef(
+    "http://id.loc.gov/vocabulary/resourceComponents/otx"
+)
 
 
 def _extract_language_components(graph: Graph, manifestation: URIRef) -> list[tuple[str, str]]:

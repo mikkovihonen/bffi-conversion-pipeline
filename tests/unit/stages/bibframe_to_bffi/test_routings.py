@@ -645,6 +645,55 @@ def test_route_work_split_hands_instance_link_to_axis_default_as_expression() ->
     assert (work, BFFI.manifestationOfExpression, manifestation) not in g
 
 
+def test_route_work_split_copies_language_to_expression() -> None:
+    """For non-translations, bffi:language stays on Work AND is copied
+    to Expression as bffi:languageOfExpression."""
+    g = Graph()
+    w = URIRef("http://example.org/work")
+    g.add((w, RDF.type, BFFI.BibframeWork))
+    g.add((w, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+
+    route_work_split(g)
+
+    expr = next(g.subjects(RDF.type, BFFI.Expression))
+    # Work keeps bffi:language (non-translation: same as Expression).
+    assert (w, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")) in g
+    # Expression gets languageOfExpression with the same value.
+    assert (
+        expr,
+        BFFI.languageOfExpression,
+        URIRef("http://id.loc.gov/vocabulary/languages/fin"),
+    ) in g
+
+
+def test_route_work_split_translation_uses_original_language() -> None:
+    """For translations (otx note present), Work gets the original language
+    and Expression gets the text language."""
+    g = Graph()
+    w = URIRef("http://example.org/work")
+    g.add((w, RDF.type, BFFI.BibframeWork))
+    g.add((w, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")))  # text lang
+    note = BNode()
+    g.add((w, BFFI.note, note))
+    g.add((note, RDF.type, URIRef("http://id.loc.gov/vocabulary/resourceComponents/otx")))
+    g.add((note, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")))  # orig lang
+
+    route_work_split(g)
+
+    expr = next(g.subjects(RDF.type, BFFI.Expression))
+    # Work has original language, NOT text language.
+    assert (w, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")) in g
+    assert (w, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/fin")) not in g
+    # Expression has text language.
+    assert (
+        expr,
+        BFFI.languageOfExpression,
+        URIRef("http://id.loc.gov/vocabulary/languages/fin"),
+    ) in g
+    # otx note survives on Work.
+    assert (note, BFFI.language, URIRef("http://id.loc.gov/vocabulary/languages/rus")) in g
+
+
 # --- routing 6 (axis-default classes) -----------------------------------
 
 
