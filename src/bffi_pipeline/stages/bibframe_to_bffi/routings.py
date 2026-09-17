@@ -74,7 +74,7 @@ from rdflib.namespace import RDF, RDFS
 from rdflib.term import Node
 
 from bffi_pipeline.bibframe import BibframeOntology, load_ontology
-from bffi_pipeline.provenance.vocab import BFFI_1_0_0_VERSION_URI
+from bffi_pipeline.provenance.vocab import BFFI_1_0_0_VERSION_URI, MTS
 from bffi_pipeline.rdf_utils import local_name
 
 #: BIBFRAME namespace — the input side. Routings remove triples that
@@ -610,6 +610,221 @@ def route_work_split(graph: Graph) -> int:
         # For non-translations: Work keeps bffi:language as-is (= same as Expression).
 
         rewritten += 1
+    return rewritten
+
+
+# --- routing 4c: Work Primary Title -------------------------------------
+
+
+def _is_variant_title_node(graph: Graph, title_node: Node) -> bool:
+    """Return True if title_node is typed as a variant title or has variant marcKey."""
+    for o in graph.objects(title_node, RDF.type):
+        o_str = str(o)
+        if "vartitletype" in o_str or o in TITLE_VARIANT_CLASSES:
+            return True
+    for mk in graph.objects(title_node, BFFI.marcKey):
+        if str(mk).startswith("246"):
+            return True
+    return bool(
+        any(graph.objects(title_node, BFFI.variantType))
+        or any(graph.objects(title_node, BF.variantType))
+    )
+
+
+def _is_245_title_node(graph: Graph, title_node: Node) -> bool:
+    """Return True if title_node represents a MARC 245 title (typed Title, not variant)."""
+    types = set(graph.objects(title_node, RDF.type))
+    if not (BFFI.Title in types or BF.Title in types):
+        return False
+    return not _is_variant_title_node(graph, title_node)
+
+
+def _find_uniform_title(graph: Graph, work: Node, expr_nodes: list[Node]) -> Node | None:
+    """Find a uniform title node (MARC 130 or 240) associated with work."""
+    candidate_hubs: list[Node] = []
+    for expr in expr_nodes:
+        for target in graph.objects(expr, BFFI.expressionOf):
+            if target != work and target not in candidate_hubs:
+                candidate_hubs.append(target)
+    for target in graph.objects(work, BFFI.expressionOf):
+        if target != work and target not in candidate_hubs:
+            candidate_hubs.append(target)
+
+    for h in set(
+        list(graph.subjects(RDF.type, BF.Hub)) + list(graph.subjects(RDF.type, BFFI.Work))
+    ):
+        if h == work or h in candidate_hubs:
+            continue
+        h_str = str(h)
+        if "#Hub130" in h_str or "#Hub240" in h_str:
+            candidate_hubs.append(h)
+        else:
+            for mk in graph.objects(h, BFFI.marcKey):
+                mk_str = str(mk)
+                if mk_str.startswith("130") or mk_str.startswith("240") or "$t" in mk_str:
+                    candidate_hubs.append(h)
+                    break
+
+    for hub in candidate_hubs:
+        hub_str = str(hub)
+        is_130_or_240 = "#Hub130" in hub_str or "#Hub240" in hub_str
+        if not is_130_or_240:
+            for mk in graph.objects(hub, BFFI.marcKey):
+                mk_str = str(mk)
+                if mk_str.startswith("130") or mk_str.startswith("240") or "$t" in mk_str:
+                    is_130_or_240 = True
+                    break
+        if is_130_or_240:
+            titles = list(graph.objects(hub, BFFI.title)) or list(graph.objects(hub, BF.title))
+            for t in titles:
+                if not _is_variant_title_node(graph, t):
+                    return t
+    return None
+
+
+def _find_manif_245_title(graph: Graph, work: Node, expr_nodes: list[Node]) -> Node | None:
+    """Find the MARC 245 title node from Manifestation or fallback to Work."""
+    manifestation: Node | None = None
+    for m in graph.subjects(BFFI.workManifested, work):
+        manifestation = m
+        break
+    if manifestation is None:
+        for m in graph.objects(work, BFFI.manifestationOfWork):
+            manifestation = m
+            break
+    if manifestation is None:
+        for expr in expr_nodes:
+            for m in graph.objects(expr, BFFI.manifestationOfExpression):
+                manifestation = m
+                break
+            if manifestation is not None:
+                break
+            for m in graph.subjects(BFFI.expressionManifested, expr):
+                manifestation = m
+                break
+            if manifestation is not None:
+                break
+    if manifestation is None:
+        for m in graph.subjects(BF.instanceOf, work):
+            manifestation = m
+            break
+    if manifestation is None:
+        for m in graph.objects(work, BF.hasInstance):
+            manifestation = m
+            break
+    if manifestation is None:
+        manifs = list(graph.subjects(RDF.type, BFFI.Manifestation)) or list(
+            graph.subjects(RDF.type, BF.Instance)
+        )
+        if len(manifs) == 1:
+            manifestation = manifs[0]
+
+    if manifestation is not None:
+        for t in list(graph.objects(manifestation, BFFI.title)) + list(
+            graph.objects(manifestation, BF.title)
+        ):
+            if _is_245_title_node(graph, t):
+                return t
+
+    for t in list(graph.objects(work, BFFI.title)) + list(graph.objects(work, BF.title)):
+        if _is_245_title_node(graph, t):
+            return t
+
+    return None
+
+
+@routing(
+    terms=(BFFI.title,),
+    replacement=(
+        "`bffi:title` [ a `bffi:Title`, `mts:m1628` ] "
+        "(preferred title for work from MARC 130/240 uniform title or 245 $a/$p/$n fallback)"
+    ),
+    link_kind="entity title: Work primary title selection + mts:m1628 typing",
+)
+def route_work_primary_title(graph: Graph) -> int:
+    """Select the primary title of Works and attach ``rdf:type mts:m1628``.
+
+    In Finnish RDA cataloguing, every Work has a preferred title
+    (``mts:m1628``, *Teoksen ensisijainen nimeke*).
+
+    1. If a uniform title resulting from MARC 130 or 240 exists (present on
+       an associated Hub reachable via Expression or direct link, or on the
+       Work itself), select that as the primary title on the Work, type it
+       with ``bffi:Title`` and ``mts:m1628``, and remove the transcribed 245
+       title from the Work.
+    2. If only the BIBFRAME equivalent of MARC 245 exists (on the
+       associated Manifestation), use only the equivalents of subfields
+       ``$a`` (``bffi:mainTitle``), ``$p`` (``bffi:partName``), and
+       ``$n`` (``bffi:partNumber``) — excluding subtitle ``$b`` — and
+       type it with ``bffi:Title`` and ``mts:m1628``.
+    3. Variant titles (e.g. from MARC 246) on the Work are preserved.
+    """
+    rewritten = 0
+    work_candidates = [
+        w
+        for w in graph.subjects(RDF.type, BFFI.Work)
+        if not ("#Hub" in str(w) or (w, RDF.type, BF.Hub) in graph)
+    ]
+
+    for work in work_candidates:
+        if any((t, RDF.type, MTS.m1628) in graph for t in graph.objects(work, BFFI.title)):
+            continue
+
+        expr_nodes = list(graph.subjects(BFFI.expressionOf, work)) + list(
+            graph.objects(work, BFFI.hasExpression)
+        )
+        source_title_node = _find_uniform_title(graph, work, expr_nodes) or _find_manif_245_title(
+            graph, work, expr_nodes
+        )
+        if source_title_node is None:
+            continue
+
+        main_titles = list(graph.objects(source_title_node, BFFI.mainTitle)) or list(
+            graph.objects(source_title_node, BF.mainTitle)
+        )
+        part_names = list(graph.objects(source_title_node, BFFI.partName)) or list(
+            graph.objects(source_title_node, BF.partName)
+        )
+        part_numbers = list(graph.objects(source_title_node, BFFI.partNumber)) or list(
+            graph.objects(source_title_node, BF.partNumber)
+        )
+        non_sort_nums = list(graph.objects(source_title_node, BFFI.nonSortNum)) or list(
+            graph.objects(source_title_node, BF.nonSortNum)
+        )
+        qualifiers = list(graph.objects(source_title_node, BFFI.qualifier)) or list(
+            graph.objects(source_title_node, BF.qualifier)
+        )
+
+        old_work_245_titles = [
+            t
+            for t in list(graph.objects(work, BFFI.title)) + list(graph.objects(work, BF.title))
+            if _is_245_title_node(graph, t)
+        ]
+        for old_t in old_work_245_titles:
+            graph.remove((work, BFFI.title, old_t))
+            graph.remove((work, BF.title, old_t))
+            if isinstance(old_t, BNode) and not any(graph.triples((None, None, old_t))):
+                for p, o in list(graph.predicate_objects(old_t)):
+                    graph.remove((old_t, p, o))
+
+        primary_title = BNode()
+        graph.add((work, BFFI.title, primary_title))
+        graph.add((primary_title, RDF.type, BFFI.Title))
+        graph.add((primary_title, RDF.type, MTS.m1628))
+
+        for mt in main_titles:
+            graph.add((primary_title, BFFI.mainTitle, mt))
+        for pn in part_names:
+            graph.add((primary_title, BFFI.partName, pn))
+        for pnum in part_numbers:
+            graph.add((primary_title, BFFI.partNumber, pnum))
+        for nsn in non_sort_nums:
+            graph.add((primary_title, BFFI.nonSortNum, nsn))
+        for q in qualifiers:
+            graph.add((primary_title, BFFI.qualifier, q))
+
+        rewritten += 1
+
     return rewritten
 
 
@@ -1844,6 +2059,7 @@ def apply_all_routings(graph: Graph) -> dict[str, int]:
         "series_link": route_series_links(graph),
         "relation_predicate": route_relation_predicates(graph),
         "work_split": route_work_split(graph),
+        "work_primary_title": route_work_primary_title(graph),
         "hub": route_hubs(graph),
         "description_level": route_description_level(graph),
         "inverse_predicate": route_inverse_predicates(graph),

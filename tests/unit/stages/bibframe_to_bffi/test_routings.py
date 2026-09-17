@@ -5,6 +5,7 @@ from __future__ import annotations
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
 
+from bffi_pipeline.provenance.vocab import MTS
 from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     AXIS_DEFAULT_CLASSES,
     BF,
@@ -40,6 +41,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     route_relation_predicates,
     route_series_links,
     route_title_variants,
+    route_work_primary_title,
     route_work_split,
 )
 
@@ -70,6 +72,7 @@ def test_routing_registry_attaches_metadata_to_decorated_functions() -> None:
         "drop_music_mode_residue",
         "drop_subseries_residue",
         "route_work_split",
+        "route_work_primary_title",
         "route_manifestation_work_domain_props",
     }
     registered = {meta.handler for meta in ROUTING_REGISTRY}
@@ -547,6 +550,7 @@ def test_apply_all_routings_returns_per_routing_counts() -> None:
         "provision_statement_to_note": 0,
         "dropped_undeclared_bf": 0,
         "work_split": 0,
+        "work_primary_title": 0,
         "manifestation_work_domain_lifted": 0,
         "manifestation_work_domain_unresolved": 0,
     }
@@ -1630,3 +1634,180 @@ def test_route_description_level_no_op_when_already_conforming() -> None:
     )
 
     assert route_description_level(g) == 0
+
+
+# --- route_work_primary_title --------------------------------------------
+
+
+def test_route_work_primary_title_uniform_title_from_hub130() -> None:
+    """Work primary title is chosen from Hub130 uniform title, typed bffi:Title + mts:m1628,
+    and old 245 title is removed from Work."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.Work))
+
+    # Old transcribed 245 title on Work
+    old_title = BNode()
+    g.add((work, BFFI.title, old_title))
+    g.add((old_title, RDF.type, BFFI.Title))
+    g.add((old_title, BFFI.mainTitle, Literal("Transcribed 245 Title")))
+
+    # Hub130 with uniform title
+    hub = URIRef("http://example.org/record#Hub130-20")
+    g.add((hub, RDF.type, BF.Hub))
+    g.add((hub, BFFI.marcKey, Literal("1300 $aUniform Title 130")))
+    hub_title = BNode()
+    g.add((hub, BFFI.title, hub_title))
+    g.add((hub_title, RDF.type, BFFI.Title))
+    g.add((hub_title, BFFI.mainTitle, Literal("Uniform Title 130")))
+
+    # Expression links work and hub
+    expr = BNode()
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((expr, BFFI.expressionOf, hub))
+
+    rewritten = route_work_primary_title(g)
+    assert rewritten == 1
+
+    work_titles = list(g.objects(work, BFFI.title))
+    assert len(work_titles) == 1
+    t = work_titles[0]
+    types = set(g.objects(t, RDF.type))
+    assert BFFI.Title in types
+    assert MTS.m1628 in types
+    assert list(g.objects(t, BFFI.mainTitle)) == [Literal("Uniform Title 130")]
+    assert (old_title, BFFI.mainTitle, Literal("Transcribed 245 Title")) not in g
+
+
+def test_route_work_primary_title_uniform_title_from_hub240() -> None:
+    """Work primary title is chosen from Hub240 uniform title."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.Work))
+
+    old_title = BNode()
+    g.add((work, BFFI.title, old_title))
+    g.add((old_title, RDF.type, BFFI.Title))
+    g.add((old_title, BFFI.mainTitle, Literal("Transcribed 245 Title")))
+
+    hub = URIRef("http://example.org/record#Hub240-21")
+    g.add((hub, RDF.type, BF.Hub))
+    hub_title = BNode()
+    g.add((hub, BFFI.title, hub_title))
+    g.add((hub_title, RDF.type, BFFI.Title))
+    g.add((hub_title, BFFI.mainTitle, Literal("Uniform Title 240")))
+    g.add((hub_title, BFFI.partName, Literal("Part One")))
+
+    expr = BNode()
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((expr, BFFI.expressionOf, hub))
+
+    rewritten = route_work_primary_title(g)
+    assert rewritten == 1
+
+    work_titles = list(g.objects(work, BFFI.title))
+    assert len(work_titles) == 1
+    t = work_titles[0]
+    types = set(g.objects(t, RDF.type))
+    assert BFFI.Title in types
+    assert MTS.m1628 in types
+    assert list(g.objects(t, BFFI.mainTitle)) == [Literal("Uniform Title 240")]
+    assert list(g.objects(t, BFFI.partName)) == [Literal("Part One")]
+
+
+def test_route_work_primary_title_245_fallback_strips_subtitle() -> None:
+    """When only 245 exists, Work primary title takes $a, $p, $n (excluding $b) with mts:m1628."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.Work))
+
+    old_title = BNode()
+    g.add((work, BFFI.title, old_title))
+    g.add((old_title, RDF.type, BFFI.Title))
+    g.add((old_title, BFFI.mainTitle, Literal("Main Title : Subtitle")))
+
+    manif = URIRef("http://example.org/instance")
+    g.add((manif, RDF.type, BFFI.Manifestation))
+    g.add((manif, BFFI.workManifested, work))
+    manif_title = BNode()
+    g.add((manif, BFFI.title, manif_title))
+    g.add((manif_title, RDF.type, BFFI.Title))
+    g.add((manif_title, BFFI.mainTitle, Literal("Main Title")))
+    g.add((manif_title, BFFI.subtitle, Literal("Subtitle")))
+    g.add((manif_title, BFFI.partName, Literal("Section Name")))
+    g.add((manif_title, BFFI.partNumber, Literal("Part 1")))
+
+    rewritten = route_work_primary_title(g)
+    assert rewritten == 1
+
+    work_titles = list(g.objects(work, BFFI.title))
+    assert len(work_titles) == 1
+    t = work_titles[0]
+    types = set(g.objects(t, RDF.type))
+    assert BFFI.Title in types
+    assert MTS.m1628 in types
+    assert list(g.objects(t, BFFI.mainTitle)) == [Literal("Main Title")]
+    assert list(g.objects(t, BFFI.partName)) == [Literal("Section Name")]
+    assert list(g.objects(t, BFFI.partNumber)) == [Literal("Part 1")]
+    assert list(g.objects(t, BFFI.subtitle)) == []
+
+
+def test_route_work_primary_title_preserves_variant_titles() -> None:
+    """Variant titles (e.g. MARC 246) on Work are preserved when primary title is set."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.Work))
+
+    # Old 245 title
+    old_title = BNode()
+    g.add((work, BFFI.title, old_title))
+    g.add((old_title, RDF.type, BFFI.Title))
+    g.add((old_title, BFFI.mainTitle, Literal("Old 245")))
+
+    # 246 variant title
+    var_title = BNode()
+    g.add((work, BFFI.title, var_title))
+    g.add((var_title, RDF.type, BFFI.Title))
+    g.add((var_title, BFFI.marcKey, Literal("24613$aVariant Title")))
+    g.add((var_title, BFFI.mainTitle, Literal("Variant Title")))
+
+    manif = URIRef("http://example.org/instance")
+    g.add((manif, RDF.type, BFFI.Manifestation))
+    g.add((manif, BFFI.workManifested, work))
+    manif_title = BNode()
+    g.add((manif, BFFI.title, manif_title))
+    g.add((manif_title, RDF.type, BFFI.Title))
+    g.add((manif_title, BFFI.mainTitle, Literal("Main Title")))
+
+    rewritten = route_work_primary_title(g)
+    assert rewritten == 1
+
+    work_titles = list(g.objects(work, BFFI.title))
+    assert len(work_titles) == 2
+
+    # Verify variant title still intact
+    assert var_title in work_titles
+    assert list(g.objects(var_title, BFFI.marcKey)) == [Literal("24613$aVariant Title")]
+
+    # Verify primary title
+    prim_title = next(t for t in work_titles if t != var_title)
+    types = set(g.objects(prim_title, RDF.type))
+    assert BFFI.Title in types
+    assert MTS.m1628 in types
+    assert list(g.objects(prim_title, BFFI.mainTitle)) == [Literal("Main Title")]
+
+
+def test_route_work_primary_title_idempotent() -> None:
+    """Running route_work_primary_title twice makes no changes on the second pass."""
+    g = Graph()
+    work = URIRef("http://example.org/work")
+    g.add((work, RDF.type, BFFI.Work))
+    title = BNode()
+    g.add((work, BFFI.title, title))
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, RDF.type, MTS.m1628))
+    g.add((title, BFFI.mainTitle, Literal("Already Preferred Title")))
+
+    assert route_work_primary_title(g) == 0

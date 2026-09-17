@@ -36,6 +36,7 @@ SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 #: bound or rdflib invents ``ns1:`` for them — the exact failure the
 #: prefix-discipline rule in ``CLAUDE.md`` exists to prevent.
 MADSRDF = Namespace("http://www.loc.gov/mads/rdf/v1#")
+MTS = Namespace("http://urn.fi/URN:NBN:fi:au:mts:")
 
 
 #: Canonical short prefix → namespace mapping for every vocabulary the
@@ -85,6 +86,7 @@ CANONICAL_TURTLE_PREFIXES: dict[str, object] = {
     "bffi": BFFI,
     "bffi-prov": BFFI_PROV,
     "bib": BIB,
+    "mts": MTS,
 }
 
 
@@ -327,6 +329,7 @@ __all__ = [
     "GEN_PROCESS_PIPELINE_V0_1_0",
     "MADSRDF",
     "METADATA_LICENSOR_CC0",
+    "MTS",
     "PROV",
     "RDF",
     "RDFS",

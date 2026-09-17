@@ -475,3 +475,119 @@ def test_convert_one_description_level_is_bffi_1_0_0(tmp_path: Path) -> None:
     bffi_dl = URIRef(BFFI_NAMESPACE + "descriptionLevel")
     dl_values = list(g.objects(None, bffi_dl))
     assert dl_values == [URIRef("http://schema.finto.fi/bffi/1-0-0/")]
+
+
+def test_convert_one_work_primary_title_245_fallback(tmp_path: Path) -> None:
+    """When only MARC 245 exists (b1042698x), Work receives bffi:title typed
+    bffi:Title and mts:m1628 with 245 $a ($p, $n) and without subtitle."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b1042698x.xml"
+    bibframe_path = in_dir / "b1042698x.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+    works = [w for w in g.subjects(RDF.type, V.BFFI.Work) if "#Hub" not in str(w)]
+    assert len(works) == 1
+    work = works[0]
+
+    titles = list(g.objects(work, V.BFFI.title))
+    assert len(titles) == 1
+    t = titles[0]
+    types = set(g.objects(t, RDF.type))
+    assert V.BFFI.Title in types
+    assert V.MTS.m1628 in types
+    assert list(g.objects(t, V.BFFI.mainTitle)) == [Literal("Jazz fake book")]
+    assert list(g.objects(t, V.BFFI.subtitle)) == []
+
+
+def test_convert_one_work_primary_title_marc_130(tmp_path: Path) -> None:
+    """When MARC 130 exists (b18797684), Work primary title is chosen from the 130 uniform title."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b18797684.xml"
+    bibframe_path = in_dir / "b18797684.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+    works = [w for w in g.subjects(RDF.type, V.BFFI.Work) if "#Hub" not in str(w)]
+    assert len(works) == 1
+    work = works[0]
+
+    prim_titles = [
+        t for t in g.objects(work, V.BFFI.title) if V.MTS.m1628 in set(g.objects(t, RDF.type))
+    ]
+    assert len(prim_titles) == 1
+    pt = prim_titles[0]
+    assert list(g.objects(pt, V.BFFI.mainTitle)) == [
+        Literal("Harry Potter and the chamber of secrets (elokuva : 2002)")
+    ]
+
+    var_titles = [t for t in g.objects(work, V.BFFI.title) if t != pt]
+    assert len(var_titles) == 1
+    assert list(g.objects(var_titles[0], V.BFFI.mainTitle)) == [
+        Literal("Harry Potter och hemligheternas kammare")
+    ]
+
+
+def test_convert_one_work_primary_title_marc_240(tmp_path: Path) -> None:
+    """When MARC 240 exists (b25999163), Work primary title is chosen from the 240 uniform title."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b25999163.xml"
+    bibframe_path = in_dir / "b25999163.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+    works = [w for w in g.subjects(RDF.type, V.BFFI.Work) if "#Hub" not in str(w)]
+    assert len(works) == 1
+    work = works[0]
+
+    prim_titles = [
+        t for t in g.objects(work, V.BFFI.title) if V.MTS.m1628 in set(g.objects(t, RDF.type))
+    ]
+    assert len(prim_titles) == 1
+    pt = prim_titles[0]
+    assert list(g.objects(pt, V.BFFI.mainTitle)) == [Literal("Matka omaan kehoon. Suomi")]

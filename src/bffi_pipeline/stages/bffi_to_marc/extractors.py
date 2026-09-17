@@ -2969,9 +2969,10 @@ def _variant_title_marc_tag(graph: Graph, title_block: Node) -> str | None:
             "responsibility comes from ?m bffi:responsibilityStatement"
         ),
         notes=(
-            "First non-variant bffi:title block wins. Variant-titled "
-            "blocks (typed with vartitletype/*) are skipped here and "
-            "feed the 246 emit instead."
+            "First non-variant bffi:title block on Manifestation wins. "
+            "Variant-titled blocks (typed with vartitletype/*) are skipped "
+            "here and feed the 246 emit instead. When no uniform title exists, "
+            "subfields a, p, and n feed the Work's preferred title (mts:m1628)."
         ),
     )
 )
@@ -3284,7 +3285,8 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
             "?m bffi:expressionOf ?hub . ?hub URI fragment matches "
             "'#Hub130'; ?hub bffi:marcKey ?key (begins with '130'). "
             "Indicators and every subfield parsed verbatim — same "
-            "marcKey-driven recovery as 730/740."
+            "marcKey-driven recovery as 730/740. Also represented on Work as "
+            "bffi:title typed bffi:Title + mts:m1628."
         ),
     ),
     MarcEmitMeta(
@@ -3303,7 +3305,8 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
             "?hub bffi:contribution / bffi:agent / bffi:marcKey carries the "
             "source 240's subfields as $t/$l/$g/$p/$s/$n/$k extras alongside "
             "the 1XX contributor; the reconstruction parses those and remaps "
-            "$t → 240 $a."
+            "$t → 240 $a. Also represented on Work as bffi:title typed "
+            "bffi:Title + mts:m1628."
         ),
         notes=(
             "MARC 240 appears alongside a 1XX main entry (whereas 130 is "
@@ -3311,7 +3314,8 @@ def _extract_variant_titles(graph: Graph, manifestation: URIRef) -> list[_Varian
             "one Hub240 with the 240 subfields piggy-backing on the 1XX "
             "agent's marcKey. ind1=1 (traced) ind2=0 (0 nonfiling chars) "
             "per the dominant HELMET corpus convention; the actual source value "
-            "is recoverable from the agent marcKey but not yet preserved."
+            "is recoverable from the agent marcKey but not yet preserved. "
+            "The Work carries this as its preferred title (mts:m1628)."
         ),
     ),
 )

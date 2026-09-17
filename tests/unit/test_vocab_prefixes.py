@@ -72,6 +72,7 @@ def test_serialised_turtle_emits_zero_auto_prefixes_for_project_namespaces() -> 
     g.add((subj, V.BFFI.contribution, URIRef("urn:contrib")))
     g.add((subj, V.fromMarcField, Literal("test:245:1")))
     g.add((subj, V.BIB.localBibId, Literal("b00000001")))
+    g.add((subj, V.RDF.type, V.MTS.m1628))
 
     turtle = g.serialize(format="turtle")
     auto_prefix = re.compile(r"^@prefix\s+ns\d+:", re.MULTILINE)

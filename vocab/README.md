@@ -18,6 +18,7 @@ Distinct from:
 | `loc-countries-bridge.ttl` | LoC MARC country code → YSO bridge with cached fi/sv/en prefLabels. See the "Country labels — LoC vs YSO upstream gap" subsection of `docs/bf_to_bffi_mapping.md`. |
 | `loc-issuance-bridge.ttl` | LoC issuance code bridge. |
 | `loc-languages-bridge.ttl` | LoC MARC language code bridge. |
+| `mts.ttl` | Vendored Metatietosanasto (MTS) vocabulary from Finto API (`https://api.finto.fi/rest/v1/mts/data?format=text/turtle`). Source of `mts:m1628` (*Preferred title for work* / *Teoksen ensisijainen nimeke*) used for typing Work primary titles. |
 
 ## Refreshing `bibframe.rdf`
 
