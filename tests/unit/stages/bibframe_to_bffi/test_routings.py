@@ -27,6 +27,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     drop_undeclared_bf_terms,
     drop_variant_type,
     loc_scheme_uri,
+    route_authorized_access_points,
     route_axis_default_classes,
     route_axis_default_predicates,
     route_description_level,
@@ -73,6 +74,7 @@ def test_routing_registry_attaches_metadata_to_decorated_functions() -> None:
         "drop_subseries_residue",
         "route_work_split",
         "route_work_primary_title",
+        "route_authorized_access_points",
         "route_manifestation_work_domain_props",
     }
     registered = {meta.handler for meta in ROUTING_REGISTRY}
@@ -551,6 +553,7 @@ def test_apply_all_routings_returns_per_routing_counts() -> None:
         "dropped_undeclared_bf": 0,
         "work_split": 0,
         "work_primary_title": 0,
+        "authorized_access_point": 0,
         "manifestation_work_domain_lifted": 0,
         "manifestation_work_domain_unresolved": 0,
     }
@@ -583,13 +586,15 @@ def test_route_work_split_splits_bibframework_into_work_and_expression() -> None
     assert (work_node, RDF.type, BFFI.BibframeWork) not in g
     assert (work_node, RDFS.label, Literal("Conceptual Work Title")) in g
 
-    # A new bffi:Expression was minted.
+    # A new bffi:Expression was minted with a URI derived from the Work.
     expr_nodes = list(g.subjects(RDF.type, BFFI.Expression))
     assert len(expr_nodes) == 1
     expr = expr_nodes[0]
+    assert expr == URIRef("http://example.org/work-1#Expression")
 
-    # Expression is linked to the Work.
+    # Expression is linked bidirectionally to the Work.
     assert (expr, BFFI.expressionOf, work_node) in g
+    assert (work_node, BFFI.hasExpression, expr) in g
 
 
 def test_route_work_split_migrates_expression_domain_properties() -> None:
@@ -1811,3 +1816,142 @@ def test_route_work_primary_title_idempotent() -> None:
     g.add((title, BFFI.mainTitle, Literal("Already Preferred Title")))
 
     assert route_work_primary_title(g) == 0
+
+
+# --- route_authorized_access_points --------------------------------------
+
+
+def test_route_authorized_access_points_work_with_primary_creator() -> None:
+    """Work AAP combines primary creator and preferred title. Expression AAP adds language."""
+    g = Graph()
+    work = URIRef("http://example.org/b1#Work")
+    expr = URIRef("http://example.org/b1#Expression")
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((work, BFFI.hasExpression, expr))
+
+    # Primary creator: MARC 100 Juva, Kersti,
+    contrib = BNode()
+    agent = BNode()
+    g.add((work, BFFI.contribution, contrib))
+    g.add((contrib, RDF.type, BFFI.PrimaryContribution))
+    g.add((contrib, BFFI.agent, agent))
+    g.add((agent, RDFS.label, Literal("Juva, Kersti,")))
+
+    # Preferred title: Tolkienin tulkkina
+    title = BNode()
+    g.add((work, BFFI.title, title))
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, RDF.type, MTS.m1628))
+    g.add((title, BFFI.mainTitle, Literal("Tolkienin tulkkina :")))
+
+    # Expression language: fin
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/fin")))
+
+    rewritten = route_authorized_access_points(g)
+    assert rewritten >= 2
+
+    # Work AAP
+    assert list(g.objects(work, BFFI.authorizedAccessPoint)) == [
+        Literal("Juva, Kersti. Tolkienin tulkkina")
+    ]
+    assert list(g.objects(work, BFFI.aap)) == [Literal("Juva, Kersti. Tolkienin tulkkina")]
+
+    # Expression AAP
+    assert list(g.objects(expr, BFFI.authorizedAccessPoint)) == [
+        Literal("Juva, Kersti. Tolkienin tulkkina. Suomi")
+    ]
+    assert list(g.objects(expr, BFFI.aap)) == [Literal("Juva, Kersti. Tolkienin tulkkina. Suomi")]
+
+
+def test_route_authorized_access_points_work_without_primary_creator() -> None:
+    """Work AAP without primary creator is just the preferred title."""
+    g = Graph()
+    work = URIRef("http://example.org/b2#Work")
+    expr = URIRef("http://example.org/b2#Expression")
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+
+    title = BNode()
+    g.add((work, BFFI.title, title))
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, RDF.type, MTS.m1628))
+    g.add((title, BFFI.mainTitle, Literal("Jazz fake book")))
+
+    # Multiple languages: eng, spa
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/eng")))
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/spa")))
+
+    route_authorized_access_points(g)
+
+    assert list(g.objects(work, BFFI.authorizedAccessPoint)) == [Literal("Jazz fake book")]
+    assert list(g.objects(expr, BFFI.authorizedAccessPoint)) == [
+        Literal("Jazz fake book. Englanti & espanja")
+    ]
+
+
+def test_route_authorized_access_points_from_hub240_language() -> None:
+    """Language label from associated Hub240 is used for Expression AAP."""
+    g = Graph()
+    work = URIRef("http://example.org/b3#Work")
+    expr = URIRef("http://example.org/b3#Expression")
+    hub = URIRef("http://example.org/b3#Hub240")
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((expr, BFFI.expressionOf, hub))
+
+    title = BNode()
+    g.add((work, BFFI.title, title))
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, RDF.type, MTS.m1628))
+    g.add((title, BFFI.mainTitle, Literal("Dork diaries")))
+
+    lang_node = BNode()
+    g.add((hub, BFFI.language, lang_node))
+    g.add((lang_node, RDFS.label, Literal("suomi")))
+
+    route_authorized_access_points(g)
+
+    assert list(g.objects(expr, BFFI.authorizedAccessPoint)) == [Literal("Dork diaries. Suomi")]
+
+
+def test_route_authorized_access_points_non_linguistic_zxx() -> None:
+    """Non-linguistic expression (zxx) does not append a language qualifier."""
+    g = Graph()
+    work = URIRef("http://example.org/b4#Work")
+    expr = URIRef("http://example.org/b4#Expression")
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+
+    title = BNode()
+    g.add((work, BFFI.title, title))
+    g.add((title, RDF.type, BFFI.Title))
+    g.add((title, RDF.type, MTS.m1628))
+    g.add((title, BFFI.mainTitle, Literal("Sonata for Piano")))
+
+    g.add((expr, BFFI.languageOfExpression, URIRef("http://id.loc.gov/vocabulary/languages/zxx")))
+
+    route_authorized_access_points(g)
+
+    assert list(g.objects(work, BFFI.authorizedAccessPoint)) == [Literal("Sonata for Piano")]
+    assert list(g.objects(expr, BFFI.authorizedAccessPoint)) == [Literal("Sonata for Piano")]
+
+
+def test_route_authorized_access_points_idempotent() -> None:
+    """Running route_authorized_access_points twice makes no changes on the second pass."""
+    g = Graph()
+    work = URIRef("http://example.org/b5#Work")
+    expr = URIRef("http://example.org/b5#Expression")
+    g.add((work, RDF.type, BFFI.Work))
+    g.add((expr, RDF.type, BFFI.Expression))
+    g.add((expr, BFFI.expressionOf, work))
+    g.add((work, BFFI.authorizedAccessPoint, Literal("Author. Title")))
+    g.add((work, BFFI.aap, Literal("Author. Title")))
+    g.add((expr, BFFI.authorizedAccessPoint, Literal("Author. Title. Suomi")))
+    g.add((expr, BFFI.aap, Literal("Author. Title. Suomi")))
+
+    assert route_authorized_access_points(g) == 0

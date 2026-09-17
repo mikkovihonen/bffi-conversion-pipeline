@@ -3716,11 +3716,28 @@
     <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal"/>
     <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
     <owl:equivalentProperty rdf:resource="http://id.loc.gov/ontologies/bflc/aap"/>
+    <owl:equivalentProperty rdf:resource="http://urn.fi/URN:NBN:fi:schema:bffi:authorizedAccessPoint"/>
     <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/w/P10331"/>
     <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/e/P20313"/>
     <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/m/P30294"/>
     <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/i/P40083"/>
     <skos:definition xml:lang="en">BFLC definition: A text string that represents the label of the resource. It could be a name/title combination, but could also include additional fields to make it unique within the catalog.</skos:definition>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://urn.fi/URN:NBN:fi:schema:bffi:authorizedAccessPoint">
+    <dct:modified>2026-09-17 (New)</dct:modified>
+    <rdfs:label xml:lang="en">authorized access point</rdfs:label>
+    <rdfs:label xml:lang="fi">auktorisoitu hakutieto</rdfs:label>
+    <rdfs:domain rdf:nodeID="n90e14c5f212f40b8a6a776d86788ca21b1"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal"/>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <owl:equivalentProperty rdf:resource="http://urn.fi/URN:NBN:fi:schema:bffi:aap"/>
+    <owl:equivalentProperty rdf:resource="http://id.loc.gov/ontologies/bflc/aap"/>
+    <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/w/P10331"/>
+    <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/e/P20313"/>
+    <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/m/P30294"/>
+    <bffi-meta:narrowMatch rdf:resource="http://rdaregistry.info/Elements/i/P40083"/>
+    <skos:definition xml:lang="en">A text string that represents the label or authorized access point of the resource.</skos:definition>
+    <skos:definition xml:lang="fi">Merkkijono, joka edustaa resurssin nimikettä tai auktorisoitua hakutietoa.</skos:definition>
   </rdf:Description>
   <rdf:Description rdf:about="http://urn.fi/URN:NBN:fi:schema:bffi-meta:narrowMatch">
     <rdfs:label xml:lang="en">narrow match</rdfs:label>

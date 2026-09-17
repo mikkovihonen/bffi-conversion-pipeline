@@ -591,3 +591,90 @@ def test_convert_one_work_primary_title_marc_240(tmp_path: Path) -> None:
     assert len(prim_titles) == 1
     pt = prim_titles[0]
     assert list(g.objects(pt, V.BFFI.mainTitle)) == [Literal("Matka omaan kehoon. Suomi")]
+
+
+def test_convert_one_expression_has_uri_and_aap_b1042698x(tmp_path: Path) -> None:
+    """When converting b1042698x, Expression has a minted URIRef ending with #Expression,
+    and both Work and Expression carry bffi:authorizedAccessPoint."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b1042698x.xml"
+    bibframe_path = in_dir / "b1042698x.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+
+    # Work checks
+    works = [w for w in g.subjects(RDF.type, V.BFFI.Work) if "#Hub" not in str(w)]
+    assert len(works) == 1
+    work = works[0]
+    assert isinstance(work, URIRef)
+    work_aaps = list(g.objects(work, V.BFFI.authorizedAccessPoint))
+    assert len(work_aaps) == 1
+    assert str(work_aaps[0]) == "Jazz fake book"
+
+    # Expression checks
+    exprs = [e for e in g.subjects(RDF.type, V.BFFI.Expression) if "#Hub" not in str(e)]
+    assert len(exprs) == 1
+    expr = exprs[0]
+    assert isinstance(expr, URIRef)
+    assert str(expr).endswith("#Expression")
+    assert (expr, V.BFFI.expressionOf, work) in g
+    assert (work, V.BFFI.hasExpression, expr) in g
+
+    expr_aaps = list(g.objects(expr, V.BFFI.authorizedAccessPoint))
+    assert len(expr_aaps) == 1
+    assert str(expr_aaps[0]).startswith("Jazz fake book. ")
+
+
+def test_convert_one_work_and_expression_aap_with_primary_creator(tmp_path: Path) -> None:
+    """b24698015 (Juva): Work AAP has author+title, Expression adds language."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b24698015.xml"
+    bibframe_path = in_dir / "b24698015.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+
+    work = URIRef("http://example.org/b24698015#Work")
+    assert (work, RDF.type, V.BFFI.Work) in g
+    assert list(g.objects(work, V.BFFI.authorizedAccessPoint)) == [
+        Literal("Juva, Kersti. Tolkienin tulkkina")
+    ]
+
+    expr = URIRef("http://example.org/b24698015#Expression")
+    assert (expr, RDF.type, V.BFFI.Expression) in g
+    assert (expr, V.BFFI.expressionOf, work) in g
+    assert (work, V.BFFI.hasExpression, expr) in g
+    assert list(g.objects(expr, V.BFFI.authorizedAccessPoint)) == [
+        Literal("Juva, Kersti. Tolkienin tulkkina. Suomi")
+    ]

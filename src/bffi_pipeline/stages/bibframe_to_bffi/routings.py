@@ -84,6 +84,9 @@ BF: Final[Namespace] = Namespace("http://id.loc.gov/ontologies/bibframe/")
 #: BFFI emit namespace.
 BFFI: Final[Namespace] = Namespace("http://urn.fi/URN:NBN:fi:schema:bffi:")
 
+#: BIBFRAME-LC namespace.
+BFLC: Final[Namespace] = Namespace("http://id.loc.gov/ontologies/bflc/")
+
 
 # --- routing registry (decorator-driven) --------------------------------
 
@@ -563,9 +566,22 @@ def route_work_split(graph: Graph) -> int:
         graph.add((subject, RDF.type, BFFI.Work))
 
         # 2. Mint bffi:Expression and link it
-        expr_node = BNode()
+        if isinstance(subject, URIRef):
+            subj_str = str(subject)
+            if subj_str.endswith("#Work"):
+                expr_node: Node = URIRef(subj_str[:-5] + "#Expression")
+            elif "#Work" in subj_str:
+                expr_node = URIRef(subj_str.replace("#Work", "#Expression", 1))
+            elif "#" in subj_str:
+                base, frag = subj_str.rsplit("#", 1)
+                expr_node = URIRef(f"{base}#Expression_{frag}")
+            else:
+                expr_node = URIRef(f"{subj_str}#Expression")
+        else:
+            expr_node = BNode()
         graph.add((expr_node, RDF.type, BFFI.Expression))
         graph.add((expr_node, BFFI.expressionOf, subject))
+        graph.add((subject, BFFI.hasExpression, expr_node))
 
         # 3. Migrate expression-domain properties AND instance links
         for _, p, o in list(graph.triples((subject, None, None))):
@@ -661,7 +677,7 @@ def _find_uniform_title(graph: Graph, work: Node, expr_nodes: list[Node]) -> Nod
         else:
             for mk in graph.objects(h, BFFI.marcKey):
                 mk_str = str(mk)
-                if mk_str.startswith("130") or mk_str.startswith("240") or "$t" in mk_str:
+                if mk_str.startswith("130") or mk_str.startswith("240"):
                     candidate_hubs.append(h)
                     break
 
@@ -671,7 +687,7 @@ def _find_uniform_title(graph: Graph, work: Node, expr_nodes: list[Node]) -> Nod
         if not is_130_or_240:
             for mk in graph.objects(hub, BFFI.marcKey):
                 mk_str = str(mk)
-                if mk_str.startswith("130") or mk_str.startswith("240") or "$t" in mk_str:
+                if mk_str.startswith("130") or mk_str.startswith("240"):
                     is_130_or_240 = True
                     break
         if is_130_or_240:
@@ -824,6 +840,258 @@ def route_work_primary_title(graph: Graph) -> int:
             graph.add((primary_title, BFFI.qualifier, q))
 
         rewritten += 1
+
+    return rewritten
+
+
+# --- routing 4d: Authorized Access Points -------------------------------
+
+_LANGUAGE_NAMES_FI: Final[dict[str, str]] = {
+    "fin": "Suomi",
+    "swe": "Ruotsi",
+    "eng": "Englanti",
+    "ger": "Saksa",
+    "deu": "Saksa",
+    "fre": "Ranska",
+    "fra": "Ranska",
+    "spa": "Espanja",
+    "ita": "Italia",
+    "rus": "Venäjä",
+    "por": "Portugali",
+    "dan": "Tanska",
+    "nor": "Norja",
+    "sme": "Pohjoissaame",
+    "smn": "Inarinsaame",
+    "sms": "Koltansaame",
+    "lat": "Latina",
+    "est": "Viro",
+    "gre": "Kreikka",
+    "ell": "Kreikka",
+    "heb": "Heprea",
+    "ara": "Arabia",
+    "chi": "Kiina",
+    "zho": "Kiina",
+    "jpn": "Japani",
+    "dut": "Hollanti",
+    "nld": "Hollanti",
+    "pol": "Puola",
+    "cze": "Tšekki",
+    "ces": "Tšekki",
+    "hun": "Unkari",
+    "ukr": "Ukraina",
+    "ice": "Islanti",
+    "isl": "Islanti",
+}
+
+
+def _clean_aap_text(text: str) -> str:
+    """Clean extra spaces and trailing punctuation from an AAP component."""
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    return re.sub(r"[\s,.:;/]+$", "", cleaned)
+
+
+def _language_node_to_fi(graph: Graph, lang_node: Node) -> str | None:
+    """Map a language URI, blank node, or literal to its Finnish display name."""
+    if isinstance(lang_node, Literal):
+        val = str(lang_node).strip()
+        return _LANGUAGE_NAMES_FI.get(val.lower(), val.capitalize())
+    for lbl in graph.objects(lang_node, RDFS.label):
+        lbl_str = str(lbl).strip()
+        if lbl_str:
+            return _LANGUAGE_NAMES_FI.get(lbl_str.lower(), lbl_str.capitalize())
+    if isinstance(lang_node, URIRef):
+        code = str(lang_node).rstrip("/").rsplit("/", 1)[-1].lower()
+        if code in ("zxx", "und"):
+            return None
+        return _LANGUAGE_NAMES_FI.get(code, code.capitalize())
+    return None
+
+
+def _resolve_expression_languages(graph: Graph, expr: Node, work: Node) -> str | None:
+    """Format the language qualifier for an Expression AAP per Finnish RDA rules."""
+    lang_names: list[str] = []
+    seen: set[str] = set()
+
+    # 1. Check associated Hubs or Work expressions (e.g. Hub240 with $l)
+    for target in [*graph.objects(expr, BFFI.expressionOf), work]:
+        if target != work:
+            for lang in list(graph.objects(target, BFFI.language)) + list(
+                graph.objects(target, BF.language)
+            ):
+                name = _language_node_to_fi(graph, lang)
+                if name and name.lower() not in seen:
+                    seen.add(name.lower())
+                    lang_names.append(name)
+
+    # 2. Check Expression language properties
+    for lang in list(graph.objects(expr, BFFI.languageOfExpression)) + list(
+        graph.objects(expr, BFFI.language)
+    ):
+        name = _language_node_to_fi(graph, lang)
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            lang_names.append(name)
+
+    if not lang_names:
+        return None
+
+    if len(lang_names) == 1:
+        return lang_names[0]
+    if len(lang_names) == 2:  # noqa: PLR2004
+        return f"{lang_names[0]} & {lang_names[1].lower()}"
+    return ", ".join([lang_names[0]] + [n.lower() for n in lang_names[1:]])
+
+
+def _compute_work_aap(graph: Graph, work: Node) -> str | None:
+    """Compute the Work Authorized Access Point per Finnish RDA practice."""
+    # 1. Preferred title
+    primary_title_node: Node | None = None
+    for t in graph.objects(work, BFFI.title):
+        if (t, RDF.type, MTS.m1628) in graph:
+            primary_title_node = t
+            break
+    if primary_title_node is None:
+        for t in list(graph.objects(work, BFFI.title)) + list(graph.objects(work, BF.title)):
+            if not _is_variant_title_node(graph, t):
+                primary_title_node = t
+                break
+
+    title_parts: list[str] = []
+    if primary_title_node is not None:
+        main_titles = list(graph.objects(primary_title_node, BFFI.mainTitle)) or list(
+            graph.objects(primary_title_node, BF.mainTitle)
+        )
+        part_numbers = list(graph.objects(primary_title_node, BFFI.partNumber)) or list(
+            graph.objects(primary_title_node, BF.partNumber)
+        )
+        part_names = list(graph.objects(primary_title_node, BFFI.partName)) or list(
+            graph.objects(primary_title_node, BF.partName)
+        )
+        if main_titles:
+            title_parts.append(_clean_aap_text(str(main_titles[0])))
+        if part_numbers:
+            title_parts.append(_clean_aap_text(str(part_numbers[0])))
+        if part_names:
+            title_parts.append(_clean_aap_text(str(part_names[0])))
+
+    work_title = ". ".join(p for p in title_parts if p)
+
+    # 2. Primary creator
+    agent_name: str | None = None
+    contrib_candidates = list(graph.objects(work, BFFI.contribution)) + list(
+        graph.objects(work, BF.contribution)
+    )
+    for c in contrib_candidates:
+        c_types = set(graph.objects(c, RDF.type))
+        if any(
+            t in (BFFI.PrimaryContribution, BF.PrimaryContribution, BFLC.PrimaryContribution)
+            for t in c_types
+        ):
+            for agent in list(graph.objects(c, BFFI.agent)) + list(graph.objects(c, BF.agent)):
+                labels = (
+                    list(graph.objects(agent, RDFS.label))
+                    or list(graph.objects(agent, BFFI.name))
+                    or list(graph.objects(agent, BFFI.label))
+                )
+                if labels:
+                    agent_name = _clean_aap_text(str(labels[0]))
+                    break
+        if agent_name:
+            break
+
+    if agent_name and work_title:
+        return f"{agent_name}. {work_title}"
+    if work_title:
+        return work_title
+    if agent_name:
+        return agent_name
+    return None
+
+
+def _set_aap_triples(graph: Graph, node: Node, aap_val: str) -> int:
+    """Attach both authorizedAccessPoint and aap literals to node if missing."""
+    added = 0
+    lit = Literal(aap_val)
+    if not list(graph.objects(node, BFFI.authorizedAccessPoint)):
+        graph.add((node, BFFI.authorizedAccessPoint, lit))
+        added += 1
+    if not list(graph.objects(node, BFFI.aap)):
+        graph.add((node, BFFI.aap, lit))
+        added += 1
+    return added
+
+
+@routing(
+    terms=(BFFI.authorizedAccessPoint,),
+    replacement=(
+        "`bffi:authorizedAccessPoint` literal "
+        "(authorized access point on Work and Expression per Finnish RDA rules)"
+    ),
+    link_kind="authorized access point for Work and Expression",
+)
+def route_authorized_access_points(graph: Graph) -> int:
+    """Populate ``bffi:authorizedAccessPoint`` on Work and Expression entities.
+
+    Adheres to Finnish RDA cataloguing rules (Teka / RDA sovellusohje):
+      - Work AAP:
+          - With primary contributor: ``{Agent}. {Work Preferred Title}``
+          - Without primary contributor: ``{Work Preferred Title}``
+      - Expression AAP:
+          - ``{Work AAP}. {Language}`` (or ``{Work AAP}`` if no linguistic qualifier).
+    Also synchronizes ``bffi:aap`` for ontology alignment.
+    """
+    rewritten = 0
+    work_candidates = [
+        w
+        for w in graph.subjects(RDF.type, BFFI.Work)
+        if not ("#Hub" in str(w) or (w, RDF.type, BF.Hub) in graph)
+    ]
+    work_candidates.sort(
+        key=lambda w: (
+            0 if (str(w).endswith("#Work") or list(graph.objects(w, BFFI.hasExpression))) else 1
+        )
+    )
+
+    for work in work_candidates:
+        existing_aap = list(graph.objects(work, BFFI.authorizedAccessPoint)) or list(
+            graph.objects(work, BFFI.aap)
+        )
+        work_aap: str | None = (
+            str(existing_aap[0]) if existing_aap else _compute_work_aap(graph, work)
+        )
+        if not work_aap:
+            continue
+        rewritten += _set_aap_triples(graph, work, work_aap)
+
+        expr_nodes = list(graph.objects(work, BFFI.hasExpression)) or list(
+            graph.subjects(BFFI.expressionOf, work)
+        )
+        for expr in expr_nodes:
+            if list(graph.objects(expr, BFFI.authorizedAccessPoint)):
+                continue
+            lang_qualifier = _resolve_expression_languages(graph, expr, work)
+            expr_aap = f"{work_aap}. {lang_qualifier}" if lang_qualifier else work_aap
+            rewritten += _set_aap_triples(graph, expr, expr_aap)
+
+    # Standalone Expressions without linked Work AAP yet
+    for expr in graph.subjects(RDF.type, BFFI.Expression):
+        if list(graph.objects(expr, BFFI.authorizedAccessPoint)):
+            continue
+        works = list(graph.objects(expr, BFFI.expressionOf))
+        work_aap_node = (
+            next(graph.objects(works[0], BFFI.authorizedAccessPoint), None) if works else None
+        )
+        work_aap = str(work_aap_node) if work_aap_node else None
+        if not work_aap:
+            expr_titles = list(graph.objects(expr, BFFI.title))
+            if expr_titles:
+                for mt in graph.objects(expr_titles[0], BFFI.mainTitle):
+                    work_aap = _clean_aap_text(str(mt))
+                    break
+        if work_aap:
+            lang_qualifier = _resolve_expression_languages(graph, expr, works[0] if works else expr)
+            expr_aap = f"{work_aap}. {lang_qualifier}" if lang_qualifier else work_aap
+            rewritten += _set_aap_triples(graph, expr, expr_aap)
 
     return rewritten
 
@@ -2060,6 +2328,7 @@ def apply_all_routings(graph: Graph) -> dict[str, int]:
         "relation_predicate": route_relation_predicates(graph),
         "work_split": route_work_split(graph),
         "work_primary_title": route_work_primary_title(graph),
+        "authorized_access_point": route_authorized_access_points(graph),
         "hub": route_hubs(graph),
         "description_level": route_description_level(graph),
         "inverse_predicate": route_inverse_predicates(graph),

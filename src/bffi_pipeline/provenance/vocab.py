@@ -314,6 +314,9 @@ sourceMetadata: URIRef = PROV.hadPrimarySource
 
 AdminMetadata: URIRef = BFFI.AdminMetadata
 
+authorizedAccessPoint: URIRef = BFFI.authorizedAccessPoint
+aap: URIRef = BFFI.aap
+
 __all__ = [
     "AGENT_MARC2BIBFRAME2",
     "BF",
@@ -341,8 +344,10 @@ __all__ = [
     "AdminMetadata",
     "MarcConversion",
     "Synthesis",
+    "aap",
     "adminMetadata",
     "adminMetadataFor",
+    "authorizedAccessPoint",
     "bind_canonical_prefixes",
     "converterVersion",
     "dateGenerated",
