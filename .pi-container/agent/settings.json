@@ -1,7 +1,8 @@
 {
-  "lastChangelogVersion": "0.84.1",
+  "lastChangelogVersion": "0.84.4",
   "theme": "dark",
   "enableAnalytics": false,
   "enableInstallTelemetry": false,
-  "defaultThinkingLevel": "high"
+  "defaultThinkingLevel": "high",
+  "defaultProjectTrust": "ask"
 }
