@@ -28,6 +28,7 @@ from bffi_pipeline.stages.bibframe_to_bffi.routings import (
     loc_scheme_uri,
     route_axis_default_classes,
     route_axis_default_predicates,
+    route_description_level,
     route_hubs,
     route_identifier_schemes,
     route_inverse_predicates,
@@ -55,6 +56,7 @@ def test_routing_registry_attaches_metadata_to_decorated_functions() -> None:
         "route_series_links",
         "route_relation_predicates",
         "route_hubs",
+        "route_description_level",
         "route_axis_default_classes",
         "route_axis_default_predicates",
         "route_provision_activity_statement",
@@ -524,6 +526,7 @@ def test_apply_all_routings_returns_per_routing_counts() -> None:
         "series_link": 1,
         "relation_predicate": 0,
         "hub": 1,
+        "description_level": 0,
         "inverse_predicate": 0,
         "note_for": 0,
         "note_type_dropped": 0,
@@ -1549,3 +1552,81 @@ def test_drop_music_residue_removes_predicates_and_class_typings() -> None:
 def test_drop_music_residue_no_op_when_absent() -> None:
     """Empty graph: zero drops (corpus-prevalent case)."""
     assert drop_music_residue(Graph()) == 0
+
+
+# --- route_description_level ---------------------------------------------
+
+
+def test_route_description_level_rewrites_bibframe_version_uri() -> None:
+    """bffi:descriptionLevel with BIBFRAME ontology version URI is rewritten
+    to the BFFI 1.0.0 version URI (http://schema.finto.fi/bffi/1-0-0/)."""
+    g = Graph()
+    am = BNode()
+    g.add((am, RDF.type, BFFI.AdminMetadata))
+    g.add(
+        (
+            am,
+            BFFI.descriptionLevel,
+            URIRef("http://id.loc.gov/ontologies/bibframe-3-0-1/"),
+        )
+    )
+
+    rewritten = route_description_level(g)
+    assert rewritten == 1
+    expected_uri = URIRef("http://schema.finto.fi/bffi/1-0-0/")
+    assert (am, BFFI.descriptionLevel, expected_uri) in g
+    assert (
+        am,
+        BFFI.descriptionLevel,
+        URIRef("http://id.loc.gov/ontologies/bibframe-3-0-1/"),
+    ) not in g
+
+
+def test_route_description_level_rewrites_bf_predicate() -> None:
+    """bf:descriptionLevel is also rewritten if encountered."""
+    g = Graph()
+    am = BNode()
+    g.add((am, RDF.type, BF.AdminMetadata))
+    g.add(
+        (
+            am,
+            BF.descriptionLevel,
+            URIRef("http://id.loc.gov/ontologies/bibframe-3-0-1/"),
+        )
+    )
+
+    rewritten = route_description_level(g)
+    assert rewritten == 1
+    expected_uri = URIRef("http://schema.finto.fi/bffi/1-0-0/")
+    assert (am, BFFI.descriptionLevel, expected_uri) in g
+    assert (am, BF.descriptionLevel, None) not in g
+
+
+def test_route_description_level_populates_missing_on_cataloguing_admin_metadata() -> None:
+    """An AdminMetadata block with identifiedBy/encodingLevel but without descriptionLevel
+    gets bffi:descriptionLevel http://schema.finto.fi/bffi/1-0-0/."""
+    g = Graph()
+    am = BNode()
+    g.add((am, RDF.type, BFFI.AdminMetadata))
+    g.add((am, BFFI.encodingLevel, URIRef("http://id.loc.gov/vocabulary/menclvl/7")))
+
+    rewritten = route_description_level(g)
+    assert rewritten == 1
+    expected_uri = URIRef("http://schema.finto.fi/bffi/1-0-0/")
+    assert (am, BFFI.descriptionLevel, expected_uri) in g
+
+
+def test_route_description_level_no_op_when_already_conforming() -> None:
+    """Graph already carrying the BFFI 1.0.0 version URI is untouched."""
+    g = Graph()
+    am = BNode()
+    g.add((am, RDF.type, BFFI.AdminMetadata))
+    g.add(
+        (
+            am,
+            BFFI.descriptionLevel,
+            URIRef("http://schema.finto.fi/bffi/1-0-0/"),
+        )
+    )
+
+    assert route_description_level(g) == 0

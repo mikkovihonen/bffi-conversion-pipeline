@@ -273,6 +273,7 @@ ENC_LEVEL_AUTO: URIRef = BIB["enc-level/auto"]
 RECORDING_SOURCE_LOCAL: URIRef = BIB["recording-source/local"]
 METADATA_LICENSOR_CC0: URIRef = BIB["metadata-licensor/cc0"]
 SOURCE_URI: URIRef = URIRef("http://urn.fi/URN:NBN:fi:bib:source:local")
+BFFI_1_0_0_VERSION_URI: URIRef = URIRef("http://schema.finto.fi/bffi/1-0-0/")
 
 # --- AdminMetadata predicates --------------------------------------------
 
@@ -315,6 +316,7 @@ __all__ = [
     "AGENT_MARC2BIBFRAME2",
     "BF",
     "BFFI",
+    "BFFI_1_0_0_VERSION_URI",
     "BFFI_PROV",
     "BFLC",
     "BIB",

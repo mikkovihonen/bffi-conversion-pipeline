@@ -447,3 +447,31 @@ def test_convert_one_notated_music_is_on_expression_not_work(tmp_path: Path) -> 
     expr_nodes = list(g.subjects(RDF.type, bffi_expression))
     assert expr_nodes
     assert any((expr, RDF.type, bffi_notated_music) in g for expr in expr_nodes)
+
+
+def test_convert_one_description_level_is_bffi_1_0_0(tmp_path: Path) -> None:
+    """bffi:descriptionLevel on AdminMetadata must be http://schema.finto.fi/bffi/1-0-0/."""
+    in_dir = tmp_path / "in"
+    out_dir = tmp_path / "out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+
+    marc_file = _REPO_ROOT / "tests" / "data" / "sample-golden" / "b1042698x.xml"
+    bibframe_path = in_dir / "b1042698x.bibframe.xml"
+    result = subprocess.run(
+        ["xsltproc", str(_MARC2BFRAME_XSL), str(marc_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    bibframe_path.write_text(result.stdout, encoding="utf-8")
+
+    output_path, _, _ = convert_one(
+        bibframe_path,
+        options=ConversionOptions(input_dir=in_dir, output_dir=out_dir),
+        rules=load_rules(),
+    )
+    g = _parse_turtle(output_path)
+    bffi_dl = URIRef(BFFI_NAMESPACE + "descriptionLevel")
+    dl_values = list(g.objects(None, bffi_dl))
+    assert dl_values == [URIRef("http://schema.finto.fi/bffi/1-0-0/")]

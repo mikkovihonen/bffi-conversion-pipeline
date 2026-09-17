@@ -74,6 +74,7 @@ from rdflib.namespace import RDF, RDFS
 from rdflib.term import Node
 
 from bffi_pipeline.bibframe import BibframeOntology, load_ontology
+from bffi_pipeline.provenance.vocab import BFFI_1_0_0_VERSION_URI
 from bffi_pipeline.rdf_utils import local_name
 
 #: BIBFRAME namespace — the input side. Routings remove triples that
@@ -1781,6 +1782,42 @@ def drop_subseries_residue(graph: Graph) -> int:
     return dropped
 
 
+# --- routing 12: AdminMetadata description level ------------------------
+
+
+@routing(
+    terms=(BFFI.descriptionLevel,),
+    replacement="`bffi:descriptionLevel <http://schema.finto.fi/bffi/1-0-0/>`",
+    link_kind="value replacement: BIBFRAME ontology version URI → BFFI 1.0.0 version URI",
+)
+def route_description_level(graph: Graph) -> int:
+    """Rewrite ``bffi:descriptionLevel`` on AdminMetadata to the BFFI 1.0.0 ontology version URI.
+
+    marc2bibframe2 emits ``bf:descriptionLevel <http://id.loc.gov/ontologies/bibframe-3-0-1/>``
+    on the main AdminMetadata block. In BFFI, the description model is the BFFI
+    ontology version URI (``<http://schema.finto.fi/bffi/1-0-0/>``).
+    """
+    rewritten = 0
+    for p in (BFFI.descriptionLevel, BF.descriptionLevel):
+        for s, _, o in list(graph.triples((None, p, None))):
+            if o != BFFI_1_0_0_VERSION_URI:
+                graph.remove((s, p, o))
+                graph.add((s, BFFI.descriptionLevel, BFFI_1_0_0_VERSION_URI))
+                rewritten += 1
+
+    # Ensure any cataloguing AdminMetadata block without a descriptionLevel
+    # receives bffi:descriptionLevel <http://schema.finto.fi/bffi/1-0-0/>
+    for am in list(graph.subjects(RDF.type, BFFI.AdminMetadata)):
+        if (
+            any(graph.triples((am, BFFI.identifiedBy, None)))
+            or any(graph.triples((am, BFFI.encodingLevel, None)))
+        ) and not any(graph.triples((am, BFFI.descriptionLevel, None))):
+            graph.add((am, BFFI.descriptionLevel, BFFI_1_0_0_VERSION_URI))
+            rewritten += 1
+
+    return rewritten
+
+
 # --- top-level entry point ----------------------------------------------
 
 
@@ -1808,6 +1845,7 @@ def apply_all_routings(graph: Graph) -> dict[str, int]:
         "relation_predicate": route_relation_predicates(graph),
         "work_split": route_work_split(graph),
         "hub": route_hubs(graph),
+        "description_level": route_description_level(graph),
         "inverse_predicate": route_inverse_predicates(graph),
         "note_for": route_note_for(graph),
         "note_type_dropped": drop_note_type(graph),
