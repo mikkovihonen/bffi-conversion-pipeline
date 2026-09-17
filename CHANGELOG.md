@@ -5,22 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.4] - 2026-08-22
 
-### Refactored
+### Added
 
-- **BFFI→MARC stage split** — `runner.py` (6148 lines) split into four modules by concern: `constants.py` (shared `STAGE`, `PROGRESS_CADENCE`, `MARC21_NS`), `extractors.py` (graph-walking extract functions, dataclasses, `@marc_emit` decorator + `MARC_EMIT_REGISTRY`), `emit.py` (MARCXML construction via lxml), `runner.py` (thin facade with public API: `emit_marcxml`, `convert_one`, `convert_corpus`, `ConversionOptions`, `ConversionSummary`, `BffiToMarcError`). All cross-module imports (`alt_script`, `isbd`, `observability`, `provenance`) preserved. Backward-compatible re-exports of `MARC21_NS`, `MARC_EMIT_REGISTRY`, `MarcEmitMeta` from `runner.py` for diagnostic tools. 641 tests passing.
+- **Work primary title selection (MTS:m1628)** — selects the Work primary title from MARC 130/240 (uniform title) or 245 (title proper) using MTS (MARC Tag Scheme) vocabulary. Vendors the MTS ontology (`vocab/mts.ttl`, ~75k lines) for title-type discrimination. Headnote: `route_work_split` now uses marcKey-based title-type signals to pick the best title for the Work axis.
+- **`bffi:descriptionLevel` on AdminMetadata** — routes the description-level value to `http://schema.finto.fi/bffi/1-0-0/` vocabulary URIs on `bffi:AdminMetadata`. Previously dropped; now recovered in round-trip.
+- **Expression subclass migration** — `bffi:NotatedMusic` and other Expression subclasses are now migrated from the Work axis to the Expression axis in `route_work_split`. Previously they stayed on the Work, causing wrong FRBR-axis assignment for music scores.
 
 ### Fixed
 
+- **Full Semantic Split: `bffi:language` / `bffi:languageOfExpression`** — `bffi:language` now carries the **original/conceptual language** on `bffi:Work`; `bffi:Expression` carries `bffi:languageOfExpression` with the **text realization language**. For translations, the Work language is swapped to the original (from the `resourceComponents/otx` note); the Expression retains the text language. Round-trip: 041 `$a` reads from the Expression, `$h` reads from the `otx` note structure — byte-identical output for all golden records.
 - **6XX subject indicator loss** — 600/610/611/630/648/650/651/653/655/662 fields now preserve ind1/ind2 from `bffi:marcKey` (e.g. `600 14` instead of `600   `). ind2 set to `"7"` when `$2` emitted (per MARC convention). Added `ind1`/`ind2` fields to `_SubjectEmit` dataclass.
 - **240 uniform title loss** — 240 fields are now recovered from `bffi:Hub240` nodes via `Manifestation → Expression → Hub` traversal. Parsed from Hub's `marcKey` (`{1XX marcKey}$t{uniform title},${subfields...}`) with uniform title mapped to `$a` and remaining subfields via `_AGENT_TO_240_SUBFIELD_CODE`. Round-trip: 5 fewer lost fields, 2 more identical.
 - **Datafield deduplication** — exact duplicate datafields (same tag, ind1, ind2, subfield content) are now removed via post-processing `_deduplicate_datafields()` at end of `_build_marc_record`. marc2bibframe2 can produce duplicate `bf:relation` / `bf:adminMetadata` blocks that become byte-identical MARC datafields (e.g. two 490 "Kungsleden" from one source 490, duplicate 040 adminMetadata blocks). Round-trip: -2 added fields (490 Kungsleden).
+- **AAP and expression minting** — fixes to Authorized Access Point handling and Expression node minting in the Work split routing.
 
 ### Changed
 
 - **041 indicator** — ind1 now `"0"` (not blank) when language codes exist but no `$h` (translation) is present. Fixes `041    $azxx` → `041 0  $azxx` mismatches.
 - **ISBD punctuation default** — `apply_isbd_punctuation` now defaults to `True` (was `False`) for round-trip fidelity. Toggle off with `--no-apply-isbd-punctuation`.
+
+### Refactored
+
+- **BFFI→MARC stage split** — `runner.py` (6148 lines) split into four modules by concern: `constants.py` (shared `STAGE`, `PROGRESS_CADENCE`, `MARC21_NS`), `extractors.py` (graph-walking extract functions, dataclasses, `@marc_emit` decorator + `MARC_EMIT_REGISTRY`), `emit.py` (MARCXML construction via lxml), `runner.py` (thin facade with public API: `emit_marcxml`, `convert_one`, `convert_corpus`, `ConversionOptions`, `ConversionSummary`, `BffiToMarcError`). All cross-module imports (`alt_script`, `isbd`, `observability`, `provenance`) preserved. Backward-compatible re-exports of `MARC21_NS`, `MARC_EMIT_REGISTRY`, `MarcEmitMeta` from `runner.py` for diagnostic tools. 641 tests passing.
 
 ## [0.2.3] - 2026-08-22
 
